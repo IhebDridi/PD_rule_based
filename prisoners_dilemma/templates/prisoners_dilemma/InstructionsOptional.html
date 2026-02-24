@@ -1,0 +1,145 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+<div class="modern-container">
+    <h1 class="main-title">Welcome to Part 3: Optional Delegation</h1>
+        <p class="intro-text">
+            In this part of the experiment, 
+            you will decide whether to delegate all decisions in this part to an AI agent or make all decisions yourself. 
+            This choice must be made before any round begins and applies to all 10 rounds in this part. 
+            Once you make your decision, it cannot be changed.
+        </p>
+    <div class="content-section">
+        
+
+    <div class="content-section">
+        <h2>How This Works</h2>
+        <div class="content-box">
+            
+            <ol>
+                <li>
+                    <strong>Decide Upfront:</strong> At the start of this part, you will choose whether to:
+                    <ul>
+                        <li><strong>Do not delegate</strong> and make every decision yourself for all 10 rounds, as you did in Part X.</li>
+                        <li><strong>Delegate </strong> all allocation decisions for all 10 rounds to an AI agent and set up an agent just like you did in Part Y.</li>
+                    </ul>
+                </li>
+                <li><strong>Reshuffled co-players:</strong>Once again, you will be matched with a different co-player in each round, meaning that you might have to wait for them to also finalize their answers.</li>
+                <li><strong>Irreversible Choice:</strong>Your decision applies to all rounds in this part. If you choose to delegate, the AI agent will make all decisions. If you choose not to delegate, you will make every decision yourself.</li>
+                    
+            </ol>
+            <p>On the next page, you will be prompted to make a decision on whether to delegate or not. 
+                If you choose to delegate, you will then make decisions over 10 rounds. 
+                If you choose not to delegate, you will then be asked to set up an agent as you did in Part Y.</p>
+        </div>
+    </div>
+
+
+    <form method="post" class="form-container">
+        <button type="submit" class="modern-btn" id="delayedForm" hidden>Continue</button>
+    </form>
+</div>
+<script>
+    // Wait until the DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      // Reveal the form after 90 000 ms = 90 s
+      setTimeout(() => {
+        document.getElementById('delayedForm').hidden = false;
+      }, 5000);
+    });
+  </script>
+<style>
+/* General Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* Container Styling */
+.modern-container {
+    max-width: 900px;
+    margin: 30px auto;
+    background: #ffffff;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+/* Title Styling */
+.main-title {
+    font-size: 30px;
+    color: #333333; /* Blackish color */
+    text-align: center;
+    margin-bottom: 20px;
+    border-bottom: 3px solid #0056b3; /* Contrast border */
+    padding-bottom: 10px;
+}
+
+/* Section Styling */
+.content-section {
+    margin-bottom: 20px;
+}
+.intro-text {
+    font-size: 16px;
+    color: #9c0909;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+.content-section h2 {
+    font-size: 22px;
+    color: #0056b3;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+/* Content Box Styling */
+.content-box {
+    background: #f7f9fa;
+    padding: 15px 20px;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    line-height: 1.6;
+}
+
+/* Button Styling */
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 20px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    text-align:
+    center;
+}
+
+.modern-btn:hover {
+    background-color: #003d80;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .modern-container {
+        padding: 15px;
+    }
+
+    .main-title {
+        font-size: 26px;
+    }
+
+    .content-section h2 {
+        font-size: 20px;
+    }
+}
+</style>
+{% endblock %}

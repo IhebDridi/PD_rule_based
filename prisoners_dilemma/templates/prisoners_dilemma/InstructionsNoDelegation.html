@@ -1,0 +1,171 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+<div class="modern-instructions-container">
+
+
+
+    <h1 class="main-title">Welcome to Part X: No Delegation</h1>
+    <p class="intro-text">
+        In this part of the experiment, you will make all decisions yourself for each of the 10 rounds. Unlike other parts, there is no delegation.
+    </p>
+    <p class="intro-text">
+        In each round, you will decide whether to choose A or B. For your convenience, the table of earnings will appear whenever you need to make a decision. 
+    </p>
+    <p class="intro-text">
+        At the end of this Part, you will see the decisions of your other co-players and your corresponding earnings for each round played. 
+    </p>
+    <p class="intro-text">
+        You might need to wait for your different co-players to finalize their answers before you are able to see the Results table.
+    </p>
+
+
+
+    
+
+
+
+
+    <form method="post" class="form-container" >
+        <button type="submit" class="modern-btn" >Continue</button>
+    </form>
+</div>
+
+
+<style>
+
+
+.content-section {
+    margin-bottom: 20px;
+}
+
+.content-section h2 {
+    font-size: 22px;
+    color: #0056b3;
+    margin-bottom: 10px;
+    font-weight: bold;
+    text-align: center;
+}
+
+/* Content Box Styling */
+.content-box {
+    background: #f7f9fa;
+    padding:  15px;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    line-height: 1.6;
+    text-align: left ;
+}
+
+.form-container {           /* starts invisible */
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .form-container.show {      /* target state */
+    opacity: 1;
+  }    
+/* General Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* Instructions Container */
+.modern-instructions-container {
+    max-width: 700px;
+    margin: 50px auto;
+    background: #ffffff;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    text-align: center;
+}
+
+/* Main Title Styling */
+.main-title {
+    font-size: 28px;
+    margin-bottom: 20px;
+    color: #333333;
+    font-weight: bold;
+    border-bottom: 3px solid #0056b3; /* Green underline */
+    padding-bottom: 10px;
+}
+
+/* Intro Text Styling */
+.intro-text {
+    font-size: 16px;
+    color: #555555;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+/* Button Styling */
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 20px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.modern-btn:hover {
+    background-color: #003d80;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .modern-instructions-container {
+        padding: 20px;
+    }
+
+    .main-title {
+        font-size: 24px;
+    }
+
+    .intro-text {
+        font-size: 14px;
+    }
+}
+/* Table Styling */
+.styled-table {
+    border-collapse: show;
+    margin: 25px auto;
+    font-size: 15px;
+    font-family: Arial, sans-serif;
+    width: 100%;
+    text-align: center;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.styled-table thead tr {
+    background-color: #0056b3;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+.styled-table th, .styled-table td {
+    border: 1px solid #c1c1c1;
+    padding: 10px 15px;
+}
+
+.styled-table tbody tr:nth-of-type(even) {
+    background-color: #f3f3f3;
+}
+
+.styled-table tbody tr:hover {
+    background-color: #f1f1f1;
+}
+</style>
+{% endblock %}

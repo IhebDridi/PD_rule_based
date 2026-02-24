@@ -1,0 +1,142 @@
+{% extends "global/Page.html" %}
+{% load otree_tags %}
+
+{% block content %}
+<div class="modern-container">
+    <h1 class="main-title">Part 4: Take your guess</h1>
+
+    <p class="intro-text">
+        Fill in the table below to specify whether you think your co-player delegated or not in each of the 10 rounds of play. To do that, you only need to choose between “Yes” or “No” under the column “Did they delegate?”.
+    </p>
+    <p class="intro-text">
+        Remember that you always faced different players in each round, and that for each correct answer, you get a 0.1$ extra bonus. 
+    <p class="intro-text">
+        Once you are happy with your guesses, click “Confirm” to go to the next page and check the Results.
+
+    <table class="styled-table">
+        <thead>
+            <tr>
+                <th>Round</th>
+                <th>Your Choice</th>
+                <th>Their Choice</th>
+                <th>Did they delegate?</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>{{ row.round }}</td>
+                <td>{{ row.my_choice }}</td>
+                <td>{{ row.other_choice }}</td>
+                <td>
+                    <label class="choice-option">
+                        <input
+                            type="radio"
+                            name="{{ row.field_name }}"
+                            value="yes"
+                            required
+                        >
+                        Delegated
+                    </label>
+                    <label class="choice-option">
+                        <input
+                            type="radio"
+                            name="{{ row.field_name }}"
+                            value="no"
+                            required
+                        >
+                        Did not delegate
+                    </label>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <form method="post">
+
+        <button type="submit" class="modern-btn">
+            Continue
+        </button>
+    </form>
+</div>
+
+<style>
+.modern-container {
+    max-width: 700px;
+    margin: 50px auto;
+    background: #ffffff;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.main-title {
+    font-size: 28px;
+    margin-bottom: 20px;
+    font-weight: bold;
+    border-bottom: 3px solid #0056b3;
+    padding-bottom: 10px;
+}
+
+.intro-text {
+    font-size: 16px;
+    margin-bottom: 30px;
+    color: #555;
+}
+
+.question-container {
+    margin-bottom: 30px;
+}
+
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 0 auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.modern-btn:hover {
+    background-color: #003d80;
+}
+/* Table Styling */
+.styled-table {
+    border-collapse: show;
+    margin: 25px auto;
+    font-size: 15px;
+    font-family: Arial, sans-serif;
+    width: 100%;
+    text-align: center;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.styled-table thead tr {
+    background-color: #0056b3;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+.styled-table th, .styled-table td {
+    border: 1px solid #c1c1c1;
+    padding: 10px 15px;
+}
+
+.styled-table tbody tr:nth-of-type(even) {
+    background-color: #f3f3f3;
+}
+
+.styled-table tbody tr:hover {
+    background-color: #f1f1f1;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+<div class="modern-instructions-container">
+
+
+
+    <h1 class="main-title">Welcome to Part Y: Delegation</h1>
+    <p class="intro-text">
+        In this part of the experiment, you will delegate your decisions to an AI agent. This means that instead of making individual decisions in each round yourself, you will provide rule instructions to an AI agent that will make the decisions on your behalf for all 10 rounds in this part.
+    </p>
+
+    <div class="content-section">
+        <div class="content-box">
+            <h2> How This Works</h2>
+            <ol>
+                <li><strong>Set Your Rules</strong> Before the 10 rounds begin, you will decide what you want your agent to choose in each round by filling up a table.</li>
+                <li><strong>Agent Execution:</strong> Based on your instructions, the AI agent will automatically implement these decisions during the rounds. You do not need to interact with the system during these rounds.</li>
+                <li><strong>Reshuffled co-players:</strong> Once again, you will be matched with a different co-player in each round, meaning that you might have to wait for them to also finalize their answers.</li>
+                <li><strong>Once you are satisfied with your decision:</strong> Click "Confirm" to finalize your agent’s settings. The rule-based AI agent will use your instructions to make decisions for you in all 10 rounds exactly as you planned. Once submitted, you will not be able to adjust the AI agent's decisions during the 10 rounds of play.</li>
+
+            </ol>
+       
+
+        </div>
+    </div>
+
+
+
+
+
+    <form method="post" class="form-container" >
+        <button type="submit" class="modern-btn" >Continue</button>
+    </form>
+</div>
+
+
+<style>
+
+
+.content-section {
+    margin-bottom: 20px;
+}
+
+.content-section h2 {
+    font-size: 22px;
+    color: #0056b3;
+    margin-bottom: 10px;
+    font-weight: bold;
+    text-align: center;
+}
+
+/* Content Box Styling */
+.content-box {
+    background: #f7f9fa;
+    padding:  15px;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    line-height: 1.6;
+    text-align: left ;
+}
+
+.form-container {           /* starts invisible */
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .form-container.show {      /* target state */
+    opacity: 1;
+  }    
+/* General Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* Instructions Container */
+.modern-instructions-container {
+    max-width: 700px;
+    margin: 50px auto;
+    background: #ffffff;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    text-align: center;
+}
+
+/* Main Title Styling */
+.main-title {
+    font-size: 28px;
+    margin-bottom: 20px;
+    color: #333333;
+    font-weight: bold;
+    border-bottom: 3px solid #0056b3; /* Green underline */
+    padding-bottom: 10px;
+}
+
+/* Intro Text Styling */
+.intro-text {
+    font-size: 16px;
+    color: #555555;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+/* Button Styling */
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 20px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.modern-btn:hover {
+    background-color: #003d80;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .modern-instructions-container {
+        padding: 20px;
+    }
+
+    .main-title {
+        font-size: 24px;
+    }
+
+    .intro-text {
+        font-size: 14px;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,219 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+<div class="allocation-container">
+    <h1 class="main-title">
+        {% if current_part == 1 %}
+            Part Y: Set up your AI agent T
+        {% elif current_part == 3 and delegate_decision == True %}
+            Part Y: Set up your AI agent E
+        {% endif %}
+    </h1>
+ 
+    <p class="intro-text">
+        Fill in the table below to specify how your AI agent should make decisions in each of the 10 rounds of play. You can only choose between Option A and Option B. The Table of Earnings in Ecoins is shown below again for your information.
+    </p>
+
+
+    <form method="post" class="allocation-form">
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Round</th>
+                    <th>Decisions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for i in range(1, 11) %}
+                <tr>
+                    <td>{{ i }}</td>
+                    <td>
+                            <label class="choice-option">
+                                <input type="radio" name="{{ i }}" value="A" required>
+                                A
+                            </label>
+                            <label class="choice-option">
+                                <input type="radio" name="{{ i }}" value="B" required>
+                                B
+                            </label>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="confirmation-text">
+            Once you confirm, the decisions will be final, and the AI agent will use these instructions during the rounds.
+        </p>
+
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Your Choice \ Other’s Choice</th>
+                    <th>Option A</th>
+                    <th>Option B</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Option A</td>
+                    <td>[70, 70]</td>
+                    <td>[0, 100]</td>
+                </tr>
+                <tr>
+                    <td>Option B</td>
+                    <td>[100, 0]</td>
+                    <td>[30, 30]</td>
+                </tr>
+            </tbody>
+        </table>
+        <button type="submit" class="modern-btn" onclick="sendAllocations()">Confirm</button>
+    </form>
+</div>
+
+
+<script>
+
+    function Sleep(milliseconds) {
+    return new Promise(resolve => setTimeout(resolve, milliseconds));
+    }
+
+    function sendAllocations() {
+        let allocationData = {};
+
+        document.querySelectorAll('input[type="radio"]:checked').forEach(input => {
+            allocationData[input.name] = input.value;  // "A" or "B"
+        });
+
+        console.log('Agent choices:', allocationData);
+
+        liveSend({ 'allocations': JSON.stringify(allocationData) });
+    }
+</script>
+
+
+<style>
+/* General Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* Container Styling */
+.allocation-container {
+    max-width: 800px;
+    margin: 50px auto;
+    background: #ffffff;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+/* Title Styling */
+.main-title {
+    font-size: 28px;
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333333;
+    font-weight: bold;
+    border-bottom: 3px solid #0056b3; /* Bottom border color */
+    padding-bottom: 10px;
+}
+
+/* Text Styling */
+.intro-text, .instructions, .confirmation-text {
+    font-size: 16px;
+    margin-bottom: 20px;
+    text-align: center;
+    color: #555555;
+}
+
+/* Table Styling */
+.styled-table {
+    border-collapse: show;
+    margin: 25px auto;
+    font-size: 15px;
+    font-family: Arial, sans-serif;
+    width: 100%;
+    text-align: center;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.styled-table thead tr {
+    background-color: #0056b3;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+.styled-table th, .styled-table td {
+    border: 1px solid #c1c1c1;
+    padding: 10px 15px;
+}
+
+.styled-table tbody tr:nth-of-type(even) {
+    background-color: #f3f3f3;
+}
+
+.styled-table tbody tr:hover {
+    background-color: #f1f1f1;
+}
+
+/* Input Styling */
+.input-number {
+    width: 80%;
+    padding: 10px;
+    font-size: 15px;
+    border: 1px solid #c1c1c1;
+    border-radius: 4px;
+    text-align: center;
+}
+
+/* Button Styling */
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 20px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3; /* Button background color */
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    text-align: center;
+}
+
+.modern-btn:hover {
+    background-color: #003d80; /* Darker on hover */
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .allocation-container {
+        padding: 20px;
+    }
+
+    .main-title {
+        font-size: 24px;
+    }
+
+    .intro-text, .instructions, .confirmation-text {
+        font-size: 14px;
+    }
+
+    .styled-table {
+        font-size: 14px;
+    }
+
+    .input-number {
+        width: 90%;
+    }
+}
+</style>
+{% endblock %}

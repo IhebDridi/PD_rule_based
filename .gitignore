@@ -1,0 +1,16 @@
+### came with the app
+
+staticfiles
+__pycache__/
+
+### below added by chatgpt
+__pycache__/
+*.pyc
+*.pyo
+venv/
+.vscode/
+db.sqlite3
+db.sqlite3.bak
+prolific_export_20260224_071136.csv
+Data/dictator_game_2025-01-17.csv
+players_data/123456789012345678901234.csv

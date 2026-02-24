@@ -1,0 +1,114 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+<div class="delegation-container">
+    <h1 class="main-title">Part 3: Optional Delegation</h1>
+
+    <p class="intro-text">What would you like to do in Part 3?</p>
+
+    <form method="post" class="delegation-form">
+        <label class="delegation-option">
+            <input type="radio" name="delegate_decision_optional" value="True" required>
+            I want to delegate my decisions to an AI agent.
+        </label><br>
+        <label class="delegation-option">
+            <input type="radio" name="delegate_decision_optional" value="False" required>
+            I want to make all the decisions myself in every round.
+        </label><br>
+        <button class="modern-btn" type="submit">Confirm</button>
+    </form>
+</div>
+
+<style>
+/* General Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* Container Styling */
+.delegation-container {
+    max-width: 600px;
+    margin: 50px auto;
+    background: #ffffff;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    text-align: center;
+}
+
+/* Title Styling */
+.main-title {
+    font-size: 28px;
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333333;
+    font-weight: bold;
+    border-bottom: 3px solid #0056b3; /* Bottom border color */
+    padding-bottom: 10px;
+}
+
+/* Text Styling */
+.intro-text {
+    font-size: 20px;
+    margin-bottom: 20px;
+    color: #555555;
+    font-weight: bold;
+}
+
+/* Form Styling */
+.delegation-form {
+    text-align: left;
+}
+
+.delegation-option {
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 10px;
+    display: block;
+}
+
+/* Button Styling */
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 20px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3; /* Button background color */
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    text-align: center;
+}
+
+.modern-btn:hover {
+    background-color: #003d80; /* Darker on hover */
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .delegation-container {
+        padding: 20px;
+    }
+
+    .main-title {
+        font-size: 24px;
+    }
+
+    .intro-text {
+        font-size: 14px;
+    }
+
+    .delegation-option {
+        font-size: 14px;
+    }
+}
+</style>
+{% endblock %}

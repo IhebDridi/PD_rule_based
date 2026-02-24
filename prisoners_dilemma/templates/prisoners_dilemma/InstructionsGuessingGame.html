@@ -1,0 +1,146 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+<div class="modern-instructions-container">
+
+
+
+    <h1 class="main-title">Welcome to Part 4: Guessing game</h1>
+    <p class="intro-text">
+        In this part of the experiment, the task is not interactive. 
+        You will be playing alone. Your task is to tell us, for each round played in Part 3, 
+        if you think your co-player in that round delegated or not to an AI. 
+
+    </p>
+    <p class="intro-text">
+        On the next page, we will present you with a table with the decisions your different co-players made in each round. 
+        You will then have to guess whether they were delegating or not in that round. On top of the column, you will see the question: 
+        “Did they delegate?” and you can answer “Yes” or “No” for each round of play.
+    </p>
+    <p class="intro-text">
+        Remember that you encountered different co-players in different rounds, and they all, just like you, were presented with the choice to delegate or not in Part 3.
+    </p>
+    <p class="intro-text">
+        For <strong>each correct answer</strong>, you will be rewarded with a <strong>0.1$ bonus</strong>, 
+        so that you can earn <strong>up to 1$</strong> extra for this part of the experiment.
+    </p>
+
+
+
+    
+
+
+
+
+    <form method="post" class="form-container" >
+        <button type="submit" class="modern-btn" >Continue</button>
+    </form>
+</div>
+
+
+<style>
+
+
+.content-section {
+    margin-bottom: 20px;
+}
+
+.content-section h2 {
+    font-size: 22px;
+    color: #0056b3;
+    margin-bottom: 10px;
+    font-weight: bold;
+    text-align: center;
+}
+
+/* Content Box Styling */
+.content-box {
+    background: #f7f9fa;
+    padding:  15px;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    line-height: 1.6;
+    text-align: left ;
+}
+
+.form-container {           /* starts invisible */
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .form-container.show {      /* target state */
+    opacity: 1;
+  }    
+/* General Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* Instructions Container */
+.modern-instructions-container {
+    max-width: 700px;
+    margin: 50px auto;
+    background: #ffffff;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    text-align: center;
+}
+
+/* Main Title Styling */
+.main-title {
+    font-size: 28px;
+    margin-bottom: 20px;
+    color: #333333;
+    font-weight: bold;
+    border-bottom: 3px solid #0056b3; /* Green underline */
+    padding-bottom: 10px;
+}
+
+/* Intro Text Styling */
+.intro-text {
+    font-size: 16px;
+    color: #555555;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+/* Button Styling */
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 20px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.modern-btn:hover {
+    background-color: #003d80;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .modern-instructions-container {
+        padding: 20px;
+    }
+
+    .main-title {
+        font-size: 24px;
+    }
+
+    .intro-text {
+        font-size: 14px;
+    }
+}
+</style>
+{% endblock %}

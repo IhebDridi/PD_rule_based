@@ -1,0 +1,153 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+<div class="results-container">
+    <h1 class="main-title">Results for Part 4</h1>
+    <p>The table below shows you which guesses you took right and which were wrong. Specifically, we show you your guess for each round, the correct answer, and how many Ecoins you earned. When you are ready, click continue to see how much you have accumulated in bonuses from this experiment.</p>
+    
+
+    <div class="table-container">
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Round</th>
+                    <th>Your Decision </th>
+                    <th>Your opponent's decision </th>
+                    <th>Your earnings</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in rows %}
+                <tr>
+                    <td>{{ r.round }}</td>
+                    <td>{{ r.my_decision }}</td>
+                    <td>{{ r.other_decision }}</td>
+                    <td>{{ r.earnings }}</td>
+
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+    </div>
+
+    <form method="post" class="form-container">
+        <button type="submit" class="modern-btn">Continue</button>
+    </form>
+</div>
+
+<style>
+    body {
+        font-family: 'Arial', sans-serif;
+        background-color: #f9f9f9;
+        color: #333;
+        margin: 0;
+        padding: 0;
+    }
+    
+    /* Container Styling */
+    .results-container {
+        max-width: 800px;
+        margin: 50px auto;
+        background: #ffffff;
+        padding: 30px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        border-radius: 8px;
+    }
+    
+    /* Title Styling */
+    .main-title {
+        font-size: 28px;
+        text-align: center;
+        margin-bottom: 20px;
+        color: #333333;
+        font-weight: bold;
+        border-bottom: 3px solid #0056b3;
+        padding-bottom: 10px;
+    }
+    
+    /* Table Container */
+    .table-container {
+        overflow-x: auto;
+    }
+    
+    /* Table Styling */
+    .styled-table {
+        border-collapse: collapse;
+        margin: 25px auto;
+        font-size: 16px;
+        font-family: Arial, sans-serif;
+        width: 100%;
+        text-align: center;
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+    
+    .styled-table thead tr {
+        background-color: #0056b3;
+        color: #ffffff;
+        text-align: center;
+        font-weight: bold;
+    }
+    
+    .styled-table th,
+    .styled-table td {
+        border: 1px solid #c1c1c1;
+        padding: 12px 15px;
+    }
+    
+    .styled-table tbody tr {
+        border-bottom: 1px solid #c1c1c1;
+    }
+    
+    .styled-table tbody tr:nth-of-type(even) {
+        background-color: #f3f3f3;
+    }
+    
+    .styled-table tbody tr:hover {
+        background-color: #f1f1f1;
+    }
+    
+    .styled-table tbody tr:last-of-type {
+        border-bottom: 2px solid #c1c1c1;
+    }
+    
+    /* Button Styling */
+    .modern-btn {
+        display: block;
+        width: 100%;
+        max-width: 200px;
+        margin: 20px auto;
+        padding: 12px 20px;
+        font-size: 18px;
+        color: #ffffff;
+        background-color: #0056b3;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        text-align:
+        center;
+    }
+
+    .modern-btn:hover {
+        background-color: #003d80;
+    }
+    
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .results-container {
+            padding: 20px;
+        }
+    
+        .main-title {
+            font-size: 24px;
+        }
+    
+        .styled-table {
+            font-size: 14px;
+        }
+    }
+    </style>
+{% endblock %}

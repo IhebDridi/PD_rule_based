@@ -1,0 +1,191 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+<div class="modern-instructions-container">
+
+
+    {% if current_part == 3 %}
+
+    <h1 class="main-title">Welcome to Part 3: Optinal Delegation</h1>
+    <p class="intro-text">
+        In this part of the experiment, you will decide whether to delegate all allocation decisions in this part to an AI agent or make all decisions yourself. This choice must be made before any round begins and applies to all 10 rounds in this part. Once you make your decision, it cannot be changed.
+    </p>
+
+    <div class="content-section">
+        <div class="content-box">
+            <h2> How This Works</h2>
+            <ol>
+                <li><strong>Decide Upfront:</strong> At the start of this part, you will choose whether to:</li>
+                <ul>
+                    <li><strong>Not delegate</strong> and make every allocation decision yourself for all 10 rounds, similarly to what you did in Part 1.</li>
+                    <li><strong>Delegate</strong> all allocation decisions for all 10 rounds to an AI agent and set up this agent just like you did in Part 2.</li>
+
+                </ul>
+                <li><strong>Reshuffled receivers:</strong> Once again, you will be matched with a different human participant (Receiver) in each round.</li>
+                <li><strong>Irreversible Choice:</strong> Your decision applies to all rounds in this part. If you choose to delegate, the AI agent will make all decisions. If you choose not to delegate, you will make every decision yourself.
+                </li>
+            </ol>
+       
+
+        </div>
+    </div>
+
+    {% endif %}
+
+    {% if current_part == 1 %}
+
+    <h1 class="main-title">Welcome to Part 1: Delegation</h1>
+    <p class="intro-text">
+        In this part of the experiment, you will delegate your decisions to an AI agent. This means that instead of making individual allocation decisions in each round yourself, you will provide rule instructions to an AI agent that will make the decisions on your behalf for all 10 rounds in this part.
+    </p>
+
+    <div class="content-section">
+        <div class="content-box">
+            <h2> How This Works</h2>
+            <ol>
+                <li><strong>Set Your Rules: </strong> Before the 10 rounds begin, you will decide how much you want to allocate to the other participant (the Receiver) in each round by filling up a table.</li>
+                <li><strong>Agent Execution: </strong> Based on your instructions, the AI agent will automatically implement these decisions during the rounds. You do not need to interact with the system during these rounds.</li>
+                <li><strong>Reshuffled receivers:</strong> Once again, you will be matched with a different human participant (Receiver) in each round.</li>
+                <li><strong>Once you are satisfied with your decision:</strong> Click "Confirm" to finalize your agent’s settings. The rule-based AI agent will use your instructions to allocate the money in all 10 rounds exactly as you planned. Once submitted, you will not be able to adjust the AI agent's decisions during the 10 rounds of play.</li>
+            </ol>
+        </div>
+    </div>
+
+    {% endif %}
+
+    
+    {% if current_part == 2 %}
+    <h1 class="main-title">Welcome to Part 2: No Delegation</h1>
+    <p class="intro-text">
+        In this part of the experiment, you will make allocation decisions yourself for each of the 10 rounds. Unlike other parts, there is no delegation. You will decide how to allocate the bonuses directly between yourself and the other participant in each round.
+    </p>
+
+    <div class="content-section">
+        <div class="content-box">
+            <h2> How This Works</h2>
+            <ol>
+
+                <li><strong>Decide Your Allocation:</strong> In each round, you will write how much of the 100 Ecoins you would like to allocate to the other participant (the Receiver) matched with you in that round.</li>
+                <li><strong>Reshuffled receivers:</strong> You will be matched with a different human participant (Receiver) in each round.</li>
+                <li><strong>You keep the rest:</strong>The remainder of the 100 ECoins will be yours to keep.</li>
+                <li><strong>Once you are satisfied with your decision:</strong> Click "Confirm" to finalize your choice for that round. Your decisions are final once submitted and cannot be changed.</li>
+            </ol>
+        </div>
+    </div>
+
+    {% endif %}
+
+
+
+    <form method="post" class="form-container" >
+        <button type="submit" class="modern-btn" >Continue</button>
+    </form>
+</div>
+
+
+<style>
+
+
+.content-section {
+    margin-bottom: 20px;
+}
+
+.content-section h2 {
+    font-size: 22px;
+    color: #0056b3;
+    margin-bottom: 10px;
+    font-weight: bold;
+    text-align: center;
+}
+
+/* Content Box Styling */
+.content-box {
+    background: #f7f9fa;
+    padding:  15px;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    line-height: 1.6;
+    text-align: left ;
+}
+
+.form-container {           /* starts invisible */
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .form-container.show {      /* target state */
+    opacity: 1;
+  }    
+/* General Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* Instructions Container */
+.modern-instructions-container {
+    max-width: 700px;
+    margin: 50px auto;
+    background: #ffffff;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    text-align: center;
+}
+
+/* Main Title Styling */
+.main-title {
+    font-size: 28px;
+    margin-bottom: 20px;
+    color: #333333;
+    font-weight: bold;
+    border-bottom: 3px solid #0056b3; /* Green underline */
+    padding-bottom: 10px;
+}
+
+/* Intro Text Styling */
+.intro-text {
+    font-size: 16px;
+    color: #555555;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+/* Button Styling */
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 20px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.modern-btn:hover {
+    background-color: #003d80;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .modern-instructions-container {
+        padding: 20px;
+    }
+
+    .main-title {
+        font-size: 24px;
+    }
+
+    .intro-text {
+        font-size: 14px;
+    }
+}
+</style>
+{% endblock %}

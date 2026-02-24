@@ -1,0 +1,245 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+<div class="modern-container">
+    <h1 class="main-title">Instructions</h1>
+    <h2>Welcome to this Experiment</h2>
+        <p class="intro-text">
+        Thank you for participating. 
+        Please read these instructions carefully. 
+        Your earnings depend on your decisions and those of others.
+        </p>
+
+
+    <div class="content-section">
+        <h2>Experiment Structure</h2>
+        <div class="content-box">
+            <p>The experiment consists of four parts:</p>
+            <ul>
+                <li><strong>Part 1: </strong>10 rounds of an interactive task where you make all the decisions yourself in each round.</li>
+                <li><strong>Part 2: </strong>10 rounds of an interactive task where you delegate all decisions to an artificial delegate. Before the task begins, you will provide instructions for the delegate to follow.</li>
+                <li><strong>Part 3: </strong>10 rounds of an interactive task where you decide before the part begins whether to delegate all decisions to the artificial delegate (as in Part 2) or make all decisions yourself (as in Part 1).</li>
+                <li><strong>Part 4: </strong>A guessing game (non-interactive), where you can earn up to $1 extra based on your answers.</li>
+
+                
+            </ul>
+            <p>
+                Between each round of the interactive tasks (Parts 1–3), you will be randomly rematched with a different participant. 
+                This means you will interact with many different people, <strong>not the same person throughout</strong>.
+            </p>
+        </div>
+    </div>
+
+    <div class="content-section">
+        <h2>How the Interactive Tasks Work (Parts 1–3)</h2>
+        <p>In each round, you and another participant will make decisions simultaneously. Your earnings depend on both your choice and the other participant's choice.</p>
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Your Choice \ Other’s Choice</th>
+                    <th>Option A</th>
+                    <th>Option B</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Option A</td>
+                    <td>[70, 70]</td>
+                    <td>[0, 100]</td>
+                </tr>
+                <tr>
+                    <td>Option B</td>
+                    <td>[100, 0]</td>
+                    <td>[30, 30]</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="content-box">
+            <ul>
+                
+                <li>The numbers in the table represent <strong>[your earnings, other participant’s earnings].</strong></li>
+                <li><strong>Exchange rate</strong>: 10 Ecoins = 1 cent.</li>
+                <p>Important:</p>
+                <li><strong>Your answers will remain anonymous to your co-players throughout this experiment.</strong></li>
+                <li>After each part, you will see your cumulative earnings from that part in Ecoins.</li>
+                <li><strong>One part (10 rounds) will be randomly selected </strong>at the end to determine your bonus payment for the interactive tasks.</li>
+                <li>In each round, you can earn up to 100 Ecoins (10 cents). Since one part (10 rounds) will be selected for payment, you can earn up to <strong>$1</strong> from the interactive tasks.</li>
+            </ul>
+        </div>
+    </div>
+
+
+
+    <div class="content-section">
+        <h2>Guessing Game (Part 4)</h2>
+        <p>After the interactive tasks, you will answer questions about others' choices in Part 3. 
+            Your earnings in this part depend on the accuracy of your answers and can add up to <strong>$1</strong> extra to your total bonus.</p>
+    </div>
+
+    <div class="content-section">
+        <h2>Summary of Earnings</h2>
+        <div class="content-box">
+            <ul>
+                <li><strong>Base payment</strong>: $3 (fixed).</li>
+                <li><strong>Bonus from interactive tasks</strong>: Up to $1 (based on the randomly selected part).</li>
+                <li><strong>Bonus from Guessing Game</strong>: Up to $1 (based on your answers).</li>
+                <li><strong>Total possible earnings: $3 + up to $2 in bonuses.</strong></li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="content-section">
+        <h2>What to Do Next</h2>
+        <div class="content-box">
+            <ol type="1">
+                <li>You will first complete a comprehension test to ensure you understand the instructions.</li>
+                <li>After passing, you will begin <strong>Part 1</strong> of the interactive tasks.</li>
+                <li>Follow the on-screen instructions for each part.</li>
+            </ol>
+            <p>Please take your time to understand the instructions provided. If anything is unclear, you may review these instructions at any time during the comprehension test.</p>
+        </div>
+    </div>
+
+    <div class="content-section">
+        <p><strong>Ready?</strong> Click <strong>"Begin Comprehension Test"</strong> to start.</p>
+    </div>
+
+    <form method="post" class="form-container">
+        <button type="submit" class="modern-btn" id="delayedForm" hidden>Continue</button>
+    </form>
+</div>
+<script>
+    // Wait until the DOM is ready
+    document.addEventListener('DOMContentLoaded', () => {
+      // Reveal the form after 90 000 ms = 90 s
+      setTimeout(() => {
+        document.getElementById('delayedForm').hidden = false;
+      }, 20000);
+    });
+  </script>
+<style>
+/* General Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* Container Styling */
+.modern-container {
+    max-width: 900px;
+    margin: 30px auto;
+    background: #ffffff;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+/* Title Styling */
+.main-title {
+    font-size: 30px;
+    color: #333333; /* Blackish color */
+    text-align: center;
+    margin-bottom: 20px;
+    border-bottom: 3px solid #0056b3; /* Contrast border */
+    padding-bottom: 10px;
+}
+
+/* Section Styling */
+.content-section {
+    margin-bottom: 20px;
+}
+.intro-text {
+    font-size: 16px;
+    color: #9c0909;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+.content-section h2 {
+    font-size: 22px;
+    color: #0056b3;
+    margin-bottom: 10px;
+    font-weight: bold;
+}
+
+/* Content Box Styling */
+.content-box {
+    background: #f7f9fa;
+    padding: 15px 20px;
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    line-height: 1.6;
+}
+
+/* Button Styling */
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 20px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    text-align:
+    center;
+}
+
+.modern-btn:hover {
+    background-color: #003d80;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .modern-container {
+        padding: 15px;
+    }
+
+    .main-title {
+        font-size: 26px;
+    }
+
+    .content-section h2 {
+        font-size: 20px;
+    }
+}
+/* Table Styling */
+.styled-table {
+    border-collapse: show;
+    margin: 25px auto;
+    font-size: 15px;
+    font-family: Arial, sans-serif;
+    width: 100%;
+    text-align: center;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.styled-table thead tr {
+    background-color: #0056b3;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+.styled-table th, .styled-table td {
+    border: 1px solid #c1c1c1;
+    padding: 10px 15px;
+}
+
+.styled-table tbody tr:nth-of-type(even) {
+    background-color: #f3f3f3;
+}
+
+.styled-table tbody tr:hover {
+    background-color: #f1f1f1;
+}
+</style>
+{% endblock %}

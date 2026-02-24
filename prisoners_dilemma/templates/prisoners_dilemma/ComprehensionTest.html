@@ -1,0 +1,350 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+<div class="modern-test-container">
+    <h1 class="main-title">Comprehension Test</h1>
+    <p class="intro-text">
+        <strong>You have three attempts</strong> to answer all questions on this test correctly.
+        If you submit your answers and fail any question on all three attempts, <strong>you will be expelled from the experiment</strong>.
+        For your convenience, the instructions are also available at the bottom of the page.
+    </p>
+    {% if comp_error_message %}
+        <div class="intro-text .error-message">
+            {{ comp_error_message }}
+        </div>
+    {% endif %}
+
+    <form method="post" class="test-form">
+        <!-- Question 1 -->
+        <div class="question-container">
+            <label class="question-label">1. How many parts are there in this experiment?</label>
+            <div class="option"><input type="radio" name="q1" value="a" id="q1_a"><label for="q1_a"> A) 2</label></div>
+            <div class="option"><input type="radio" name="q1" value="b" id="q1_b"><label for="q1_b"> B) 3</label></div>
+            <div class="option"><input type="radio" name="q1" value="c" id="q1_c"><label for="q1_c"> C) 4</label></div>
+            <div class="option"><input type="radio" name="q1" value="d" id="q1_d"><label for="q1_d"> D) 5</label></div>
+        </div>
+        <hr class="divider">
+
+        <!-- Question 2 -->
+        <div class="question-container">
+            <label class="question-label">2. How many rounds are there in each interactive task (Parts 1–3)?</label>
+            <div class="option"><input type="radio" name="q2" value="a" id="q2_a"><label for="q2_a"> A) 5</label></div>
+            <div class="option"><input type="radio" name="q2" value="b" id="q2_b"><label for="q2_b"> B) 10</label></div>
+            <div class="option"><input type="radio" name="q2" value="c" id="q2_c"><label for="q2_c"> C) 15</label></div>
+            <div class="option"><input type="radio" name="q2" value="d" id="q2_d"><label for="q2_d"> D) 20</label></div>
+        </div>
+        <hr class="divider">
+
+        <!-- Question 3 -->
+        <div class="question-container">
+            <label class="question-label">3. In reference to the interactive tasks, in which part(s) will you make all decisions yourself?</label>
+            <div class="option"><input type="radio" name="q3" value="a" id="q3_a"><label for="q3_a"> A) Part 1 only</label></div>
+            <div class="option"><input type="radio" name="q3" value="b" id="q3_b"><label for="q3_b"> B) Part 2 only</label></div>
+            <div class="option"><input type="radio" name="q3" value="c" id="q3_c"><label for="q3_c"> C) Part X and Part 3 (if you choose not to delegate)</label></div>
+            <div class="option"><input type="radio" name="q3" value="d" id="q3_d"><label for="q3_d"> D) Part 3 only</label></div>
+        </div>
+        <hr class="divider">
+
+        <!-- Question 4 -->
+        <div class="question-container">
+            <label class="question-label">4. In reference to the interactive tasks, in which part(s) will you delegate all decisions to an artificial delegate?</label>
+            <div class="option"><input type="radio" name="q4" value="a" id="q4_a"><label for="q4_a"> A) Part 1 only</label></div>
+            <div class="option"><input type="radio" name="q4" value="b" id="q4_b"><label for="q4_b"> B) Part 2 only</label></div>
+            <div class="option"><input type="radio" name="q4" value="c" id="q4_c"><label for="q4_c"> C) Part Y and Part 3 (if you choose to delegate)</label></div>
+            <div class="option"><input type="radio" name="q4" value="d" id="q4_d"><label for="q4_d"> D) Part 4 only</label></div>
+        </div>
+        <hr class="divider">
+
+        <!-- Question 5 -->
+        <div class="question-container">
+            <label class="question-label">5. In Part 3, when do you decide whether to delegate or make decisions yourself?</label>
+            <div class="option"><input type="radio" name="q5" value="a" id="q5_a"><label for="q5_a"> A) Before the part begins</label></div>
+            <div class="option"><input type="radio" name="q5" value="b" id="q5_b"><label for="q5_b"> B) After each round</label></div>
+            <div class="option"><input type="radio" name="q5" value="c" id="q5_c"><label for="q5_c"> C) At the end of the part</label></div>
+            <div class="option"><input type="radio" name="q5" value="d" id="q5_d"><label for="q5_d"> D) The experiment decides for you</label></div>
+        </div>
+        <hr class="divider">
+
+        <!-- Question 6 -->
+        <div class="question-container">
+            <label class="question-label">6. If Player 1 chooses Option A and Player 2 chooses Option A, what are the earnings for both players?</label>
+            <div class="option"><input type="radio" name="q6" value="a" id="q6_a"><label for="q6_a"> A) Player 1: 0 Ecoins, Player 2: 0 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q6" value="b" id="q6_b"><label for="q6_b"> B) Player 1: 30 Ecoins, Player 2: 30 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q6" value="c" id="q6_c"><label for="q6_c"> C) Player 1: 70 Ecoins, Player 2: 70 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q6" value="d" id="q6_d"><label for="q6_d"> D) Player 1: 100 Ecoins, Player 2: 100 Ecoins</label></div>
+        </div>
+        <hr class="divider">
+
+        <!-- Question 7 -->
+        <div class="question-container">
+            <label class="question-label">7. If Player 1 chooses Option A and Player 2 chooses Option B, what are the earnings for both players?</label>
+            <div class="option"><input type="radio" name="q7" value="a" id="q7_a"><label for="q7_a"> A) Player 1: 0 Ecoins, Player 2: 100 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q7" value="b" id="q7_b"><label for="q7_b"> B) Player 1: 70 Ecoins, Player 2: 70 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q7" value="c" id="q7_c"><label for="q7_c"> C) Player 1: 100 Ecoins, Player 2: 0 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q7" value="d" id="q7_d"><label for="q7_d"> D) Player 1: 30 Ecoins, Player 2: 30 Ecoins</label></div>
+        </div>
+        <hr class="divider">
+
+        <!-- Question 8 -->
+
+        <div class="question-container">
+            <label class="question-label">8. If Player 1 chooses Option B and Player 2 chooses Option A, what are the earnings for both players?</label>
+            <div class="option"><input type="radio" name="q8" value="a" id="q8_a"><label for="q8_a"> A) Player 1: 0 Ecoins, Player 2: 100 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q8" value="b" id="q8_b"><label for="q8_b"> B) Player 1: 100 Ecoins, Player 2: 0 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q8" value="c" id="q8_c"><label for="q8_c"> C) Player 1: 70 Ecoins, Player 2: 70 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q8" value="d" id="q8_d"><label for="q8_d"> D) Player 1: 30 Ecoins, Player 2: 30 Ecoins</label></div>
+        </div>
+        <hr class="divider">
+
+        <!-- Question 9 -->
+        <div class="question-container">
+            <label class="question-label">9. If Player 1 chooses Option B and Player 2 chooses Option B, what are the earnings for both players?</label>
+            <div class="option"><input type="radio" name="q9" value="a" id="q9_a"><label for="q9_a"> A) Player 1: 0 Ecoins, Player 2: 0 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q9" value="b" id="q9_b"><label for="q9_b"> B) Player 1: 30 Ecoins, Player 2: 30 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q9" value="c" id="q9_c"><label for="q9_c"> C) Player 1: 70 Ecoins, Player 2: 70 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q9" value="d" id="q9_d"><label for="q9_d"> D) Player 1: 100 Ecoins, Player 2: 100 Ecoins</label></div>
+        </div>
+        <hr class="divider">
+
+        <!-- Question 10 -->
+
+        <div class="question-container">
+            <label class="question-label">10. What happens between each round of the interactive tasks (Parts 1–3)?</label>
+            <div class="option"><input type="radio" name="q10" value="a" id="q10_a"><label for="q10_a"> A) You keep the same partner</label></div>
+            <div class="option"><input type="radio" name="q10" value="b" id="q10_b"><label for="q10_b"> B) You are randomly rematched with a different participant</label></div>
+            <div class="option"><input type="radio" name="q10" value="c" id="q10_c"><label for="q10_c"> C) The experiment ends</label></div>
+            <div class="option"><input type="radio" name="q10" value="d" id="q10_d"><label for="q10_d"> D) You can communicate with your partner</label></div>
+        </div>
+        <hr class="divider">
+
+
+        <button type="submit" class="modern-btn">Submit</button>
+    </form>
+
+    <div class="small-instructions">
+
+        <h2>Experiment Structure</h2>
+            <p>The experiment consists of four parts:</p>
+            <ul>
+                <li><strong>Part 1: </strong>10 rounds of an interactive task where you make all the decisions yourself in each round.</li>
+                <li><strong>Part 2: </strong>10 rounds of an interactive task where you delegate all decisions to an artificial delegate. Before the task begins, you will provide instructions for the delegate to follow.</li>
+                <li><strong>Part 3: </strong>10 rounds of an interactive task where you decide before the part begins whether to delegate all decisions to the artificial delegate (as in Part 2) or make all decisions yourself (as in Part 1).</li>
+                <li><strong>Part 4: </strong>A guessing game (non-interactive), where you can earn up to $1 extra based on your answers.</li>
+
+                
+            </ul>
+            <p>
+                Between each round of the interactive tasks (Parts 1–3), you will be randomly rematched with a different participant. 
+                you will be randomly rematched with a different participant. This means you will interact with many different people <strong>not the same person throughout</strong>.
+            </p>
+
+        <h2>How the Interactive Tasks Work (Parts 1–3)</h2>
+        <p>In each round, you and another participant will make decisions simultaneously. Your earnings depend on both your choice and the other participant's choice.</p>
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Your Choice \ Other’s Choice</th>
+                    <th>Option A</th>
+                    <th>Option B</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Option A</td>
+                    <td>[70, 70]</td>
+                    <td>[0, 100]</td>
+                </tr>
+                <tr>
+                    <td>Option B</td>
+                    <td>[100, 0]</td>
+                    <td>[30, 30]</td>
+                </tr>
+            </tbody>
+        </table>
+        <p>The numbers in the table represent <strong>[your earnings, other participant’s earnings]</strong>.
+        Exchange rate: 10 Ecoins = 1 cent.</p>
+        <p><strong>Important:</strong></p>
+        <p><strong>Your answers will remain anonymous to your co-players throughout this experiment.</strong></p>
+        <p>After each part, you will see your cumulative earnings from that part in Ecoins.</p>
+        <p><strong>One part (10 rounds) will be randomly selected </strong>at the end to determine your bonus payment for the interactive tasks.</p>
+        <p>In each round, you can earn up to 100 Ecoins (10 cents). Since one part (10 rounds) will be selected for payment, you can earn up to <strong>$1</strong> from the interactive tasks.</p>
+
+</div>
+
+</div>
+
+
+
+<style>
+/* General Styling */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+.modern-test-container {
+    max-width: 900px;
+    margin: 30px auto;
+    background: #ffffff;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+/* Main Title Styling */
+.main-title {
+    text-align: center;
+    font-size: 30px;
+    margin-bottom: 20px;
+    color: #333333;
+    font-weight: bold;
+    border-bottom: 3px solid #0056b3;
+    padding-bottom: 10px;
+}
+
+/* Section Styling */
+.content-section {
+    margin-bottom: 20px;
+}
+.intro-text {
+    font-size: 16px;
+    color: #9c0909;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+
+/* Question Container Styling */
+.question-container {
+    margin-bottom: 20px;
+}
+
+.question-label {
+    font-size: 18px;
+    font-weight: bold;
+    color: #0056b3;
+    margin-bottom: 10px;
+    display: block;
+}
+
+.question-subtext {
+    font-size: 14px;
+    color: #555555;
+    margin-bottom: 10px;
+}
+
+.option {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #333;
+}
+
+.option input {
+    margin-right: 10px;
+}
+
+/* Divider Styling */
+.divider {
+    border: none;
+    border-top: 1px solid #e0e0e0;
+    margin: 20px 0;
+}
+
+/* Button Styling */
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 20px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    text-align: center;
+}
+
+.modern-btn:hover {
+    background-color: #003d80;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .modern-test-container {
+        padding: 15px;
+    }
+
+    .main-title {
+        font-size: 26px;
+    }
+
+    .question-label {
+        font-size: 16px;
+    }
+}
+
+.small-instructions {
+    font-size: 13px;
+    color: #555;
+    margin-top: 40px;
+    background-color: #f4f4f4;
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    line-height: 1.5;
+}
+.small-instructions h3 {
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 10px;
+}
+/* Table Styling */
+.styled-table {
+    border-collapse: show;
+    margin: 25px auto;
+    font-size: 15px;
+    font-family: Arial, sans-serif;
+    width: 100%;
+    text-align: center;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.styled-table thead tr {
+    background-color: #0056b3;
+    color: #ffffff;
+    font-weight: bold;
+}
+
+.styled-table th, .styled-table td {
+    border: 1px solid #c1c1c1;
+    padding: 10px 15px;
+}
+
+.styled-table tbody tr:nth-of-type(even) {
+    background-color: #f3f3f3;
+}
+
+.styled-table tbody tr:hover {
+    background-color: #f1f1f1;
+}
+/*to hide otree default message*/
+.otree-form-errors,
+.alert-danger:not(.custom-error) {
+    display: none;
+}
+.error-message {
+    font-size: 16px;
+    color: #9c0909;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+</style>
+{% endblock %}

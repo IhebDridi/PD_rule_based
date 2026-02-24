@@ -353,7 +353,7 @@ def custom_export_debugg(players):
     print("=== CUSTOM EXPORT DEBUG CALLED ===")
     print("Number of Player objects received:", len(players))
 
-    # ✅ choose output path (project root)
+    #  choose output path (project root)
     filename = f"prolific_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     filepath = os.path.join(os.getcwd(), filename)
 
@@ -374,16 +374,16 @@ def custom_export_debugg(players):
                 pid,
             )
 
-            # ✅ one row per participant, keep non‑None ID
+            #  one row per participant, keep non‑None ID
             if code in seen:
                 continue
             if pid:
                 writer.writerow([code, pid])
                 seen.add(code)
 
-    print("✅ CSV written to:", filepath)
+    print(" CSV written to:", filepath)
 
-    # ✅ IMPORTANT: return empty list so UI export doesn't fabricate rows
+    #  IMPORTANT: return empty list so UI export doesn't fabricate rows
     return []
 
 def custom_export_prolific(players):

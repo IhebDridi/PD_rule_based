@@ -61,11 +61,11 @@ class ComprehensionTest(Page):
         ]
 
         if not incorrect:
-            # ✅ all correct → proceed
+            #  all correct → proceed
             self.participant.vars.pop("comp_error_message", None)
             return
 
-        # ❌ incorrect answers
+        #  incorrect answers
         self.player.comprehension_attempts += 1
         attempts_left = 3 - self.player.comprehension_attempts
 
@@ -77,7 +77,7 @@ class ComprehensionTest(Page):
             self.participant.vars["comp_error_message"] = msg
             return msg
 
-        # 🚫 no attempts left → exclude
+        #  no attempts left → exclude
         self.player.is_excluded = True
         return (
             "You have failed the comprehension test too many times "
@@ -147,7 +147,7 @@ class AgentProgramming(Page):
 
     def vars_for_template(self):
         return {
-            "current_part": Constants.get_part(self.round_number),   # ✅ ADD THIS
+            "current_part": Constants.get_part(self.round_number),   #  ADD THIS
             "delegate_decision": self.player.field_maybe_none(
                 "delegate_decision_optional"
             ),
@@ -156,7 +156,7 @@ class AgentProgramming(Page):
         current_part = Constants.get_part(self.round_number)
         form_data = self._form_data
 
-        # ✅ page was not displayed → do nothing
+        #  page was not displayed → do nothing
         if not form_data:
             return
 
@@ -369,7 +369,7 @@ class DelegationDecision(Page):
             p = self.player.in_round(r)
             p.delegate_decision_optional = self.player.delegate_decision_optional
             print(" → wrote to round", r)
-        # 🚨 FORCE PERSISTENCE (temporary diagnostic)
+        #  FORCE PERSISTENCE (temporary diagnostic)
         for r in range(2 * Constants.rounds_per_part + 1, 3 * Constants.rounds_per_part + 1):
             p = self.player.in_round(r)
 
@@ -459,7 +459,7 @@ class GuessDelegation(Page):
     form_model = 'player'
 
     def is_displayed(self):
-        # ✅ show ONCE, at end of Part 3
+        #  show ONCE, at end of Part 3
         return self.round_number == 3 * Constants.rounds_per_part
 
     def get_form_fields(self):
@@ -493,13 +493,13 @@ class GuessDelegation(Page):
             guess_field = f"guess_round_{i}"
             guess = getattr(self.player, guess_field)
 
-            # ✅ 1. store the per‑round guess explicitly
+            #  1. store the per‑round guess explicitly
             setattr(future_player, guess_field, guess)
 
-            # ✅ 2. store unified guess field (used elsewhere)
+            #  2. store unified guess field (used elsewhere)
             future_player.guess_opponent_delegated = guess
 
-            # ✅ 3. compute and ALWAYS store payoff
+            #  3. compute and ALWAYS store payoff
             other = future_player.get_others_in_group()[0]
             actual = bool(other.field_maybe_none("delegate_decision_optional"))
 
@@ -695,7 +695,7 @@ class Thankyou(Page):
 
         df = pd.DataFrame(rows)
 
-        # ✅ Forward-fill demographics & static fields
+        #  Forward-fill demographics & static fields
         static_cols = [
             "prolific_id", "gender", "age", "occupation",
             "ai_use", "task_difficulty", "feedback",
@@ -764,7 +764,7 @@ class DecisionNoDelegation(Page):
         current_part = Constants.get_part(self.round_number)
 
         return {
-            "round_number": round_in_part,     # ✅ ADD THIS
+            "round_number": round_in_part,     #  ADD THIS
             "current_part": current_part,      # (optional, but useful)
         }
 

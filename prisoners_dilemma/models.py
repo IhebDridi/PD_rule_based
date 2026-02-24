@@ -315,119 +315,9 @@ class Player(BasePlayer):
 
 
 
-def custom_export_debug(players):
-    print("=== CUSTOM EXPORT DEBUG CALLED ===")
-    print("Number of Player objects received:", len(players))
 
-    for p in players:
-        try:
-            print(
-                "participant_code =",
-                p.participant.code,
-                "| prolific_id =",
-                p.field_maybe_none("prolific_id"),
-            )
-        except Exception as e:
-            print("ERROR reading player:", e)
-
-        rows = []
-
-    for p in players:
-        rows.append({
-            "participant_code": p.participant.code
-        })
-
-    # IMPORTANT: return empty list so UI does not fabricate rows
-    return rows
-
-def custom_export_debugg(players):
-    """
-    Writes participant_code and prolific_id to a CSV file on disk.
-    Does NOT rely on oTree's CSV rendering.
-    """
-
-    import csv
-    import os
-    from datetime import datetime
-
-    print("=== CUSTOM EXPORT DEBUG CALLED ===")
-    print("Number of Player objects received:", len(players))
-
-    #  choose output path (project root)
-    filename = f"prolific_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-    filepath = os.path.join(os.getcwd(), filename)
-
-    seen = set()
-
-    with open(filepath, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(["participant_code", "prolific_id"])
-
-        for p in players:
-            code = p.participant.code
-            pid = p.field_maybe_none("prolific_id")
-
-            print(
-                "participant_code =",
-                code,
-                "| prolific_id =",
-                pid,
-            )
-
-            #  one row per participant, keep non‑None ID
-            if code in seen:
-                continue
-            if pid:
-                writer.writerow([code, pid])
-                seen.add(code)
-
-    print(" CSV written to:", filepath)
-
-    #  IMPORTANT: return empty list so UI export doesn't fabricate rows
-    return []
-
-def custom_export_prolific(players):
-    rows = {}
-    for p in players:
-        code = p.participant.code
-        pid = p.field_maybe_none("prolific_id")
-        if pid and code not in rows:
-            rows[code] = pid
-
-    return [
-        {"participant_code": c, "prolific_id": pid}
-        for c, pid in rows.items()
-    ]
 
 def custom_export(players):
-    # header row (EXACTLY as in the docs)
-    yield [
-        'participant_code',
-        'prolific_id',
-    ]
-
-    seen = set()
-
-    for p in players:
-        participant = p.participant
-        code = participant.code
-        prolific_id = p.field_maybe_none('prolific_id')
-
-        # one row per participant, keep the non‑None prolific_id
-        if code in seen:
-            continue
-        if not prolific_id:
-            continue
-
-        seen.add(code)
-
-        yield [
-            code,
-            prolific_id,
-        ]
-
-
-def custom_export_big(players):
     from collections import defaultdict
 
     # =========================
@@ -557,3 +447,115 @@ def custom_export_big(players):
         # YIELD FINAL ROW
         # =========================
         yield [row[h] for h in row]
+
+
+def custom_export_debug(players):
+    print("=== CUSTOM EXPORT DEBUG CALLED ===")
+    print("Number of Player objects received:", len(players))
+
+    for p in players:
+        try:
+            print(
+                "participant_code =",
+                p.participant.code,
+                "| prolific_id =",
+                p.field_maybe_none("prolific_id"),
+            )
+        except Exception as e:
+            print("ERROR reading player:", e)
+
+        rows = []
+
+    for p in players:
+        rows.append({
+            "participant_code": p.participant.code
+        })
+
+    # IMPORTANT: return empty list so UI does not fabricate rows
+    return rows
+
+def custom_export_debugg(players):
+    """
+    Writes participant_code and prolific_id to a CSV file on disk.
+    Does NOT rely on oTree's CSV rendering.
+    """
+
+    import csv
+    import os
+    from datetime import datetime
+
+    print("=== CUSTOM EXPORT DEBUG CALLED ===")
+    print("Number of Player objects received:", len(players))
+
+    #  choose output path (project root)
+    filename = f"prolific_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+    filepath = os.path.join(os.getcwd(), filename)
+
+    seen = set()
+
+    with open(filepath, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["participant_code", "prolific_id"])
+
+        for p in players:
+            code = p.participant.code
+            pid = p.field_maybe_none("prolific_id")
+
+            print(
+                "participant_code =",
+                code,
+                "| prolific_id =",
+                pid,
+            )
+
+            #  one row per participant, keep non‑None ID
+            if code in seen:
+                continue
+            if pid:
+                writer.writerow([code, pid])
+                seen.add(code)
+
+    print(" CSV written to:", filepath)
+
+    #  IMPORTANT: return empty list so UI export doesn't fabricate rows
+    return []
+
+def custom_export_prolific(players):
+    rows = {}
+    for p in players:
+        code = p.participant.code
+        pid = p.field_maybe_none("prolific_id")
+        if pid and code not in rows:
+            rows[code] = pid
+
+    return [
+        {"participant_code": c, "prolific_id": pid}
+        for c, pid in rows.items()
+    ]
+
+def custom_export_small(players):
+    # header row (EXACTLY as in the docs)
+    yield [
+        'participant_code',
+        'prolific_id',
+    ]
+
+    seen = set()
+
+    for p in players:
+        participant = p.participant
+        code = participant.code
+        prolific_id = p.field_maybe_none('prolific_id')
+
+        # one row per participant, keep the non‑None prolific_id
+        if code in seen:
+            continue
+        if not prolific_id:
+            continue
+
+        seen.add(code)
+
+        yield [
+            code,
+            prolific_id,
+        ]

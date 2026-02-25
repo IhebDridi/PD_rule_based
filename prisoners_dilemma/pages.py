@@ -1,5 +1,5 @@
 from otree.api import *
-from .models import Constants
+from .models import Constants, get_payoff_round
 import json
 import pandas as pd
 import settings
@@ -111,69 +111,56 @@ class FailedTest(Page):
 #  Agent Programming
 # -------------------------
 #from here
+
 class AgentProgramming(Page):
     form_model = 'player'
 
     def is_displayed(self):
         current_part = Constants.get_part(self.round_number)
+        print("AgentProgramming evaluated in round", self.round_number)
 
         if current_part == 1:
-            return (self.round_number - 1) % Constants.rounds_per_part == 0
+            return not self.participant.vars.get("agent_programming_done_part1", False)
 
         if current_part == 3:
             return (
                 self.player.field_maybe_none("delegate_decision_optional") is True
-                and (self.round_number - 1) % Constants.rounds_per_part == 0
+                and not self.participant.vars.get("agent_programming_done_part3", False)
             )
 
         return False
 
     def get_form_fields(self):
-        current_part = Constants.get_part(self.round_number)
-
-        if current_part == 1:
+        if Constants.get_part(self.round_number) == 1:
             return [
                 f"agent_decision_mandatory_delegation_round_{i}"
                 for i in range(1, 11)
             ]
-
-        if current_part == 3:
-            return [
-                f"decision_optional_delegation_round_{i}"
-                for i in range(1, 11)
-            ]
-
         return []
 
     def vars_for_template(self):
         return {
-            "current_part": Constants.get_part(self.round_number),   #  ADD THIS
+            "current_part": Constants.get_part(self.round_number),
             "delegate_decision": self.player.field_maybe_none(
                 "delegate_decision_optional"
             ),
         }
     def before_next_page(self):
         current_part = Constants.get_part(self.round_number)
-        form_data = self._form_data
 
-        #  page was not displayed → do nothing
-        if not form_data:
-            return
-
-        # =====================================================
+        # ==========================================
         # PART 1 — Mandatory delegation (rounds 1–10)
-        # =====================================================
+        # ==========================================
         if current_part == 1:
+            decisions = self.participant.vars.get(
+                'agent_programming_part1', {}
+            )
+            start_round = 1
+
             for i in range(1, 11):
-                decision = form_data.get(str(i))
+                decision = decisions.get(i)
 
-                if decision is None:
-                    raise RuntimeError(
-                        f"Missing agent decision in Part 1 programming: round {i}"
-                    )
-
-                pr = self.player.in_round(i)
-                pr.choice = decision
+                print(f"Saving decision for round {i}: {decision}")
 
                 setattr(
                     self.player,
@@ -181,57 +168,34 @@ class AgentProgramming(Page):
                     decision
                 )
 
-            for i in range(1, 11):
-                group_r = self.group.in_round(i)
-                p1, p2 = group_r.get_players()
+                self.player.in_round(i).choice = decision
 
-                if (
-                    p1.field_maybe_none("choice") is None
-                    or p2.field_maybe_none("choice") is None
-                ):
-                    continue
+            self.participant.vars["agent_programming_done_part1"] = True
 
-                group_r.set_payoffs()
-
-            self.participant.vars["agent_programming_done"] = True
-
-        # =====================================================
-        # PART 3 — Optional delegation (delegated case)
-        # =====================================================
-        if current_part == 3 and self.player.field_maybe_none("delegate_decision_optional"):
-            start_round = 2 * Constants.rounds_per_part
+        # ==========================================
+        # PART 3 — Optional delegation (rounds 21–30)
+        # ==========================================
+        elif current_part == 3:
+            decisions = self.participant.vars.get(
+                'agent_programming_part3', {}
+            )
+            start_round = 2 * Constants.rounds_per_part + 1  # 21
 
             for i in range(1, 11):
-                decision = form_data.get(str(i))
+                round_number = start_round + i - 1
+                decision = decisions.get(i)
 
-                if decision is None:
-                    raise RuntimeError(
-                        f"Missing agent decision in Part 3 programming: round {i}"
-                    )
+                print(f"Saving decision for round {round_number}: {decision}")
 
-                pr = self.player.in_round(start_round + i)
-                pr.choice = decision
+                self.player.in_round(round_number).choice = decision
 
-                setattr(
-                    self.player.in_round(start_round + 1),
-                    f"decision_optional_delegation_round_{i}",
-                    decision
-                )
+            self.participant.vars["agent_programming_done_part3"] = True
 
-            for i in range(1, 11):
-                group_r = self.group.in_round(start_round + i)
-                p1, p2 = group_r.get_players()
-
-                if (
-                    p1.field_maybe_none("choice") is None
-                    or p2.field_maybe_none("choice") is None
-                ):
-                    continue
-
-                group_r.set_payoffs()
-
-            self.participant.vars["agent_programming_done"] = True
-
+        # ==========================================
+        # Other parts: do nothing
+        # ==========================================
+        else:
+            return 
 # -------------------------
 #  waiting page
 # -------------------------
@@ -239,13 +203,30 @@ class WaitForGroup(WaitPage):
 
     def is_displayed(self):
         return self.round_number % Constants.rounds_per_part == 0
-    
 
+    def after_all_players_arrive(self):
+        current_part = Constants.get_part(self.round_number)
 
-        # =========================
-        # PART 1 — mandatory delegation
-        # =========================
+        if current_part == 1:
+            start, end = 1, 10
+        elif current_part == 2:
+            start, end = 11, 20
+        elif current_part == 3:
+            start, end = 21, 30
+        else:
+            return
 
+        # ✅ HARD BARRIER: ensure ALL choices exist
+        for p in self.group.get_players():
+            for r in range(start, end + 1):
+                if p.in_round(r).field_maybe_none("choice") is None:
+                    # do NOT compute yet
+                    self._is_waiting = True
+                    return
+
+        # ✅ SAFE: compute payoffs for ALL rounds in this part
+        for r in range(start, end + 1):
+            self.group.in_round(r).set_payoffs()
 
 
 # -------------------------
@@ -356,29 +337,25 @@ class DelegationDecision(Page):
             self.player.in_round(r).delegate_decision_optional = (
                 self.player.delegate_decision_optional
             )
-            print(
+
+        print(
             "DELEGATION DECISION:",
             self.player.id_in_group,
             self.player.delegate_decision_optional
         )
 
-        start_round = 21
-        end_round = 30
+        # =================================================
+        # ✅ DEBUG: show agent decision for round 2 (Part 3)
+        # =================================================
+        decisions = self.participant.vars.get('agent_programming_part3')
 
-        for r in range(start_round, end_round + 1):
-            p = self.player.in_round(r)
-            p.delegate_decision_optional = self.player.delegate_decision_optional
-            print(" → wrote to round", r)
-        #  FORCE PERSISTENCE (temporary diagnostic)
-        for r in range(2 * Constants.rounds_per_part + 1, 3 * Constants.rounds_per_part + 1):
-            p = self.player.in_round(r)
-
-            # overwrite unconditionally
-            p.delegate_decision_optional = self.player.delegate_decision_optional
-
-            # force a database write by touching payoff (harmless)
-            p.payoff = p.payoff
-
+        if decisions is None:
+            print("⚠ agent_programming_part3 is MISSING")
+        else:
+            print(
+                "Saving decision for round 2:",
+                decisions.get(2)
+            )
 
 
 # -------------------------
@@ -389,67 +366,55 @@ class Results(Page):
     def is_displayed(self):
         current_part = Constants.get_part(self.round_number)
 
-        # Part 2 results are fine
-        if current_part == 2:
-            return self.round_number % Constants.rounds_per_part == 0
+        # End of each part only
+        if self.round_number % Constants.rounds_per_part != 0:
+            return False
 
-        # Part 1 & 3 results must wait until AFTER AgentProgramming
-        if current_part in [1, 3]:
-            return (
-                self.round_number % Constants.rounds_per_part == 0
-                and self.participant.vars.get("agent_programming_done", False)
+        # Part 1
+        if current_part == 1:
+            return self.participant.vars.get(
+                "agent_programming_done_part1", False
+            )
+
+        # Part 2 (no agent programming)
+        if current_part == 2:
+            return True
+
+        # Part 3
+        if current_part == 3:
+            return self.participant.vars.get(
+                "agent_programming_done_part3", False
             )
 
         return False
 
     def vars_for_template(self):
-        import json
-
         current_part = Constants.get_part(self.round_number)
-        if current_part  == 2 or (current_part == 3 and self.player.delegate_decision_optional):
-            is_delegation=False
-        else: 
-            is_delegation=  self.player.field_maybe_none('delegate_decision_optional')
-        #decisions = json.loads(self.player.random_decisions)
 
-        player  = self.player
+        payoff_round = None
+
+        player = self.player
         rounds_data = []
 
         for r in range(
-                (current_part - 1) * Constants.rounds_per_part + 1,
-                current_part     * Constants.rounds_per_part + 1
+            (current_part - 1) * Constants.rounds_per_part + 1,
+            current_part * Constants.rounds_per_part + 1
         ):
-            rr         = player.in_round(r)
-            my_payoff = rr.payoff
+            rr = player.in_round(r)
             other = rr.get_others_in_group()[0]
-            #allocation = rr.field_maybe_none('allocation') or 0   # 0 if None
-            my_choice = rr.field_maybe_none('choice')
-            other = rr.get_others_in_group()[0]
-            other_choice = other.field_maybe_none('choice')
-            #other_delegated = other.field_maybe_none('delegate_decision_optional')
+
             rounds_data.append({
-                'round'     : r - (current_part - 1) * Constants.rounds_per_part,
-                #'kept'      : 100 - allocation,
-                #'allocated' : allocation,
-                #'total'     : 100,
-                # NEW (opponent info)
-                'my_choice': my_choice,
-                'other_choice': other_choice,
-                #'other_delegated': other_delegated,
-                'payoff': my_payoff,
-                #'other_allocation': other.field_maybe_none('allocation'),
-                #'other_delegated': other.field_maybe_none('delegate_decision_optional'),
+                'round': r - (current_part - 1) * Constants.rounds_per_part,
+                'my_choice': rr.field_maybe_none('choice'),
+                'other_choice': other.field_maybe_none('choice'),
+                'payoff': rr.payoff,
+                'is_payoff_round': (r == payoff_round),
             })
-        other = self.player.get_others_in_group()[0]
-        print("ME:", self.player.id_in_group, "OTHER:", other.id_in_group)
 
         return dict(
-            current_part = current_part,
-            rounds_data  = rounds_data,
-            is_delegation = is_delegation,
-            payoff = my_payoff
+            current_part=current_part,
+            rounds_data=rounds_data,
         )
-
 
 # -------------------------
 #  Delegation guessing
@@ -601,7 +566,6 @@ class Debriefing(Page):
         }
 
 
-    
 
 class ExitQuestionnaire(Page):
     def error_message(self, values):

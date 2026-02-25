@@ -34,23 +34,23 @@ class PlayerBot(Bot):
             }
 
         # =================================================
-        # PART 1 — Mandatory delegation
+        # PART 1 — Mandatory delegation (BOT LOGIC)
         # =================================================
         if part == 1 and (rnd - 1) % Constants.rounds_per_part == 0:
             yield InstructionsDelegation
 
-            yield Submission(
-                AgentProgramming,
-                {
-                    f'agent_decision_mandatory_delegation_round_{i}':
-                        random.choice(['A', 'B'])
-                    for i in range(1, 11)
-                },
-                check_html=False
-            )
+            # ✅ RANDOM agent decisions
+            self.participant.vars['agent_programming_part1'] = {
+                i: random.choice(['A', 'B'])
+                for i in range(1, 11)
+            }
 
-        # ❌ NO Results for Part 1
-        # (your app logic skips them)
+            # ✅ Let AgentProgramming process decisions
+            yield AgentProgramming
+
+        #✅ Results at end of Part 1 (only if app shows them)
+        if part == 1 and end_of_part:
+            yield Results
 
         # =================================================
         # PART 2 — No delegation
@@ -68,30 +68,34 @@ class PlayerBot(Bot):
             yield Results
 
         # =================================================
-        # PART 3 — Optional delegation
+        # PART 3 — Optional delegation (BOT: FORCE DELEGATE)
         # =================================================
-        if part == 3 and (rnd - 1) % Constants.rounds_per_part == 0:
+        if part == 3 and rnd == 2 * Constants.rounds_per_part + 1:
             yield InstructionsOptional
 
-            delegate = random.choice([True, False])
             yield DelegationDecision, {
-                'delegate_decision_optional': delegate
+                'delegate_decision_optional': True
             }
 
-            if delegate:
-                yield Submission(
-                    AgentProgramming,
-                    {
-                        f'decision_optional_delegation_round_{i}':
-                            random.choice(['A', 'B'])
-                        for i in range(1, 11)
-                    },
-                    check_html=False
-                )
+            # ✅ STORE agent decisions for Part 3
+            self.participant.vars['agent_programming_part3'] = {
+                i: random.choice(['A', 'B'])
+                for i in range(1, 11)
+            }
 
-        # ✅ Results at end of Part 3
-        if part == 3 and end_of_part and rnd < Constants.num_rounds:
+            self.participant.vars['bot_delegated_part3'] = True
+            yield AgentProgramming
+        if part == 3 and end_of_part:
             yield Results
+
+            
+
+
+
+            
+
+
+
 
         # =================================================
         # GUESSING GAME + END

@@ -1,10 +1,14 @@
 from otree.api import *
+import random
+from collections import defaultdict
 
 class Constants(BaseConstants):
     name_in_url = 'prisoners_dilemma'
     players_per_group = 2
     num_rounds = 30
     rounds_per_part = 10
+
+    matching_group_size = 10
 
     PD_PAYOFFS = {
         ('A', 'A'): (30, 30),
@@ -20,7 +24,10 @@ class Constants(BaseConstants):
 
 class Subsession(BaseSubsession):
     def creating_session(self):
-        self.group_randomly()
+
+        if self.round_number == 1:
+            assign_matching_groups(self)
+            draw_group_rounds(self)
 
 
 
@@ -41,6 +48,14 @@ class Group(BaseGroup):
 
         p1.payoff = cu(payoff1)
         p2.payoff = cu(payoff2)
+
+        # ✅ DEBUG PRINT (requested)
+        print(
+            f"[PAYOFF CALCULATED] "
+            f"Round {self.round_number} | "
+            f"P1(choice={c1}, payoff={payoff1}) | "
+            f"P2(choice={c2}, payoff={payoff2})"
+        )
 
 
 
@@ -284,14 +299,15 @@ class Player(BasePlayer):
     guess_payoff = models.CurrencyField(initial=0)
 
     def get_agent_decision_mandatory(self, round_number):
-        """Retrieve the agent's allocation for a given round in Part 2."""
+        """Retrieve the agent's decision for a given round in Part 1."""
         field_name = f"agent_decision_mandatory_delegation_round_{round_number}"
-        if hasattr(self, field_name):
-            value = getattr(self, field_name)
-            if value is None:
-                raise ValueError(f"Agent allocation for {field_name} is None.")
-            return value
-        raise AttributeError(f"Agent allocation for {field_name} not found.")
+
+        value = self.field_maybe_none(field_name)
+
+        if value is None:
+            return None   # ✅ safe, explicit, oTree‑compliant
+
+        return value
 
     def get_agent_decision_optional(self, round_number):
         """Retrieve the agent's allocation for a given round in Part 3."""
@@ -559,3 +575,68 @@ def custom_export_small(players):
             code,
             prolific_id,
         ]
+
+
+#helper functions
+
+def assign_matching_groups(subsession):
+    """
+    Assigns participants to fixed groups of size Constants.matching_group_size.
+    Stable across all rounds.
+    """
+    players = subsession.get_players()
+    random.shuffle(players)
+
+    for i, p in enumerate(players):
+        p.participant.vars['matching_group_id'] = (
+            i // Constants.matching_group_size
+        )
+
+
+def draw_group_rounds(subsession):
+    """
+    For each matching group and each part,
+    randomly draw ONE round (1–10 within the part).
+    """
+    groups = defaultdict(list)
+
+    for p in subsession.get_players():
+        gid = p.participant.vars['matching_group_id']
+        groups[gid].append(p)
+
+    for gid in groups:
+        for part in range(1, 4):
+            drawn = random.randint(1, Constants.rounds_per_part)
+
+            subsession.session.vars[
+                f"group_{gid}_part_{part}_pay_round"
+            ] = drawn
+
+def get_payoff_round(player):
+    """
+    Returns the absolute round number that is payoff relevant
+    for this player in the current part.
+    """
+    part = Constants.get_part(player.round_number)
+    gid = player.participant.vars['matching_group_id']
+
+    round_in_part = player.session.vars[
+        f"group_{gid}_part_{part}_pay_round"
+    ]
+
+    return (part - 1) * Constants.rounds_per_part + round_in_part
+
+
+def get_group_of_10_payoff_round(player):
+    """
+    Returns the absolute payoff round for the player's group-of-10
+    in the current part.
+    """
+    part = Constants.get_part(player.round_number)
+    gid = player.participant.vars['matching_group_id']
+
+    round_in_part = player.session.vars[
+        f"group_{gid}_part_{part}_pay_round"
+    ]
+
+    return (part - 1) * Constants.rounds_per_part + round_in_part

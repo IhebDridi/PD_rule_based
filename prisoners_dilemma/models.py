@@ -331,138 +331,304 @@ class Player(BasePlayer):
 
 
 
-
-
 def custom_export(players):
     from collections import defaultdict
 
-    # =========================
-    # HEADER (participant-level)
-    # =========================
-    yield [
-        "participant_code",
-        "participant_label",
-        "prolific_id",
-        "gender",
-        "age",
-        "occupation",
-        "ai_use",
-        "task_difficulty",
-        "part_3_feedback",
-        "part_3_feedback_other",
-        "part_4_feedback",
-        "part_4_feedback_other",
-        "feedback",
-        "comprehension_attempts",
-        "incorrect_answers",
-        "is_excluded",
-        "random_payoff_part",
-        "delegate_decision_optional_final",
-
-        # comprehension
-        "q1","q2","q3","q4","q5","q6","q7","q8","q9","q10",
-
-        # mandatory delegation (Part 1)
-        *[f"agent_mandatory_{i}" for i in range(1, 11)],
-
-        # human decisions (Part 2)
-        *[f"human_{i}" for i in range(1, 11)],
-
-        # optional delegation choice
-        "delegate_decision_optional",
-
-        # agent optional delegation (Part 3)
-        *[f"agent_optional_{i}" for i in range(1, 11)],
-
-        # guessing
-        *[f"guess_{i}" for i in range(1, 11)],
-        "guess_payoff_total",
-    ]
-
-    # =========================
-    # GROUP PLAYERS BY PARTICIPANT
-    # =========================
+    # -------------------------------------------------
+    # Group Player objects by participant
+    # -------------------------------------------------
     by_participant = defaultdict(list)
     for p in players:
         by_participant[p.participant.code].append(p)
 
-    # =========================
-    # BUILD ONE ROW PER PARTICIPANT
-    # =========================
+    # -------------------------------------------------
+    # Build header
+    # -------------------------------------------------
+    header = [
+        "Condition",
+        "ProlificID",
+        "Session",
+        "Group",
+        "PlayerID",
+    ]
+
+    # Per-round columns (1–30)
+    for r in range(1, 31):
+        header += [
+            f"Round{r}Decision",
+            f"Round{r}CoplayerID",
+            f"Round{r}CoplayerDecision",
+            f"Round{r}Ecoins",
+            f"Round{r}PlayerAgent",
+            f"Round{r}CoPlayerAgent",
+        ]
+
+    # Guessing (Part 3 → rounds 21–30)
+    for i in range(1, 11):
+        header += [
+            f"Guess{i}",
+            f"TruthGuess{i}",
+            f"EarningsGuess{i}",
+        ]
+
+    # Totals
+    header += [
+        "TotalEarningsPart1Ecoins",
+        "TotalEarningsPart2Ecoins",
+        "TotalEarningsPart3Ecoins",
+        "PartChosenBonus",
+        "TotalEarningsParts123Dollars",
+        "TotalEarningsPart4Dollars",
+        "BonusPaymentTotal",
+    ]
+
+    # Agent / LLM metadata
+    header += [
+        "SupervisedListChoicesDelegation",
+        "SupervisedListChoicesOptional",
+        "GoalListChoicesDelegation",
+        "GoalListChoicesOptional",
+        "LLMchatDelegation",
+        "LLMchatOptional",
+        "GameUsed",
+    ]
+
+    yield header
+
+    # -------------------------------------------------
+    # Build one row per participant
+    # -------------------------------------------------
     for code, rounds in by_participant.items():
-        rounds = sorted(rounds, key=lambda p: p.round_number)
-        p0 = rounds[0]   # anchor row (round 1)
+        try:
+            rounds = sorted(rounds, key=lambda p: p.round_number)
+            p0 = rounds[0]
 
-        row = {
-            "participant_code": code,
-            "participant_label": p0.participant.label,
-            "prolific_id": p0.field_maybe_none("prolific_id"),
-            "gender": p0.field_maybe_none("gender"),
-            "age": p0.field_maybe_none("age"),
-            "occupation": p0.field_maybe_none("occupation"),
-            "ai_use": p0.field_maybe_none("ai_use"),
-            "task_difficulty": p0.field_maybe_none("task_difficulty"),
-            "part_3_feedback": p0.field_maybe_none("part_3_feedback"),
-            "part_3_feedback_other": p0.field_maybe_none("part_3_feedback_other"),
-            "part_4_feedback": p0.field_maybe_none("part_4_feedback"),
-            "part_4_feedback_other": p0.field_maybe_none("part_4_feedback_other"),
-            "feedback": p0.field_maybe_none("feedback"),
-            "comprehension_attempts": p0.field_maybe_none("comprehension_attempts"),
-            "incorrect_answers": p0.field_maybe_none("incorrect_answers"),
-            "is_excluded": p0.field_maybe_none("is_excluded"),
-            "random_payoff_part": p0.field_maybe_none("random_payoff_part"),
-            "delegate_decision_optional_final": p0.field_maybe_none("delegate_decision_optional_final"),
-        }
+            row = dict.fromkeys(header, "")
 
-        # comprehension answers
-        for i in range(1, 11):
-            row[f"q{i}"] = p0.field_maybe_none(f"q{i}")
+            # ---- Identifiers ----
+            row["Condition"]   = "rule2nd"
+            row["ProlificID"]  = p0.field_maybe_none("prolific_id")
+            row["Session"]     = p0.session.code
+            row["Group"]       = p0.participant.vars.get("matching_group_id")
+            row["PlayerID"]    = p0.participant.vars.get("matching_group_position")
 
-        # =========================
-        # PART 1 — mandatory delegation (rounds 1–10)
-        # =========================
-        for i in range(1, 11):
-            row[f"agent_mandatory_{i}"] = (
-                rounds[i - 1]
-                .field_maybe_none(f"agent_decision_mandatory_delegation_round_{i}")
+            # ---- Per-round data ----
+            for pr in rounds:
+                r = pr.round_number
+                other = pr.get_others_in_group()[0]
+
+                row[f"Round{r}Decision"] = pr.field_maybe_none("choice")
+                row[f"Round{r}Ecoins"]   = pr.payoff
+
+                row[f"Round{r}CoplayerDecision"] = other.field_maybe_none("choice")
+                row[f"Round{r}CoplayerID"]       = (
+                    other.participant.vars.get("matching_group_position")
+                )
+
+                # Agent labels (hard-coded logic for now)
+                if r <= 10:
+                    row[f"Round{r}PlayerAgent"]   = "rule"
+                    row[f"Round{r}CoPlayerAgent"] = "rule"
+                elif r <= 20:
+                    row[f"Round{r}PlayerAgent"]   = "no-agent"
+                    row[f"Round{r}CoPlayerAgent"] = "no-agent"
+                else:
+                    row[f"Round{r}PlayerAgent"]   = "rule"
+                    row[f"Round{r}CoPlayerAgent"] = "rule"
+
+            # ---- Guessing ----
+            part3_start = 21
+            for i in range(1, 11):
+                pr = p0.in_round(part3_start + i - 1)
+                other = pr.get_others_in_group()[0]
+
+                guess = pr.field_maybe_none("guess_opponent_delegated")
+                truth = bool(other.field_maybe_none("delegate_decision_optional"))
+
+                row[f"Guess{i}"] = 1 if guess == "yes" else 0
+                row[f"TruthGuess{i}"] = 1 if truth else 0
+                row[f"EarningsGuess{i}"] = pr.field_maybe_none("guess_payoff") or 0
+
+            # ---- Totals ----
+            row["TotalEarningsPart1Ecoins"] = sum(
+                p0.in_round(r).payoff or 0 for r in range(1, 11)
+            )
+            row["TotalEarningsPart2Ecoins"] = sum(
+                p0.in_round(r).payoff or 0 for r in range(11, 21)
+            )
+            row["TotalEarningsPart3Ecoins"] = sum(
+                p0.in_round(r).payoff or 0 for r in range(21, 31)
             )
 
-        # =========================
-        # PART 2 — human decisions (rounds 11–20)
-        # =========================
-        for i in range(1, 11):
-            row[f"human_{i}"] = (
-                rounds[10 + i - 1]
-                .field_maybe_none(f"human_decision_no_delegation_round_{i}")
+            part_chosen = p0.field_maybe_none("random_payoff_part")
+
+            if part_chosen in [1, 2, 3]:
+                ecoins = row[f"TotalEarningsPart{part_chosen}Ecoins"] or 0
+            else:
+                ecoins = 0
+                part_chosen = ""   # keep column but avoid None
+            row["PartChosenBonus"] = part_chosen
+
+            
+            row["TotalEarningsParts123Dollars"] = ecoins * 0.01
+
+            row["TotalEarningsPart4Dollars"] = sum(
+                row[f"EarningsGuess{i}"] for i in range(1, 11)
+            ) * 0.01
+
+            row["BonusPaymentTotal"] = (
+                row["TotalEarningsParts123Dollars"]
+                + row["TotalEarningsPart4Dollars"]
             )
 
-        # =========================
-        # PART 3 — optional delegation (rounds 21–30)
-        # =========================
-        row["delegate_decision_optional"] = (
-            rounds[20].field_maybe_none("delegate_decision_optional")
-        )
+            # ---- Empty advanced fields (future use) ----
+            row["SupervisedListChoicesDelegation"] = ""
+            row["SupervisedListChoicesOptional"]   = ""
+            row["GoalListChoicesDelegation"]       = ""
+            row["GoalListChoicesOptional"]         = ""
+            row["LLMchatDelegation"]               = ""
+            row["LLMchatOptional"]                 = ""
+            row["GameUsed"]                        = "PD"
 
-        for i in range(1, 11):
-            row[f"agent_optional_{i}"] = (
-                rounds[20 + i - 1]
-                .field_maybe_none(f"decision_optional_delegation_round_{i}")
-            )
+            yield [row[h] for h in header]
+        except Exception as e:
+            print("EXPORT ERROR for participant", code, e)
+            continue
 
-        # =========================
-        # GUESSING (stored on round 30)
-        # =========================
-        guess_payoff = 0
-        for i in range(1, 11):
-            row[f"guess_{i}"] = rounds[-1].field_maybe_none(f"guess_round_{i}")
-            guess_payoff += rounds[20 + i - 1].field_maybe_none("guess_payoff") or 0
 
-        row["guess_payoff_total"] = guess_payoff
 
-        # =========================
-        # YIELD FINAL ROW
-        # =========================
-        yield [row[h] for h in row]
+
+
+# def custom_export(players):
+#     from collections import defaultdict
+
+#     # =========================
+#     # HEADER (participant-level)
+#     # =========================
+#     yield [
+#         "participant_code",
+#         "participant_label",
+#         "prolific_id",
+#         "gender",
+#         "age",
+#         "occupation",
+#         "ai_use",
+#         "task_difficulty",
+#         "part_3_feedback",
+#         "part_3_feedback_other",
+#         "part_4_feedback",
+#         "part_4_feedback_other",
+#         "feedback",
+#         "comprehension_attempts",
+#         "incorrect_answers",
+#         "is_excluded",
+#         "random_payoff_part",
+#         "delegate_decision_optional_final",
+
+#         # comprehension
+#         "q1","q2","q3","q4","q5","q6","q7","q8","q9","q10",
+
+#         # mandatory delegation (Part 1)
+#         *[f"agent_mandatory_{i}" for i in range(1, 11)],
+
+#         # human decisions (Part 2)
+#         *[f"human_{i}" for i in range(1, 11)],
+
+#         # optional delegation choice
+#         "delegate_decision_optional",
+
+#         # agent optional delegation (Part 3)
+#         *[f"agent_optional_{i}" for i in range(1, 11)],
+
+#         # guessing
+#         *[f"guess_{i}" for i in range(1, 11)],
+#         "guess_payoff_total",
+#     ]
+
+#     # =========================
+#     # GROUP PLAYERS BY PARTICIPANT
+#     # =========================
+#     by_participant = defaultdict(list)
+#     for p in players:
+#         by_participant[p.participant.code].append(p)
+
+#     # =========================
+#     # BUILD ONE ROW PER PARTICIPANT
+#     # =========================
+#     for code, rounds in by_participant.items():
+#         rounds = sorted(rounds, key=lambda p: p.round_number)
+#         p0 = rounds[0]   # anchor row (round 1)
+
+#         row = {
+#             "participant_code": code,
+#             "participant_label": p0.participant.label,
+#             "prolific_id": p0.field_maybe_none("prolific_id"),
+#             "gender": p0.field_maybe_none("gender"),
+#             "age": p0.field_maybe_none("age"),
+#             "occupation": p0.field_maybe_none("occupation"),
+#             "ai_use": p0.field_maybe_none("ai_use"),
+#             "task_difficulty": p0.field_maybe_none("task_difficulty"),
+#             "part_3_feedback": p0.field_maybe_none("part_3_feedback"),
+#             "part_3_feedback_other": p0.field_maybe_none("part_3_feedback_other"),
+#             "part_4_feedback": p0.field_maybe_none("part_4_feedback"),
+#             "part_4_feedback_other": p0.field_maybe_none("part_4_feedback_other"),
+#             "feedback": p0.field_maybe_none("feedback"),
+#             "comprehension_attempts": p0.field_maybe_none("comprehension_attempts"),
+#             "incorrect_answers": p0.field_maybe_none("incorrect_answers"),
+#             "is_excluded": p0.field_maybe_none("is_excluded"),
+#             "random_payoff_part": p0.field_maybe_none("random_payoff_part"),
+#             "delegate_decision_optional_final": p0.field_maybe_none("delegate_decision_optional_final"),
+#         }
+
+#         # comprehension answers
+#         for i in range(1, 11):
+#             row[f"q{i}"] = p0.field_maybe_none(f"q{i}")
+
+#         # =========================
+#         # PART 1 — mandatory delegation (rounds 1–10)
+#         # =========================
+#         for i in range(1, 11):
+#             row[f"agent_mandatory_{i}"] = (
+#                 rounds[i - 1]
+#                 .field_maybe_none(f"agent_decision_mandatory_delegation_round_{i}")
+#             )
+
+#         # =========================
+#         # PART 2 — human decisions (rounds 11–20)
+#         # =========================
+#         for i in range(1, 11):
+#             row[f"human_{i}"] = (
+#                 rounds[10 + i - 1]
+#                 .field_maybe_none(f"human_decision_no_delegation_round_{i}")
+#             )
+
+#         # =========================
+#         # PART 3 — optional delegation (rounds 21–30)
+#         # =========================
+#         row["delegate_decision_optional"] = (
+#             rounds[20].field_maybe_none("delegate_decision_optional")
+#         )
+
+#         for i in range(1, 11):
+#             row[f"agent_optional_{i}"] = (
+#                 rounds[20 + i - 1]
+#                 .field_maybe_none(f"decision_optional_delegation_round_{i}")
+#             )
+
+#         # =========================
+#         # GUESSING (stored on round 30)
+#         # =========================
+#         guess_payoff = 0
+#         for i in range(1, 11):
+#             row[f"guess_{i}"] = rounds[-1].field_maybe_none(f"guess_round_{i}")
+#             guess_payoff += rounds[20 + i - 1].field_maybe_none("guess_payoff") or 0
+
+#         row["guess_payoff_total"] = guess_payoff
+
+#         # =========================
+#         # YIELD FINAL ROW
+#         # =========================
+#         yield [row[h] for h in row]
 
 
 def custom_export_debug(players):

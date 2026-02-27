@@ -6,7 +6,7 @@ SESSION_CONFIGS = [
         display_name="Rule Based Delegation First",
         app_sequence=['prisoners_dilemma'],  # This links to your app folder
         num_demo_participants=10,  # Adjust as needed
-        use_browser_bots=False,
+        use_browser_bots=True,
     ),
 ]
 

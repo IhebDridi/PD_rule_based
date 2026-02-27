@@ -4,7 +4,7 @@ from collections import defaultdict
 
 class Constants(BaseConstants):
     name_in_url = 'prisoners_dilemma'
-    players_per_group = 2
+    players_per_group = 10
     num_rounds = 30
     rounds_per_part = 10
 

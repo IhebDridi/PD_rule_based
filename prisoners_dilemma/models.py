@@ -4,17 +4,17 @@ from collections import defaultdict
 
 class Constants(BaseConstants):
     name_in_url = 'prisoners_dilemma'
-    players_per_group = 10
+    players_per_group = 2
     num_rounds = 30
     rounds_per_part = 10
 
     matching_group_size = 10
 
     PD_PAYOFFS = {
-        ('A', 'A'): (30, 30),
-        ('A', 'B'): (0, 50),
-        ('B', 'A'): (50, 0),
-        ('B', 'B'): (10, 10),
+        ('A', 'A'): (70, 70),
+        ('A', 'B'): (0, 100),
+        ('B', 'A'): (100, 0),
+        ('B', 'B'): (30, 30),
     }
 
     @staticmethod

@@ -4,10 +4,9 @@
 {% block title %}Please wait{% endblock %}
 
 {% block content %}
-    <p>Participants join gradually. As soon as <strong>{{ batch_size }} participants</strong> are ready, your group will start (you will not wait for the whole session).</p>
-    <p class="progress-box"><strong>{{ n_waiting }} / {{ batch_size }} participants</strong> are currently waiting to start.</p>
+    <p>Participants join gradually. As soon as enough participants are ready, your group will start (you will not wait for the whole session).</p>
     {% if stale_release_available %}
-        <p class="text-muted">If no new participant joins for <strong>{{ stale_timeout_minutes }} minutes</strong>, your group will start with the current {{ n_waiting }} participants.</p>
+        <p class="text-muted">If no new participant joins for a short while, your group will start with the current participants.</p>
     {% endif %}
     <p class="text-muted small">This page will refresh automatically to check.</p>
 {% endblock %}

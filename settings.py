@@ -6,14 +6,14 @@ SESSION_CONFIGS = [
         display_name="Rule Based Delegation First",
         app_sequence=['prisoners_dilemma'],
         num_demo_participants=10,
-        use_browser_bots=True,
+        use_browser_bots=False,
     ),
     dict(
         name='prisoners_dilemma_100',
         display_name="Rule Based Delegation First (100 participants test)",
         app_sequence=['prisoners_dilemma'],
         num_demo_participants=100,
-        use_browser_bots=True,
+        use_browser_bots=False,
     ),
 ]
 

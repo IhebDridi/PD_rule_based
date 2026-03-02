@@ -3,7 +3,7 @@
 {% block content %}
 <div class="modern-container">
     <h1 class="main-title">Instructions</h1>
-    <h2>Welcome to this Experiment</h2>
+    <h2>Welcome to the Experiment!</h2>
         <p class="intro-text">
         Thank you for participating. 
         Please read these instructions carefully. 
@@ -16,9 +16,9 @@
         <div class="content-box">
             <p>The experiment consists of four parts:</p>
             <ul>
-                <li><strong>Part 1: </strong>10 rounds of an interactive task where you make all the decisions yourself in each round.</li>
-                <li><strong>Part 2: </strong>10 rounds of an interactive task where you delegate all decisions to an artificial delegate. Before the task begins, you will provide instructions for the delegate to follow.</li>
-                <li><strong>Part 3: </strong>10 rounds of an interactive task where you decide before the part begins whether to delegate all decisions to the artificial delegate (as in Part 2) or make all decisions yourself (as in Part 1).</li>
+                <li><strong>Part {{ part_no_delegation }}: </strong>10 rounds of an interactive task where you make all the decisions yourself in each round.</li>
+                <li><strong>Part {{ part_delegation }}: </strong>10 rounds of an interactive task where you delegate all decisions to an artificial delegate. Before the task begins, you will provide instructions for the delegate to follow.</li>
+                <li><strong>Part 3: </strong>10 rounds of an interactive task where you decide before the part begins whether to delegate all decisions to the artificial delegate (as in Part {{ part_delegation }}) or make all decisions yourself (as in Part {{ part_no_delegation }}).</li>
                 <li><strong>Part 4: </strong>A guessing game (non-interactive), where you can earn up to $1 extra based on your answers.</li>
 
                 
@@ -32,7 +32,9 @@
 
     <div class="content-section">
         <h2>How the Interactive Tasks Work (Parts 1–3)</h2>
-        <p>In each round, you and another participant will make decisions simultaneously. Your earnings depend on both your choice and the other participant's choice.</p>
+        <p>In each round, you and another participant will make decisions simultaneously. Your earnings depend on both your choice and the other participant's choice. The numbers in the table below indicate how much you and your co-player earn depending on the options you choose, specifically each pair between brackets represents <strong>[your earnings, other participant's earnings]</strong>, and these are the result of <strong>you choosing the Option on the left column of that bracket pair and your opponent choosing the Option on top</strong>. These earnings appear in Experimental Coins (Ecoins), but they will be exchanged for dollars at a rate of <strong>10 Ecoins = 1 cent</strong>.</p>
+        <p><strong>Your answers will remain anonymous to your co-players throughout this experiment.</strong></p>
+        <p>After each part, you will see your cumulative earnings from that part in Ecoins.</p>
         <table class="styled-table">
             <thead>
                 <tr>
@@ -54,15 +56,10 @@
                 </tr>
             </tbody>
         </table>
-        <div class="content-box">
+                <div class="content-box">
+            <p><strong>Important:</strong></p>
             <ul>
-                
-                <li>The numbers in the table represent <strong>[your earnings, other participant’s earnings].</strong></li>
-                <li><strong>Exchange rate</strong>: 10 Ecoins = 1 cent.</li>
-                <p>Important:</p>
-                <li><strong>Your answers will remain anonymous to your co-players throughout this experiment.</strong></li>
-                <li>After each part, you will see your cumulative earnings from that part in Ecoins.</li>
-                <li><strong>One part (10 rounds) will be randomly selected </strong>at the end to determine your bonus payment for the interactive tasks.</li>
+                <li><strong>One part (10 rounds) will be randomly selected</strong> at the end to determine your bonus payment for the interactive tasks.</li>
                 <li>In each round, you can earn up to 100 Ecoins (10 cents). Since one part (10 rounds) will be selected for payment, you can earn up to <strong>$1</strong> from the interactive tasks.</li>
             </ul>
         </div>
@@ -101,7 +98,7 @@
     </div>
 
     <div class="content-section">
-        <p><strong>Ready?</strong> Click <strong>"Continue"</strong> to start.</p>
+        <p><strong>Ready?</strong> Click <strong>"Continue"</strong> to start the Comprehension test.</p>
     </div>
 
     <form method="post" class="form-container">

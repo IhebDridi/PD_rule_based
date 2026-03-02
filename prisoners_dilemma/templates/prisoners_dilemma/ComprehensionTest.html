@@ -40,7 +40,7 @@
             <label class="question-label">3. In reference to the interactive tasks, in which part(s) will you make all decisions yourself?</label>
             <div class="option"><input type="radio" name="q3" value="a" id="q3_a"><label for="q3_a"> A) Part 1 only</label></div>
             <div class="option"><input type="radio" name="q3" value="b" id="q3_b"><label for="q3_b"> B) Part 2 only</label></div>
-            <div class="option"><input type="radio" name="q3" value="c" id="q3_c"><label for="q3_c"> C) Part X and Part 3 (if you choose not to delegate)</label></div>
+            <div class="option"><input type="radio" name="q3" value="c" id="q3_c"><label for="q3_c"> C) Part {{ part_no_delegation }} and Part 3 (if you choose not to delegate)</label></div>
             <div class="option"><input type="radio" name="q3" value="d" id="q3_d"><label for="q3_d"> D) Part 3 only</label></div>
         </div>
         <hr class="divider">
@@ -50,7 +50,7 @@
             <label class="question-label">4. In reference to the interactive tasks, in which part(s) will you delegate all decisions to an artificial delegate?</label>
             <div class="option"><input type="radio" name="q4" value="a" id="q4_a"><label for="q4_a"> A) Part 1 only</label></div>
             <div class="option"><input type="radio" name="q4" value="b" id="q4_b"><label for="q4_b"> B) Part 2 only</label></div>
-            <div class="option"><input type="radio" name="q4" value="c" id="q4_c"><label for="q4_c"> C) Part Y and Part 3 (if you choose to delegate)</label></div>
+            <div class="option"><input type="radio" name="q4" value="c" id="q4_c"><label for="q4_c"> C) Part {{ part_delegation }} and Part 3 (if you choose to delegate)</label></div>
             <div class="option"><input type="radio" name="q4" value="d" id="q4_d"><label for="q4_d"> D) Part 4 only</label></div>
         </div>
         <hr class="divider">
@@ -126,16 +126,16 @@
         <h2>Experiment Structure</h2>
             <p>The experiment consists of four parts:</p>
             <ul>
-                <li><strong>Part 1: </strong>10 rounds of an interactive task where you make all the decisions yourself in each round.</li>
-                <li><strong>Part 2: </strong>10 rounds of an interactive task where you delegate all decisions to an artificial delegate. Before the task begins, you will provide instructions for the delegate to follow.</li>
-                <li><strong>Part 3: </strong>10 rounds of an interactive task where you decide before the part begins whether to delegate all decisions to the artificial delegate (as in Part 2) or make all decisions yourself (as in Part 1).</li>
+                <li><strong>Part {{ part_no_delegation }}: </strong>10 rounds of an interactive task where you make all the decisions yourself in each round.</li>
+                <li><strong>Part {{ part_delegation }}: </strong>10 rounds of an interactive task where you delegate all decisions to an artificial delegate. Before the task begins, you will provide instructions for the delegate to follow.</li>
+                <li><strong>Part 3: </strong>10 rounds of an interactive task where you decide before the part begins whether to delegate all decisions to the artificial delegate (as in Part {{ part_delegation }}) or make all decisions yourself (as in Part {{ part_no_delegation }}).</li>
                 <li><strong>Part 4: </strong>A guessing game (non-interactive), where you can earn up to $1 extra based on your answers.</li>
 
                 
             </ul>
             <p>
                 Between each round of the interactive tasks (Parts 1–3), you will be randomly rematched with a different participant. 
-                you will be randomly rematched with a different participant. This means you will interact with many different people <strong>not the same person throughout</strong>.
+                This means you will interact with many different people, <strong>not the same person throughout</strong>.
             </p>
 
         <h2>How the Interactive Tasks Work (Parts 1–3)</h2>

@@ -1,0 +1,44 @@
+{% extends "otree/WaitPage.html" %}
+{% load otree %}
+
+{% block title %}Please wait{% endblock %}
+
+{% block content %}
+    <p>Waiting for the other participants in your group to finish this part. The same group is used for the whole part and is not reused.</p>
+    <p><strong>{{ n_arrived }} / {{ batch_size }} participants</strong> in your group have finished.</p>
+    {% if use_timeout %}
+    <p>If not everyone arrives, the page will continue automatically after <strong>{{ timeout_seconds }} seconds</strong>.</p>
+    <p id="batch-countdown" style="font-weight: bold;"><span id="batch-seconds-left">--</span> seconds remaining.</p>
+    {% endif %}
+    <p class="text-muted small">This page will refresh automatically.</p>
+{% endblock %}
+
+{% block internal_scripts %}
+    {{ super() }}
+    <script>
+        (function() {
+            var refreshSeconds = 5;
+            setTimeout(function() { window.location.reload(); }, refreshSeconds * 1000);
+        })();
+    </script>
+    {% if use_timeout %}
+    <script>
+    (function() {
+        var start = {{ first_arrival_timestamp }};
+        var timeoutSeconds = {{ timeout_seconds }};
+        function update() {
+            var elapsed = (Date.now() / 1000) - start;
+            var remaining = Math.max(0, Math.ceil(timeoutSeconds - elapsed));
+            var el = document.getElementById('batch-seconds-left');
+            if (el) el.textContent = remaining;
+            if (remaining <= 0) {
+                window.location.reload();
+                return;
+            }
+            setTimeout(update, 200);
+        }
+        update();
+    })();
+    </script>
+    {% endif %}
+{% endblock %}

@@ -3,13 +3,17 @@
 {% block content %}
 <div class="allocation-container">
     <h1 class="main-title">
-        {% if current_part == 1 %}
-            Part Y: Set up your AI agent 1
+        {% if current_part == 1 or current_part == 2 %}
+            Part {{ part_delegation }}: Set up your AI agent
         {% elif current_part == 3 and delegate_decision == True %}
-            Part Y: Set up your AI agent 3 O
+            Part 3: Set up your AI agent
         {% endif %}
     </h1>
  
+    <div class="countdown-banner">
+        Time remaining: <span id="countdown-seconds" data-start="{{ countdown_seconds }}">90</span> seconds
+    </div>
+
     <p class="intro-text">
         Fill in the table below to specify how your AI agent should make decisions in each of the 10 rounds of play. You can only choose between Option A and Option B. The Table of Earnings in Ecoins is shown below again for your information.
     </p>
@@ -29,11 +33,11 @@
                     <td>{{ i }}</td>
                     <td>
                             <label class="choice-option">
-                                <input type="radio" name="{{ i }}" value="A" required>
+                                <input type="radio" name="agent_decision_mandatory_delegation_round_{{ i }}" value="A" required>
                                 A
                             </label>
                             <label class="choice-option">
-                                <input type="radio" name="{{ i }}" value="B" required>
+                                <input type="radio" name="agent_decision_mandatory_delegation_round_{{ i }}" value="B" required>
                                 B
                             </label>
                     </td>
@@ -75,6 +79,23 @@
     function Sleep(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
     }
+
+    (function startCountdown() {
+        var el = document.getElementById('countdown-seconds');
+        if (!el) { return; }
+        var startAttr = el.getAttribute('data-start');
+        var remaining = parseInt(startAttr || el.textContent || '90', 10);
+        if (isNaN(remaining) || remaining < 0) { remaining = 90; }
+        function render() {
+            if (remaining < 0) { remaining = 0; }
+            el.textContent = remaining;
+        }
+        render();
+        setInterval(function() {
+            remaining -= 1;
+            render();
+        }, 1000);
+    })();
 
     function sendAllocations() {
         let allocationData = {};
@@ -159,6 +180,17 @@ body {
 
 .styled-table tbody tr:hover {
     background-color: #f1f1f1;
+}
+
+.countdown-banner {
+    margin: 10px auto 20px auto;
+    padding: 8px 12px;
+    max-width: 300px;
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+    border-radius: 6px;
+    color: #856404;
+    font-weight: 500;
 }
 
 /* Input Styling */

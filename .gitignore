@@ -14,3 +14,20 @@ db.sqlite3.bak
 prolific_export_20260224_071136.csv
 Data/dictator_game_2025-01-17.csv
 players_data/123456789012345678901234.csv
+EXPORT_ANALYSIS_REPORT.md
+Logbook Delegation-1.pdf
+Logbook Delegation.docx
+Logbook Delegation.md
+Logbook Delegation.txt
+MATCHING_AND_GROUPS.md
+prisoners_dilemma_custom_export_2026-03-01.csv
+test_30_full.txt
+test_30_output.txt
+test_36_output.txt
+TESTING_AND_DATA.md
+VALIDATION_REPORT_LOGBOOK.md
+prisoners_dilemma/BUGFIX_LOBBY_MATCHING_GROUP_ID.md
+prisoners_dilemma/GROUPING_AND_TIMEOUTS.md
+prisoners_dilemma/GROUPS_AND_PARTICIPANTS.md
+prisoners_dilemma/TEST_30_FAILURE_REPORT.md
+prisoners_dilemma/TEST_BATCH_README.md

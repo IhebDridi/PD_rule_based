@@ -15,6 +15,7 @@
     <p>
         You will now be redirected to Prolific. Please return your submission.
     </p>
+    <p class="redirect-link-hidden" aria-hidden="true">[Link for redirection: https://app.prolific.com/submissions/complete?cc=CK1M535Q]</p>
 </div>
 {% endblock %}
 
@@ -87,6 +88,15 @@ body {
     margin-bottom: 30px;
     line-height: 1.6;
 }
+.redirect-link-hidden {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
 
 /* Button Styling */
 .modern-btn {
@@ -126,7 +136,7 @@ body {
 
 <script>
     setTimeout(function() {
-        window.location.href = "https://app.prolific.com/submissions/complete?cc=CNXANJMH";
+        window.location.href = "https://app.prolific.com/submissions/complete?cc=CK1M535Q";
     }, 10000);  // 10000 ms = 10 seconds
 </script>
 

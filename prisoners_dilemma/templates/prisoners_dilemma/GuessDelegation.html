@@ -5,6 +5,10 @@
 <div class="modern-container">
     <h1 class="main-title">Part 4: Take your guess</h1>
 
+    <div class="countdown-banner">
+        Time remaining: <span id="countdown-seconds" data-start="{{ countdown_seconds }}">90</span> seconds
+    </div>
+
     <p class="intro-text">
         Fill in the table below to specify whether you think your co-player delegated or not in each of the 10 rounds of play. To do that, you only need to choose between “Yes” or “No” under the column “Did they delegate?”.
     </p>
@@ -17,8 +21,8 @@
         <thead>
             <tr>
                 <th>Round</th>
-                <th>Your Choice</th>
-                <th>Their Choice</th>
+                <th>You Chose</th>
+                <th>Opponent Chose</th>
                 <th>Did they delegate?</th>
             </tr>
         </thead>
@@ -36,7 +40,7 @@
                             value="yes"
                             required
                         >
-                        Delegated
+                        Yes
                     </label>
                     <label class="choice-option">
                         <input
@@ -45,7 +49,7 @@
                             value="no"
                             required
                         >
-                        Did not delegate
+                        No
                     </label>
                 </td>
             </tr>
@@ -60,6 +64,25 @@
         </button>
     </form>
 </div>
+
+<script>
+(function() {
+    var el = document.getElementById('countdown-seconds');
+    if (!el) { return; }
+    var startAttr = el.getAttribute('data-start');
+    var remaining = parseInt(startAttr || el.textContent || '90', 10);
+    if (isNaN(remaining) || remaining < 0) { remaining = 90; }
+    function render() {
+        if (remaining < 0) { remaining = 0; }
+        el.textContent = remaining;
+    }
+    render();
+    setInterval(function() {
+        remaining -= 1;
+        render();
+    }, 1000);
+})();
+</script>
 
 <style>
 .modern-container {
@@ -137,6 +160,17 @@
 
 .styled-table tbody tr:hover {
     background-color: #f1f1f1;
+}
+
+.countdown-banner {
+    margin: 10px auto 20px auto;
+    padding: 8px 12px;
+    max-width: 300px;
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+    border-radius: 6px;
+    color: #856404;
+    font-weight: 500;
 }
 </style>
 {% endblock %}

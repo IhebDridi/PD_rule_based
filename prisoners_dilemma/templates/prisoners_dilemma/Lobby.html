@@ -1,0 +1,29 @@
+{% extends "otree/WaitPage.html" %}
+{% load otree %}
+
+{% block title %}Please wait{% endblock %}
+
+{% block content %}
+    <p>Participants join gradually. As soon as <strong>{{ batch_size }} participants</strong> are ready, your group will start (you will not wait for the whole session).</p>
+    <p class="progress-box"><strong>{{ n_waiting }} / {{ batch_size }} participants</strong> are currently waiting to start.</p>
+    {% if stale_release_available %}
+        <p class="text-muted">If no new participant joins for <strong>{{ stale_timeout_minutes }} minutes</strong>, your group will start with the current {{ n_waiting }} participants.</p>
+    {% endif %}
+    <p class="text-muted small">This page will refresh automatically to check.</p>
+{% endblock %}
+
+{% block internal_scripts %}
+    {{ super() }}
+    {# Refresh often so all 10 see redirect soon after batch is formed; faster when close to full. #}
+    <script>
+        (function() {
+            var refreshSeconds = {{ refresh_seconds }};
+            setTimeout(function() { window.location.reload(); }, refreshSeconds * 1000);
+        })();
+    </script>
+    {% if stale_release_available and stale_timeout_seconds %}
+    <script>
+        setTimeout(function() { window.location.reload(); }, {{ stale_timeout_seconds }} * 1000 + 500);
+    </script>
+    {% endif %}
+{% endblock %}

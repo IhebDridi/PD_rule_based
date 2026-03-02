@@ -4,70 +4,75 @@
 <div class="modern-decision-container">
 
 
-    <h1 class="main-title">Decision: Round {{ round_number }} of Part X</h1>
+    <h1 class="main-title">Decision: Round {{ round_number }} of Part {{ current_part }}</h1>
 
-
-
-    
-    
-        <p class="intro-text">
-     
+    <div class="countdown-banner">
+        Time remaining: <span id="countdown-seconds" data-start="{{ countdown_seconds }}">90</span> seconds
+    </div>
 
     
-        <form method="post" class="decision-form">
-            <label class="allocation-label">
-                <strong>What option do you want to choose: A or B?</strong>
+    
+    <p class="intro-text"><strong>What option do you want to choose: A or B?</strong></p>
+    <form method="post" class="decision-form">
+        <div class="choice-container">
+            <label class="choice-option">
+                <input type="radio" name="choice" value="A" required>
+                A
             </label>
-        <table class="styled-table">
-            <thead>
-                <tr>
-                    <th>Your Choice \ Other’s Choice</th>
-                    <th>Option A</th>
-                    <th>Option B</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Option A</td>
-                    <td>[70, 70]</td>
-                    <td>[0, 100]</td>
-                </tr>
-                <tr>
-                    <td>Option B</td>
-                    <td>[100, 0]</td>
-                    <td>[30, 30]</td>
-                </tr>
-            </tbody>
-        </table>
+            <label class="choice-option">
+                <input type="radio" name="choice" value="B" required>
+                B
+            </label>
+        </div>
+        <button type="submit" class="modern-btn">Confirm</button>
+        <div class="small-instructions">
+            <p class="table-caption">For your convenience, we share the table of earnings again below:</p>
+            <table class="styled-table">
+                <thead>
+                    <tr>
+                        <th>Your Choice \ Other’s Choice</th>
+                        <th>Option A</th>
+                        <th>Option B</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Option A</td>
+                        <td>[70, 70]</td>
+                        <td>[0, 100]</td>
+                    </tr>
+                    <tr>
+                        <td>Option B</td>
+                        <td>[100, 0]</td>
+                        <td>[30, 30]</td>
+                    </tr>
+                </tbody>
+            </table>
+            </form>
+        </div>
 
-            <div class="choice-container">
-                <label class="choice-option">
-                    <input type="radio" name="choice" value="A" required>
-                    A
-                </label>
-
-                <label class="choice-option">
-                    <input type="radio" name="choice" value="B" required>
-                    B
-                </label>
-            </div>
-
-
-            <p class="ai-note">
-                The AI agent made this decision based on your instructions.
-            </p>
-    
-            <button type="submit" class="modern-btn">
-                continue
-            </button>
-        </form>
     
     </div>
-    
-    
-    
-    
-    
+
+    <script>
+    (function() {
+        var el = document.getElementById('countdown-seconds');
+        if (!el) { return; }
+        var startAttr = el.getAttribute('data-start');
+        var remaining = parseInt(startAttr || el.textContent || '90', 10);
+        if (isNaN(remaining) || remaining < 0) { remaining = 90; }
+        function render() {
+            if (remaining < 0) { remaining = 0; }
+            el.textContent = remaining;
+        }
+        render();
+        setInterval(function() {
+            remaining -= 1;
+            render();
+        }, 1000);
+    })();
+    </script>
+
     <style>
 
     /*new*/
@@ -150,6 +155,13 @@
         padding-bottom: 10px;
     }
     
+    .table-caption {
+        font-size: 14px;
+        color: #555;
+        margin-bottom: 10px;
+        text-align: center;
+    }
+
     /* Text Styling */
     .intro-text, .warning-text {
         font-size: 16px;
@@ -274,6 +286,21 @@
 
     .styled-table tbody tr:hover {
         background-color: #f1f1f1;
+    }
+    .small-instructions {
+    font-size: 13px;
+    color: #555;
+    margin-top: 40px;
+    background-color: #f4f4f4;
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    line-height: 1.5;
+    }
+    .small-instructions h3 {
+        font-size: 16px;
+        color: #333;
+        margin-bottom: 10px;
     }
     </style>
     {% endblock %}

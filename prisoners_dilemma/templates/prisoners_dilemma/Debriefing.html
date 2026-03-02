@@ -3,19 +3,10 @@
 
 {% block content %}
 <div class="modern-container">
-    <h1 class="main-title">Final Results & Bonus Calculation</h1>
+    <h1 class="main-title">Bonus Calculation</h1>
 
     <p class="summary-note">
-        One part of the experiment was randomly selected to determine your bonus payment.
-    </p>
-
-    <p class="summary-note highlight">
-        <strong>Payoff‑relevant part:</strong> Part {{ random_payoff_part }}<br>
-        <strong>Your total payoff in this part:</strong> {{ total_payoff }} points
-    </p>
-
-    <p class="summary-note">
-        Below you can review your decisions and outcomes in each part.
+        From Parts 1-3, we randomly chose Part {{ random_payoff_part }} to pay you a bonus for participating in the interactive part of this experiment. According to this, you are entitled to a bonus payment of {{ total_payoff_ecoins }} Ecoins = {{ total_payoff_cents }} cents.
     </p>
 
     <div class="tables-container">
@@ -44,7 +35,7 @@
 
             <p class="part-total">
                 <strong>Total payoff in Part {{ part }}:</strong>
-                {{ pdata.total_payoff }} points
+                {{ pdata.total_payoff }} Ecoins
             </p>
         </div>
         {% endfor %}
@@ -67,26 +58,14 @@
             <thead>
                 <tr>
                     <th>Round</th>
-                    <th>You chose</th>
-                    <th>Opponent chose</th>
-                    <th>Opponent delegated</th>
-                    <th>Your payoff</th>
+                    <th>Earnings ($)</th>
                 </tr>
             </thead>
             <tbody>
                 {% for result in guess_rounds_data %}
                 <tr>
                     <td>{{ result.round }}</td>
-                    <td><strong>{{ result.my_choice }}</strong></td>
-                    <td>{{ result.other_choice }}</td>
-                    <td>
-                        {% if result.other_delegated %}
-                            Yes
-                        {% else %}
-                            No
-                        {% endif %}
-                    </td>
-                    <td><strong>{{ result.payoff }}</strong></td>
+                    <td><strong>{{ result.payoff_dollars }}</strong></td>
                 </tr>
                 {% endfor %}
             </tbody>

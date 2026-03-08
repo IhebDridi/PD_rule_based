@@ -163,14 +163,6 @@ def _patch_runner():
                         progress_made = True
                         flush_lobby_if_ready()
                         continue
-                    if actual_page == 'InstructionsOptional':
-                        bot.submit(Submission(InstructionsOptional, None))
-                        progress_made = True
-                        continue
-                    if actual_page == 'DelegationDecision':
-                        bot.submit(Submission(DelegationDecision, {'delegate_decision_optional': random.choice([True, False])}))
-                        progress_made = True
-                        continue
                     if actual_page == 'DecisionNoDelegation' and 'Results' in msg:
                         m = re.search(r"'round_number':\s*(\d+)", msg)
                         if m and int(m.group(1)) in (10, 20, 30):
@@ -377,11 +369,9 @@ class PlayerBot(Bot):
             yield Results
 
         if rnd == 21:
-            # Yield DelegationDecision before InstructionsOptional so bot matches when participant
-            # is already on DelegationDecision (e.g. cloud/sync lag or InstructionsOptional skipped).
+            yield InstructionsOptional
             delegate = random.choice([True, False])
             yield DelegationDecision, {'delegate_decision_optional': delegate}
-            yield InstructionsOptional
             if delegate:
                 self.participant.vars['agent_programming_part3'] = {i: random.choice(['A', 'B']) for i in range(1, 11)}
                 yield AgentProgramming

@@ -502,12 +502,73 @@ class Player(BasePlayer):
 
 
 
+def _opponent_for_export(pr, r, round_data, rr_cache):
+    """Resolve opponent for export using pre-built round_data (no DB/ORM calls)."""
+    if r not in round_data:
+        return None
+    gid = getattr(pr, "group_id", None)
+    if gid is None and getattr(pr, "group", None) is not None:
+        gid = getattr(pr.group, "id", None)
+    if gid is None:
+        return None
+    sorted_players = round_data[r].get(gid)
+    if not sorted_players:
+        return None
+    N = len(sorted_players)
+    if N <= 1:
+        return None
+    try:
+        my_pos = pr.participant.vars.get("matching_group_position", 1)
+        my_idx = int(my_pos) - 1
+        if my_idx < 0 or my_idx >= N:
+            return None
+    except (TypeError, ValueError):
+        return None
+    if N == 2:
+        me_idx = next((i for i, p in enumerate(sorted_players) if p.id == pr.id), None)
+        if me_idx is None:
+            return None
+        return sorted_players[1 - me_idx]
+    part = Constants.get_part(r)
+    part_start = (part - 1) * Constants.rounds_per_part + 1
+    round_in_part = r - part_start
+    if round_in_part < 0 or round_in_part >= Constants.rounds_per_part:
+        return None
+    if N not in rr_cache:
+        rr_cache[N] = compute_round_robin_assignments(N, Constants.rounds_per_part)
+    assignments = rr_cache[N]
+    if round_in_part >= len(assignments[my_idx]):
+        return None
+    opp_idx, _ = assignments[my_idx][round_in_part]
+    if opp_idx is None or opp_idx < 0 or opp_idx >= N:
+        return None
+    return sorted_players[opp_idx]
+
+
 def custom_export(players):
     from collections import defaultdict
 
     by_participant = defaultdict(list)
+    by_round = defaultdict(list)
     for p in players:
         by_participant[p.participant.code].append(p)
+        by_round[p.round_number].append(p)
+
+    # Prebuild round_data[r] = { group_id: sorted_players } to avoid per-row DB calls
+    round_data = {}
+    for r in range(1, Constants.num_rounds + 1):
+        if r not in by_round:
+            continue
+        by_group = defaultdict(list)
+        for p in by_round[r]:
+            gid = getattr(p, "group_id", None) or (getattr(p.group, "id", None) if getattr(p, "group", None) else None)
+            if gid is not None:
+                by_group[gid].append(p)
+        round_data[r] = {
+            gid: sorted(plist, key=lambda p: p.participant.vars.get("matching_group_position", 0))
+            for gid, plist in by_group.items()
+        }
+    rr_cache = {}
 
     header = [
         "Condition", "ProlificID", "Session", "Group", "PlayerID", "IsSimulated",
@@ -543,8 +604,7 @@ def custom_export(players):
             row["Group"] = pvars(p0, "matching_group_id")
             row["PlayerID"] = pvars(p0, "matching_group_position")
             row["IsSimulated"] = 1 if pvars(p0, "is_simulated") else 0
-            # Exit questionnaire and random_payoff_part are set at round 30; use last-round player
-            p_last = p0.in_round(Constants.num_rounds)
+            p_last = rounds[-1] if rounds else p0
             row["Gender"] = fld(p_last, "gender")
             row["Age"] = fld(p_last, "age")
             row["Occupation"] = fld(p_last, "occupation")
@@ -559,7 +619,7 @@ def custom_export(players):
             part_totals = [0, 0, 0]
             for pr in rounds:
                 r = pr.round_number
-                other = get_opponent_in_round(pr, r)
+                other = _opponent_for_export(pr, r, round_data, rr_cache)
                 row[f"Round{r}Decision"] = fld(pr, "choice") if fld(pr, "choice") is not None else ""
                 row[f"Round{r}Ecoins"] = pr.payoff
                 if other:
@@ -587,8 +647,10 @@ def custom_export(players):
             n_rounds = len(rounds)
             for i in range(1, 11):
                 idx = 19 + i
-                pr = rounds[idx] if idx < n_rounds else p0.in_round(20 + i)
-                other = get_opponent_in_round(pr, 20 + i)
+                pr = rounds[idx] if idx < n_rounds else None
+                if pr is None:
+                    continue
+                other = _opponent_for_export(pr, 20 + i, round_data, rr_cache)
                 row[f"Guess{i}"] = 1 if fld(pr, "guess_opponent_delegated") == "yes" else 0
                 row[f"TruthGuess{i}"] = 1 if (other and fld(other, "delegate_decision_optional")) else 0
                 row[f"EarningsGuess{i}"] = fld(pr, "guess_payoff") or 0

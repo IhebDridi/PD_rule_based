@@ -200,7 +200,7 @@ class Group(BaseGroup):
             players[0].payoff = cu(0)
             return
         if len(players) >= 3:
-            # Batch group: one group of N; payoffs from round-robin opponent per round
+            # Batch group (released from lobby, 3+). Opponent per round from round-robin (get_opponent_in_round).
             rnd = self.round_number
             for p in players:
                 opp = get_opponent_in_round(p, rnd)
@@ -218,7 +218,8 @@ class Group(BaseGroup):
                 else:
                     p.payoff = cu(0)
             return
-        # N == 2: ensure stable order by id_in_group so payoff1 -> id_in_group 1, payoff2 -> 2 (avoids swap if get_players() order differs)
+        # N == 2: only for paired "others" (not in a released batch). run_payoffs_for_matching_group never runs for these.
+        # Ensure stable order by id_in_group so payoff1 -> id_in_group 1, payoff2 -> 2.
         by_id = sorted(players, key=lambda x: x.id_in_group)
         p1, p2 = by_id[0], by_id[1]
         c1 = p1.field_maybe_none("choice")

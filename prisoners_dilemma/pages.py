@@ -705,13 +705,17 @@ class Lobby(WaitPage):
             if not self.session.vars.get(lock_key):
                 self.session.vars[lock_key] = True
                 try:
-                    batch_ids = list(lobby)
+                    # Snapshot lobby inside lock so we release exactly who is in it now (avoids batch growing as more join in parallel).
+                    batch_ids = list(self.session.vars.get(lobby_key, []))
+                    if len(batch_ids) < min_players:
+                        batch_ids = []
                     self.session.vars[lobby_key] = []
                     self.session.vars[first_join_key] = None
                     self.session.vars[next_batch_key] = next_batch_id + 1
-                    subsession = self.subsession
-                    batch_players = [p for p in subsession.get_players() if p.participant.id_in_session in batch_ids]
-                    release_lobby_batch(subsession, batch_players, batch_id=next_batch_id, part=part)
+                    if batch_ids:
+                        subsession = self.subsession
+                        batch_players = [p for p in subsession.get_players() if p.participant.id_in_session in batch_ids]
+                        release_lobby_batch(subsession, batch_players, batch_id=next_batch_id, part=part)
                 finally:
                     self.session.vars[lock_key] = False
         elif elapsed >= timeout_sec and n_waiting < min_players:

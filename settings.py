@@ -1,5 +1,19 @@
 from os import environ
 
+# Enable SQLite WAL (Write-Ahead Logging) for faster writes when using SQLite locally.
+# WAL does not apply to PostgreSQL (e.g. on Clever Cloud).
+def _enable_sqlite_wal(sender, connection, **kwargs):
+    if connection.vendor == 'sqlite3':
+        cursor = connection.cursor()
+        cursor.execute('PRAGMA journal_mode=WAL')
+        cursor.execute('PRAGMA synchronous=NORMAL')  # faster than FULL, still safe
+
+try:
+    from django.db.backends.signals import connection_created
+    connection_created.connect(_enable_sqlite_wal)
+except Exception:
+    pass
+
 SESSION_CONFIGS = [
     dict(
         name='prisoners_dilemma_bots',

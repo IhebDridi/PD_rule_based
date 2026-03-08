@@ -268,8 +268,8 @@ class BatchWaitForGroup(WaitPage):
             if not self.session.vars.get(applied_key):
                 # Claim immediately so only one request runs payoffs (avoid race with concurrent arrivals).
                 self.session.vars[applied_key] = True
-                # Delay so in-flight choice writes from other participants can commit (important with many participants).
-                time.sleep(2)
+                # Brief delay so in-flight choice writes from other participants can commit.
+                time.sleep(0.5)
                 run_payoffs_for_matching_group(self.subsession, gid)
             return self._response_when_ready()
         return self._get_wait_page()

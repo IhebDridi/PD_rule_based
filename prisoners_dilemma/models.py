@@ -4,15 +4,16 @@ from collections import defaultdict
 
 class Constants(BaseConstants):
     name_in_url = 'prisoners_dilemma'
-    players_per_group = 2
+    # None = one group of everyone at creation; real groups form only when lobby releases a batch (set_group_matrix_for_released_batch).
+    players_per_group = None
     num_rounds = 30
     rounds_per_part = 10
 
-    # Lobby: min players to start a part (round-robin matching). Wait 5 min (part 1) or 2 min (part 2/3); if ≥ MIN_PLAYERS_TO_START release and match; if < after timeout show wait-or-quit.
+    # Lobby: min players to start (round-robin). Release as soon as ≥ MIN_PLAYERS_TO_START and min_wait passed (fixed times, not session size).
     MIN_PLAYERS_TO_START = 3
-    LOBBY_MIN_WAIT_SECONDS = 2  # Wait at least this long before forming a group (so late joiners are included)
-    LOBBY_WAIT_SECONDS_PART1 = 300   # 5 minutes for part 1
-    LOBBY_WAIT_SECONDS_PART2_3 = 120 # 2 minutes for parts 2 and 3
+    LOBBY_MIN_WAIT_SECONDS = 1   # Minimum wait before forming a group (so first arrivers don’t leave before others join)
+    LOBBY_WAIT_SECONDS_PART1 = 120   # Part 1: show wait-or-quit after this many seconds if still < 3 (e.g. 2 min)
+    LOBBY_WAIT_SECONDS_PART2_3 = 60  # Parts 2–3: show wait-or-quit after this many seconds if still < 3 (e.g. 1 min)
     # Prolific return link when participant quits before matching (e.g. $1 compensation)
     PROLIFIC_RETURN_URL = 'https://app.prolific.com/submissions/complete?cc=CL4BO4RB'
 
@@ -82,10 +83,15 @@ def compute_round_robin_assignments(N_players, N_rounds=10):
     return result
 
 
-def _batch_group_sorted_players(round_ss, batch_id_in_subsession):
-    """Return players in this round that belong to the batch, sorted by matching_group_position (1-based)."""
-    players = [p for p in round_ss.get_players() if p.id_in_subsession in batch_id_in_subsession]
-    return sorted(players, key=lambda p: p.participant.vars.get('matching_group_position', 0))
+# Unused: was for batch lookup by id_in_subsession; grouping now uses set_group_matrix_for_released_batch only.
+# def _batch_group_sorted_players(round_ss, batch_id_in_subsession):
+#     """Return players in this round that belong to the batch, sorted by matching_group_position (1-based)."""
+#     players = [p for p in round_ss.get_players() if p.id_in_subsession in batch_id_in_subsession]
+#     return sorted(players, key=lambda p: p.participant.vars.get('matching_group_position', 0))
+
+
+# Cache round-robin assignments by group size to avoid recomputing for every player in the same group.
+_ROUND_ROBIN_CACHE = {}
 
 
 def get_opponent_in_round(player, round_number):
@@ -112,7 +118,9 @@ def get_opponent_in_round(player, round_number):
     round_in_part = round_number - part_start
     if round_in_part < 0 or round_in_part >= Constants.rounds_per_part:
         return None
-    assignments = compute_round_robin_assignments(N, Constants.rounds_per_part)
+    if N not in _ROUND_ROBIN_CACHE:
+        _ROUND_ROBIN_CACHE[N] = compute_round_robin_assignments(N, Constants.rounds_per_part)
+    assignments = _ROUND_ROBIN_CACHE[N]
     if round_in_part >= len(assignments[my_idx]):
         return None
     opp_idx, _ = assignments[my_idx][round_in_part]
@@ -123,10 +131,9 @@ def get_opponent_in_round(player, round_number):
 
 def set_group_matrix_for_released_batch(subsession, batch_players, part):
     """
-    Set group matrix for the released batch. Lobby only releases when everyone in the session is in the lobby,
-    so batch_players is the whole session (one group of N, N >= 3). Any remaining "others" (matching_group_id < 0)
-    get a group of 1 each so the matrix is valid; with the current lobby policy there should be no others.
-    oTree requires every player in the matrix exactly once.
+    Set group matrix for the released batch. One group per released batch (3+ players), and one group
+    for all "others" (matching_group_id < 0), so we only create 2–3 groups per round instead of hundreds.
+    That keeps lobby release fast with large sessions. Others get payoff 0 in set_payoffs.
     """
     part_start_round = (part - 1) * Constants.rounds_per_part + 1
     part_end_round = part * Constants.rounds_per_part
@@ -140,19 +147,16 @@ def set_group_matrix_for_released_batch(subsession, batch_players, part):
             if gid is None:
                 gid = -1
             by_gid[gid].append(p)
-        others = [p for gid in sorted(by_gid.keys()) if gid < 0 for p in by_gid[gid]]
-        random.shuffle(others)
+        others = [p for gid, plist in by_gid.items() if gid < 0 for p in plist]
         groups = []
-        # One group per released batch (exactly those who were released; no merge).
         for gid in sorted(by_gid.keys()):
             if gid < 0:
                 continue
             batch_list = sorted(by_gid[gid], key=lambda p: p.participant.vars.get("matching_group_position", 0))
             groups.append([p.id_in_subsession for p in batch_list])
-        # No groups of 2: minimum group size is 3 (batch) or 1 (leftover). Each "other" gets own group of 1 (payoff 0).
-        for p in others:
-            groups.append([p.id_in_subsession])
-        # oTree requires every player in this round in the matrix exactly once (no duplicates, no missing).
+        # Put all others in one "waiting" group (payoff 0) so we have 2 groups total, not 1 + N.
+        if others:
+            groups.append([p.id_in_subsession for p in others])
         ids_in_matrix = [sid for g in groups for sid in g]
         expected_ids = {p.id_in_subsession for p in all_players}
         if len(ids_in_matrix) != len(expected_ids) or set(ids_in_matrix) != expected_ids:
@@ -168,19 +172,10 @@ def set_group_matrix_for_released_batch(subsession, batch_players, part):
 
 class Subsession(BaseSubsession):
     def creating_session(self):
-        # Groups are assigned only when the lobby releases a batch (3+), not at session creation.
-        # Use one player per group so no one is pre-paired; set_group_matrix_for_released_batch overwrites when batches are released.
+        # Everyone starts in one group (players_per_group=None). Real groups form only when lobby releases a batch.
         if self.round_number == 1:
             for p in self.get_players():
                 p.participant.vars['matching_group_id'] = -1
-            players = list(self.get_players())
-            matrix = [[p.id_in_subsession] for p in players]
-            self.set_group_matrix(matrix)
-            return
-        if self.round_number in (11, 21):
-            players = list(self.get_players())
-            matrix = [[p.id_in_subsession] for p in players]
-            self.set_group_matrix(matrix)
 
 
 
@@ -192,25 +187,30 @@ class Group(BaseGroup):
             players[0].payoff = cu(0)
             return
         if len(players) >= 3:
-            # Batch group (released from lobby, 3+). Opponent per round from round-robin (get_opponent_in_round).
-            rnd = self.round_number
+            # Only run round-robin payoffs if everyone is in the same released batch (matching_group_id >= 0).
+            gids = [p.participant.vars.get("matching_group_id", -1) for p in players]
+            if all(g >= 0 for g in gids) and len(set(gids)) == 1:
+                rnd = self.round_number
+                for p in players:
+                    opp = get_opponent_in_round(p, rnd)
+                    if opp is None:
+                        p.payoff = cu(0)
+                        continue
+                    c1 = p.field_maybe_none("choice")
+                    c2 = opp.field_maybe_none("choice")
+                    if c1 is None or c2 is None:
+                        p.payoff = cu(0)
+                        continue
+                    pay = Constants.PD_PAYOFFS.get((c1, c2))
+                    if pay is not None:
+                        p.payoff = cu(pay[0])
+                    else:
+                        p.payoff = cu(0)
+                return
+            # "Waiting" group (others not yet released): payoff 0 for all.
             for p in players:
-                opp = get_opponent_in_round(p, rnd)
-                if opp is None:
-                    p.payoff = cu(0)
-                    continue
-                c1 = p.field_maybe_none("choice")
-                c2 = opp.field_maybe_none("choice")
-                if c1 is None or c2 is None:
-                    p.payoff = cu(0)
-                    continue
-                pay = Constants.PD_PAYOFFS.get((c1, c2))
-                if pay is not None:
-                    p.payoff = cu(pay[0])
-                else:
-                    p.payoff = cu(0)
+                p.payoff = cu(0)
             return
-        # No N == 2: groups are 3+ (batch) or 1 (leftover only). Fallback: treat as single (should not reach here).
         players[0].payoff = cu(0)
         if len(players) > 1:
             for p in players[1:]:
@@ -663,9 +663,10 @@ def custom_export(players):
 # Helper functions (lobby release, payoffs)
 # ---------------------------------------------------------------------------
 
-def get_active_players(subsession):
-    """Players released from lobby (matching_group_id >= 0)."""
-    return [p for p in subsession.get_players() if p.participant.vars.get('matching_group_id', -1) >= 0]
+# Unused: no callers; lobby uses batch_players from session.vars directly.
+# def get_active_players(subsession):
+#     """Players released from lobby (matching_group_id >= 0)."""
+#     return [p for p in subsession.get_players() if p.participant.vars.get('matching_group_id', -1) >= 0]
 
 
 def release_lobby_batch(subsession, batch_players, batch_id=0, part=1):
@@ -683,12 +684,11 @@ def release_lobby_batch(subsession, batch_players, batch_id=0, part=1):
 
 
 def run_payoffs_for_matching_group(subsession, matching_group_id):
-    """Run set_payoffs for all rounds in the current part, only for groups where all players have this matching_group_id.
-    Waits for choice data to be committed before running payoffs (important for late-arriving batches).
+    """Run set_payoffs for all rounds in the current part, only for the batch group (matching_group_id).
+    Uses one get_players() per round and groups in memory so it stays fast with large sessions.
     """
     import time as _time
-    # Extra moment so the last arriver's final round choice can commit (helps when many groups already passed).
-    _time.sleep(1)
+    _time.sleep(0.5)  # Brief moment so last arriver's choice can commit
     rnd = subsession.round_number
     current_part = Constants.get_part(rnd)
     if current_part == 1:
@@ -701,15 +701,21 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
         return
     for r in range(start, end + 1):
         round_ss = subsession.in_round(r)
-        for group in round_ss.get_groups():
-            players = group.get_players()
+        all_players = list(round_ss.get_players())
+        by_group = defaultdict(list)
+        for p in all_players:
+            by_group[p.group_id].append(p)
+        for group_id, players in by_group.items():
+            if len(players) < 3:
+                continue
             if not all(p.participant.vars.get('matching_group_id') == matching_group_id for p in players):
                 continue
-            # Give DB time so all choices for this round are visible (avoids stale reads with many participants).
-            for _ in range(6):
+            group = players[0].group
+            for _ in range(4):
                 ready = all(p.field_maybe_none('choice') is not None for p in players)
                 if ready:
                     break
-                _time.sleep(0.5)
+                _time.sleep(0.25)
             group.set_payoffs()
+            break
 

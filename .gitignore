@@ -38,3 +38,4 @@ prisoners_dilemma/PAYOFF_TRACE.md
 check_export.py
 test_payoff_20participants.py
 run_otree_test.py
+ddd.sqlite3

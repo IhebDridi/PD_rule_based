@@ -127,30 +127,12 @@ def get_opponent_in_round(player, round_number):
 
 def set_group_matrix_for_released_batch(subsession, batch_players, part):
     """
-    Build group matrix for this part: one group per released batch (matching_group_id >= 0);
-    remaining players paired. oTree requires every player in the matrix exactly once.
-    When there's an odd number of "others", merge one into the current batch (no group of 1),
-    so only participants who quit to Prolific have the intentional empty/quit pattern in export.
+    Simple logic: one group = exactly the participants who were in the lobby when released (no merging).
+    Remaining players (others) are paired; if one is left over, they form a group of 1 (payoff 0 until next part).
+    oTree requires every player in the matrix exactly once.
     """
     part_start_round = (part - 1) * Constants.rounds_per_part + 1
     part_end_round = part * Constants.rounds_per_part
-    current_batch_id = batch_players[0].participant.vars.get("matching_group_id") if batch_players else None
-
-    # When odd number of "others", merge one into current batch so matrix is complete and no group of 1
-    first_round_ss = subsession.in_round(part_start_round)
-    by_gid_first = defaultdict(list)
-    for p in first_round_ss.get_players():
-        gid = p.participant.vars.get("matching_group_id", -1)
-        if gid is None:
-            gid = -1
-        by_gid_first[gid].append(p)
-    others_first = [p for gid in sorted(by_gid_first.keys()) if gid < 0 for p in by_gid_first[gid]]
-    if len(others_first) % 2 == 1 and current_batch_id is not None:
-        merge_in = others_first[0]
-        merge_in.participant.vars["matching_group_id"] = current_batch_id
-        merge_in.participant.vars["matching_group_position"] = len(batch_players) + 1
-        can_key = "can_leave_lobby" if part == 1 else f"can_leave_lobby_part_{part}"
-        merge_in.participant.vars[can_key] = True
 
     for r in range(part_start_round, part_end_round + 1):
         round_ss = subsession.in_round(r)
@@ -164,15 +146,30 @@ def set_group_matrix_for_released_batch(subsession, batch_players, part):
         others = [p for gid in sorted(by_gid.keys()) if gid < 0 for p in by_gid[gid]]
         random.shuffle(others)
         groups = []
+        # One group per released batch (exactly those who were released; no merge).
         for gid in sorted(by_gid.keys()):
             if gid < 0:
                 continue
             batch_list = sorted(by_gid[gid], key=lambda p: p.participant.vars.get("matching_group_position", 0))
             groups.append([p.id_in_subsession for p in batch_list])
+        # Pair others; single leftover = group of 1 (set_payoffs gives them 0).
         for i in range(0, len(others), 2):
             if i + 1 < len(others):
                 groups.append([others[i].id_in_subsession, others[i + 1].id_in_subsession])
-        round_ss.set_group_matrix(groups)
+            else:
+                groups.append([others[i].id_in_subsession])
+        # oTree requires every player in this round in the matrix exactly once (no duplicates, no missing).
+        ids_in_matrix = [sid for g in groups for sid in g]
+        expected_ids = {p.id_in_subsession for p in all_players}
+        if len(ids_in_matrix) != len(expected_ids) or set(ids_in_matrix) != expected_ids:
+            continue
+        try:
+            round_ss.set_group_matrix(groups)
+        except Exception as e:
+            if "FOREIGN KEY" in str(e) or "IntegrityError" in type(e).__name__:
+                pass
+            else:
+                raise
 
 
 class Subsession(BaseSubsession):
@@ -699,7 +696,12 @@ def release_lobby_batch(subsession, batch_players, batch_id=0, part=1):
 
 
 def run_payoffs_for_matching_group(subsession, matching_group_id):
-    """Run set_payoffs for all rounds in the current part, only for groups where all players have this matching_group_id."""
+    """Run set_payoffs for all rounds in the current part, only for groups where all players have this matching_group_id.
+    Waits for choice data to be committed before running payoffs (important for late-arriving batches).
+    """
+    import time as _time
+    # Extra moment so the last arriver's final round choice can commit (helps when many groups already passed).
+    _time.sleep(1)
     rnd = subsession.round_number
     current_part = Constants.get_part(rnd)
     if current_part == 1:
@@ -716,5 +718,11 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
             players = group.get_players()
             if not all(p.participant.vars.get('matching_group_id') == matching_group_id for p in players):
                 continue
+            # Give DB time so all choices for this round are visible (avoids stale reads with many participants).
+            for _ in range(6):
+                ready = all(p.field_maybe_none('choice') is not None for p in players)
+                if ready:
+                    break
+                _time.sleep(0.5)
             group.set_payoffs()
 

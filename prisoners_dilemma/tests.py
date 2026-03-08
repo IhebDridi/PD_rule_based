@@ -369,6 +369,7 @@ class PlayerBot(Bot):
             yield Results
 
         if rnd == 21:
+            # Match page_sequence: InstructionsOptional then DelegationDecision. Runner catch-up submits the actual page when bot and participant disagree.
             yield InstructionsOptional
             delegate = random.choice([True, False])
             yield DelegationDecision, {'delegate_decision_optional': delegate}

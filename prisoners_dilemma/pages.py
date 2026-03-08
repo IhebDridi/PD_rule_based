@@ -194,8 +194,8 @@ class AgentProgramming(Page):
                     if decision:
                         decisions[i] = decision
             for i in range(1, 11):
-                decision = decisions.get(i)
-                if decision:
+                decision = decisions.get(i) or decisions.get(str(i))
+                if decision in ('A', 'B'):
                     self.player.in_round(i).choice = decision
             self.participant.vars["agent_programming_done_part1"] = True
 
@@ -212,8 +212,8 @@ class AgentProgramming(Page):
                     if decision:
                         decisions[i] = decision
             for i in range(1, 11):
-                decision = decisions.get(i)
-                if decision:
+                decision = decisions.get(i) or decisions.get(str(i))
+                if decision in ('A', 'B'):
                     self.player.in_round(10 + i).choice = decision
             self.participant.vars["agent_programming_done_part2"] = True
 
@@ -265,8 +265,11 @@ class BatchWaitForGroup(WaitPage):
                 can_proceed = False
         if can_proceed:
             if not self.session.vars.get(applied_key):
-                run_payoffs_for_matching_group(self.subsession, gid)
+                # Claim immediately so only one request runs payoffs (avoid race with concurrent arrivals).
                 self.session.vars[applied_key] = True
+                # Delay so in-flight choice writes from other participants can commit (important with many participants).
+                time.sleep(2)
+                run_payoffs_for_matching_group(self.subsession, gid)
             return self._response_when_ready()
         return self._get_wait_page()
 
@@ -305,8 +308,23 @@ class DelegationDecision(Page):
     form_model = 'player'
     form_fields = ['delegate_decision_optional']
 
+    def get(self):
+        # If URL has an invalid round (e.g. 347 when only 30 rounds exist), redirect to the valid round for this page (21).
+        rnd = self.round_number
+        if rnd > Constants.num_rounds or rnd != 21:
+            path = getattr(self.request, 'path', None) or getattr(self.request, 'path_info', '') or (getattr(self.request, 'url', None) and getattr(self.request.url, 'path', '')) or ''
+            if path and path.rstrip('/'):
+                parts = path.rstrip('/').split('/')
+                if len(parts) >= 1:
+                    parts[-1] = '21'
+                    new_url = '/'.join(parts)
+                    return RedirectResponse(url=new_url, status_code=303)
+        return super().get()
+
     def is_displayed(self):
         # show ONCE at start of Part 3 (round 21)
+        if self.round_number > Constants.num_rounds:
+            return False
         return (
             Constants.get_part(self.round_number) == 3
             and (self.round_number - 1) % Constants.rounds_per_part == 0
@@ -360,13 +378,23 @@ class Results(Page):
 
     def vars_for_template(self):
         current_part = Constants.get_part(self.round_number)
+        part_start = (current_part - 1) * Constants.rounds_per_part + 1
+        part_end = current_part * Constants.rounds_per_part
 
         player = self.player
+        # Repair: when a late-arriving batch has choices but payoffs were never run (or ran too early), recompute.
+        for r in range(part_start, part_end + 1):
+            rr = player.in_round(r)
+            other = get_opponent_in_round(player, r)
+            payoff_val = getattr(rr.payoff, 'amount', rr.payoff) if rr.payoff is not None else 0
+            if payoff_val == 0 and rr.field_maybe_none('choice') and other and other.field_maybe_none('choice'):
+                try:
+                    rr.group.set_payoffs()
+                except Exception:
+                    pass
+
         rounds_data = []
-        for r in range(
-            (current_part - 1) * Constants.rounds_per_part + 1,
-            current_part * Constants.rounds_per_part + 1
-        ):
+        for r in range(part_start, part_end + 1):
             rr = player.in_round(r)
             other = get_opponent_in_round(player, r)
             rounds_data.append({
@@ -670,15 +698,22 @@ class Lobby(WaitPage):
         elapsed = now - first_join
         min_players = Constants.MIN_PLAYERS_TO_START
         min_wait = getattr(Constants, 'LOBBY_MIN_WAIT_SECONDS', 2)
-        # Wait at least min_wait seconds, then scan lobby and form a group if enough participants
+        # Wait at least min_wait seconds, then scan lobby and form a group if enough participants.
+        # Use a session lock so only one request runs release (avoids IntegrityError from concurrent set_group_matrix).
         if n_waiting >= min_players and elapsed >= min_wait:
-            batch_ids = list(lobby)
-            self.session.vars[lobby_key] = []
-            self.session.vars[first_join_key] = None
-            self.session.vars[next_batch_key] = next_batch_id + 1
-            subsession = self.subsession
-            batch_players = [p for p in subsession.get_players() if p.participant.id_in_session in batch_ids]
-            release_lobby_batch(subsession, batch_players, batch_id=next_batch_id, part=part)
+            lock_key = f'_lobby_release_lock_part_{part}'
+            if not self.session.vars.get(lock_key):
+                self.session.vars[lock_key] = True
+                try:
+                    batch_ids = list(lobby)
+                    self.session.vars[lobby_key] = []
+                    self.session.vars[first_join_key] = None
+                    self.session.vars[next_batch_key] = next_batch_id + 1
+                    subsession = self.subsession
+                    batch_players = [p for p in subsession.get_players() if p.participant.id_in_session in batch_ids]
+                    release_lobby_batch(subsession, batch_players, batch_id=next_batch_id, part=part)
+                finally:
+                    self.session.vars[lock_key] = False
         elif elapsed >= timeout_sec and n_waiting < min_players:
             self.session.vars[wait_quit_key] = True
         can_leave = self.participant.vars.get(can_leave_key, False)

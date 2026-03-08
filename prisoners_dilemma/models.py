@@ -102,14 +102,12 @@ def get_opponent_in_round(player, round_number):
         return None
     if N == 2:
         return group_players[1] if group_players[0] == me else group_players[0]
-    # N >= 3: use round-robin; need consistent ordering by matching_group_position
-    batch_ids = {p.id_in_subsession for p in group_players}
-    sorted_players = _batch_group_sorted_players(me.subsession.in_round(round_number), batch_ids)
+    # N >= 3: use round-robin with id_in_group order (same as export / matrix order)
+    sorted_players = sorted(group_players, key=lambda p: p.id_in_group)
     if len(sorted_players) != N:
         return None
-    # Derive my_idx from position in sorted_players (by id) so we don't rely on matching_group_position being set
-    my_idx = next((i for i, p in enumerate(sorted_players) if p.id == me.id), None)
-    if my_idx is None or my_idx < 0 or my_idx >= N:
+    my_idx = me.id_in_group - 1  # 1-based id_in_group -> 0-based index
+    if my_idx < 0 or my_idx >= N:
         return None
     part = Constants.get_part(round_number)
     part_start = (part - 1) * Constants.rounds_per_part + 1

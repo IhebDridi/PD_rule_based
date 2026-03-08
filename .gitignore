@@ -36,3 +36,5 @@ FLOW_TRACE_10_PARTICIPANTS.md
 check_wide_payoffs.py
 prisoners_dilemma/PAYOFF_TRACE.md
 check_export.py
+test_payoff_20participants.py
+run_otree_test.py

@@ -72,6 +72,3 @@ Within each released group of N (N ≥ 3), opponents are determined by a round-r
 - `prisoners_dilemma/` — Main app: `models.py` (constants, grouping, payoffs, custom export), `pages.py` (flow, lobby, decisions, results), `tests.py` (bot tests).
 - `prisoners_dilemma/templates/prisoners_dilemma/` — HTML templates for each page.
 
-## License
-
-Use and adapt as required by your institution or oTree’s license terms.

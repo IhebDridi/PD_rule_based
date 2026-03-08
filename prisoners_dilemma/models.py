@@ -91,18 +91,16 @@ def _batch_group_sorted_players(round_ss, batch_id_in_subsession):
 def get_opponent_in_round(player, round_number):
     """
     For the given player in the given round, return the opponent Player (for payoff/display).
-    When group size >= 3 we use round-robin assignment; when size 2 we return the other player.
+    Groups are always 3+ (batch) or 1 (leftover); no groups of 2. Use round-robin for N >= 3.
     """
     me = player.in_round(round_number)
     group_players = list(me.group.get_players())
     N = len(group_players)
-    if N == 0:
-        return None
-    if N == 1:
+    if N == 0 or N == 1:
         return None
     if N == 2:
-        return group_players[1] if group_players[0] == me else group_players[0]
-    # N >= 3: use round-robin with id_in_group order (same as export / matrix order)
+        return None  # No groups of 2; should not occur
+    # N >= 3: round-robin with id_in_group order
     sorted_players = sorted(group_players, key=lambda p: p.id_in_group)
     if len(sorted_players) != N:
         return None
@@ -125,8 +123,9 @@ def get_opponent_in_round(player, round_number):
 
 def set_group_matrix_for_released_batch(subsession, batch_players, part):
     """
-    Simple logic: one group = exactly the participants who were in the lobby when released (no merging).
-    Remaining players (others) are paired; if one is left over, they form a group of 1 (payoff 0 until next part).
+    Set group matrix for the released batch. Lobby only releases when everyone in the session is in the lobby,
+    so batch_players is the whole session (one group of N, N >= 3). Any remaining "others" (matching_group_id < 0)
+    get a group of 1 each so the matrix is valid; with the current lobby policy there should be no others.
     oTree requires every player in the matrix exactly once.
     """
     part_start_round = (part - 1) * Constants.rounds_per_part + 1
@@ -150,12 +149,9 @@ def set_group_matrix_for_released_batch(subsession, batch_players, part):
                 continue
             batch_list = sorted(by_gid[gid], key=lambda p: p.participant.vars.get("matching_group_position", 0))
             groups.append([p.id_in_subsession for p in batch_list])
-        # Pair others; single leftover = group of 1 (set_payoffs gives them 0).
-        for i in range(0, len(others), 2):
-            if i + 1 < len(others):
-                groups.append([others[i].id_in_subsession, others[i + 1].id_in_subsession])
-            else:
-                groups.append([others[i].id_in_subsession])
+        # No groups of 2: minimum group size is 3 (batch) or 1 (leftover). Each "other" gets own group of 1 (payoff 0).
+        for p in others:
+            groups.append([p.id_in_subsession])
         # oTree requires every player in this round in the matrix exactly once (no duplicates, no missing).
         ids_in_matrix = [sid for g in groups for sid in g]
         expected_ids = {p.id_in_subsession for p in all_players}
@@ -216,19 +212,11 @@ class Group(BaseGroup):
                 else:
                     p.payoff = cu(0)
             return
-        # N == 2: only for paired "others" (not in a released batch). run_payoffs_for_matching_group never runs for these.
-        # Ensure stable order by id_in_group so payoff1 -> id_in_group 1, payoff2 -> 2.
-        by_id = sorted(players, key=lambda x: x.id_in_group)
-        p1, p2 = by_id[0], by_id[1]
-        c1 = p1.field_maybe_none("choice")
-        c2 = p2.field_maybe_none("choice")
-        if c1 is None or c2 is None:
-            p1.payoff = cu(0)
-            p2.payoff = cu(0)
-            return
-        payoff1, payoff2 = Constants.PD_PAYOFFS[(c1, c2)]
-        p1.payoff = cu(payoff1)
-        p2.payoff = cu(payoff2)
+        # No N == 2: groups are 3+ (batch) or 1 (leftover only). Fallback: treat as single (should not reach here).
+        players[0].payoff = cu(0)
+        if len(players) > 1:
+            for p in players[1:]:
+                p.payoff = cu(0)
 
 
 

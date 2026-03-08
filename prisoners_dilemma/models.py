@@ -107,12 +107,9 @@ def get_opponent_in_round(player, round_number):
     sorted_players = _batch_group_sorted_players(me.subsession.in_round(round_number), batch_ids)
     if len(sorted_players) != N:
         return None
-    try:
-        my_pos = me.participant.vars.get('matching_group_position', 1)
-        my_idx = int(my_pos) - 1
-        if my_idx < 0 or my_idx >= N:
-            return None
-    except (TypeError, ValueError):
+    # Derive my_idx from position in sorted_players (by id) so we don't rely on matching_group_position being set
+    my_idx = next((i for i, p in enumerate(sorted_players) if p.id == me.id), None)
+    if my_idx is None or my_idx < 0 or my_idx >= N:
         return None
     part = Constants.get_part(round_number)
     part_start = (part - 1) * Constants.rounds_per_part + 1
@@ -517,18 +514,11 @@ def _opponent_for_export(pr, r, round_data, rr_cache):
     N = len(sorted_players)
     if N <= 1:
         return None
-    try:
-        my_pos = pr.participant.vars.get("matching_group_position", 1)
-        my_idx = int(my_pos) - 1
-        if my_idx < 0 or my_idx >= N:
-            return None
-    except (TypeError, ValueError):
+    my_idx = next((i for i, p in enumerate(sorted_players) if p.id == pr.id), None)
+    if my_idx is None or my_idx < 0 or my_idx >= N:
         return None
     if N == 2:
-        me_idx = next((i for i, p in enumerate(sorted_players) if p.id == pr.id), None)
-        if me_idx is None:
-            return None
-        return sorted_players[1 - me_idx]
+        return sorted_players[1 - my_idx]
     part = Constants.get_part(r)
     part_start = (part - 1) * Constants.rounds_per_part + 1
     round_in_part = r - part_start

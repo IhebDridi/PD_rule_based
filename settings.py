@@ -2,11 +2,18 @@ from os import environ
 
 SESSION_CONFIGS = [
     dict(
-        name='prisoners_dilemma',
+        name='prisoners_dilemma_bots',
         display_name="Rule Based Delegation First",
         app_sequence=['prisoners_dilemma'],
         num_demo_participants=10,
         use_browser_bots=True,
+    ),
+    dict(
+        name='prisoners_dilemma_manual',
+        display_name="Rule Based Delegation First",
+        app_sequence=['prisoners_dilemma'],
+        num_demo_participants=10,
+        use_browser_bots=False,
     ),
     dict(
         name='prisoners_dilemma_100',

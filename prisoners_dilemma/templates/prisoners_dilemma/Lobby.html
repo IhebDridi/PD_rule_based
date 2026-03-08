@@ -4,25 +4,23 @@
 {% block title %}Please wait{% endblock %}
 
 {% block content %}
-    <p>Participants join gradually. As soon as enough participants are ready, your group will start (you will not wait for the whole session).</p>
-    {% if stale_release_available %}
-        <p class="text-muted">If no new participant joins for a short while, your group will start with the current participants.</p>
+    {% if show_wait_or_quit %}
+        <p>Not enough participants have joined yet. Would you like to wait 5 more minutes for a match, or return to Prolific and receive a $1 compensation?</p>
+        <p>
+            <a href="{{ restart_url }}" class="btn btn-primary">Wait 5 more minutes</a>
+            <a href="{{ quit_to_prolific_url }}" target="_self" class="btn btn-outline-secondary">Return to Prolific ($1)</a>
+        </p>
+    {% else %}
+        <p>Participants join gradually. As soon as enough participants are ready, your group will start.</p>
+        <p class="text-muted small">This page will refresh automatically.</p>
     {% endif %}
-    <p class="text-muted small">This page will refresh automatically to check.</p>
 {% endblock %}
 
 {% block internal_scripts %}
     {{ super() }}
-    {# Refresh often so all 10 see redirect soon after batch is formed; faster when close to full. #}
+    {% if not show_wait_or_quit %}
     <script>
-        (function() {
-            var refreshSeconds = {{ refresh_seconds }};
-            setTimeout(function() { window.location.reload(); }, refreshSeconds * 1000);
-        })();
-    </script>
-    {% if stale_release_available and stale_timeout_seconds %}
-    <script>
-        setTimeout(function() { window.location.reload(); }, {{ stale_timeout_seconds }} * 1000 + 500);
+        setTimeout(function() { window.location.reload(); }, {{ refresh_seconds }} * 1000);
     </script>
     {% endif %}
 {% endblock %}

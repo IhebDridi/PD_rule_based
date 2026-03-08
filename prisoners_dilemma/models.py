@@ -8,19 +8,16 @@ class Constants(BaseConstants):
     num_rounds = 30
     rounds_per_part = 10
 
-    matching_group_size = 10
+    # Lobby: min players to start a part (round-robin matching). Wait 5 min (part 1) or 2 min (part 2/3); if ≥ MIN_PLAYERS_TO_START release and match; if < after timeout show wait-or-quit.
+    MIN_PLAYERS_TO_START = 3
+    LOBBY_MIN_WAIT_SECONDS = 2  # Wait at least this long before forming a group (so late joiners are included)
+    LOBBY_WAIT_SECONDS_PART1 = 300   # 5 minutes for part 1
+    LOBBY_WAIT_SECONDS_PART2_3 = 120 # 2 minutes for parts 2 and 3
+    # Prolific return link when participant quits before matching (e.g. $1 compensation)
+    PROLIFIC_RETURN_URL = 'https://app.prolific.com/submissions/complete?cc=CL4BO4RB'
 
     # Part order: False = Part 1 No delegation, Part 2 Delegation (rule2nd). True = Part 1 Delegation, Part 2 No delegation.
     DELEGATION_FIRST = False
-
-    # Wait-page timeout and dropouts: when True, wait page has a 90s timeout; no-shows get 0 and are dropped; odd remainder get simulated co-players.
-    USE_WAIT_TIMEOUT = False
-    WAIT_PAGE_TIMEOUT_SECONDS = 90
-
-    # Batch start: when True, a lobby collects participants and grouping starts as soon as 10+ are waiting (same group not reused; works with gradual entry).
-    USE_BATCH_START = True
-    # Stale lobby: if no new participant has entered this part's lobby for this many seconds, release whoever is waiting (min 2, even number for pairing).
-    STALE_LOBBY_TIMEOUT_SECONDS = 20  # 20s for tests; use 300 for production (5 min)
 
     PD_PAYOFFS = {
         ('A', 'A'): (70, 70),
@@ -52,10 +49,139 @@ class Constants(BaseConstants):
             return part == 1  # rounds 1-10 = delegation
         return part == 2  # rounds 11-20 = delegation
 
+
+# ---------------------------------------------------------------------------
+# New structure logic here:
+# N_players >= 3, N_rounds = 10. For each round, assign opponents in round-robin:
+#   player_assignments[player] = list of (opponent, r) for r in 1..N_rounds
+#   opponent = opponents[(player + i + r - 1) % N_players] (skip self).
+# Ensures at least 2 unique opponents per player; total matches = N_players * N_rounds.
+# Opponent is applied when computing payoffs and displaying results (one group of N per round).
+# ---------------------------------------------------------------------------
+
+def compute_round_robin_assignments(N_players, N_rounds=10):
+    """
+    Round-robin opponent assignment (new structure logic). Returns list of length N_players:
+    result[logical_idx] = list of (opponent_logical_idx, round_1based) for each round.
+    Uses 0-based logical indices. Lone participants are not given a group; they stay in the lobby.
+    """
+    # 1-indexed as in user's spec
+    player_assignments = {p: [] for p in range(1, N_players + 1)}
+    for r in range(1, N_rounds + 1):
+        opponents = list(range(1, N_players + 1))
+        for player in range(1, N_players + 1):
+            for i in range(1, N_players):
+                opponent = opponents[(player + i + r - 1) % N_players]
+                if opponent != player:
+                    player_assignments[player].append((opponent, r))
+                    break
+    # Convert to 0-based: result[i] = [(opp_0based, round_1based), ...]
+    result = []
+    for p in range(1, N_players + 1):
+        result.append([(opp - 1, r) for (opp, r) in player_assignments[p]])
+    return result
+
+
+def _batch_group_sorted_players(round_ss, batch_id_in_subsession):
+    """Return players in this round that belong to the batch, sorted by matching_group_position (1-based)."""
+    players = [p for p in round_ss.get_players() if p.id_in_subsession in batch_id_in_subsession]
+    return sorted(players, key=lambda p: p.participant.vars.get('matching_group_position', 0))
+
+
+def get_opponent_in_round(player, round_number):
+    """
+    For the given player in the given round, return the opponent Player (for payoff/display).
+    When group size >= 3 we use round-robin assignment; when size 2 we return the other player.
+    """
+    me = player.in_round(round_number)
+    group_players = list(me.group.get_players())
+    N = len(group_players)
+    if N == 0:
+        return None
+    if N == 1:
+        return None
+    if N == 2:
+        return group_players[1] if group_players[0] == me else group_players[0]
+    # N >= 3: use round-robin; need consistent ordering by matching_group_position
+    batch_ids = {p.id_in_subsession for p in group_players}
+    sorted_players = _batch_group_sorted_players(me.subsession.in_round(round_number), batch_ids)
+    if len(sorted_players) != N:
+        return None
+    try:
+        my_pos = me.participant.vars.get('matching_group_position', 1)
+        my_idx = int(my_pos) - 1
+        if my_idx < 0 or my_idx >= N:
+            return None
+    except (TypeError, ValueError):
+        return None
+    part = Constants.get_part(round_number)
+    part_start = (part - 1) * Constants.rounds_per_part + 1
+    round_in_part = round_number - part_start
+    if round_in_part < 0 or round_in_part >= Constants.rounds_per_part:
+        return None
+    assignments = compute_round_robin_assignments(N, Constants.rounds_per_part)
+    if round_in_part >= len(assignments[my_idx]):
+        return None
+    opp_idx, _ = assignments[my_idx][round_in_part]
+    if opp_idx is None or opp_idx < 0 or opp_idx >= N:
+        return None
+    return sorted_players[opp_idx]
+
+
+def set_group_matrix_for_released_batch(subsession, batch_players, part):
+    """
+    Build group matrix for this part: one group per released batch (matching_group_id >= 0);
+    remaining players paired. oTree requires every player in the matrix exactly once.
+    When there's an odd number of "others", merge one into the current batch (no group of 1),
+    so only participants who quit to Prolific have the intentional empty/quit pattern in export.
+    """
+    part_start_round = (part - 1) * Constants.rounds_per_part + 1
+    part_end_round = part * Constants.rounds_per_part
+    current_batch_id = batch_players[0].participant.vars.get("matching_group_id") if batch_players else None
+
+    # When odd number of "others", merge one into current batch so matrix is complete and no group of 1
+    first_round_ss = subsession.in_round(part_start_round)
+    by_gid_first = defaultdict(list)
+    for p in first_round_ss.get_players():
+        gid = p.participant.vars.get("matching_group_id", -1)
+        if gid is None:
+            gid = -1
+        by_gid_first[gid].append(p)
+    others_first = [p for gid in sorted(by_gid_first.keys()) if gid < 0 for p in by_gid_first[gid]]
+    if len(others_first) % 2 == 1 and current_batch_id is not None:
+        merge_in = others_first[0]
+        merge_in.participant.vars["matching_group_id"] = current_batch_id
+        merge_in.participant.vars["matching_group_position"] = len(batch_players) + 1
+        can_key = "can_leave_lobby" if part == 1 else f"can_leave_lobby_part_{part}"
+        merge_in.participant.vars[can_key] = True
+
+    for r in range(part_start_round, part_end_round + 1):
+        round_ss = subsession.in_round(r)
+        all_players = list(round_ss.get_players())
+        by_gid = defaultdict(list)
+        for p in all_players:
+            gid = p.participant.vars.get("matching_group_id", -1)
+            if gid is None:
+                gid = -1
+            by_gid[gid].append(p)
+        others = [p for gid in sorted(by_gid.keys()) if gid < 0 for p in by_gid[gid]]
+        random.shuffle(others)
+        groups = []
+        for gid in sorted(by_gid.keys()):
+            if gid < 0:
+                continue
+            batch_list = sorted(by_gid[gid], key=lambda p: p.participant.vars.get("matching_group_position", 0))
+            groups.append([p.id_in_subsession for p in batch_list])
+        for i in range(0, len(others), 2):
+            if i + 1 < len(others):
+                groups.append([others[i].id_in_subsession, others[i + 1].id_in_subsession])
+        round_ss.set_group_matrix(groups)
+
+
 class Subsession(BaseSubsession):
     def creating_session(self):
-        # Batch start: round 1 only set default matrix and matching_group_id = -1; lobby will assign first batch of 10
-        if Constants.USE_BATCH_START and self.round_number == 1:
+        # Lobby-based: round 1 set everyone matching_group_id = -1 and a default random pair matrix; lobby will release batches of 3+ and set round-robin.
+        if self.round_number == 1:
             for p in self.get_players():
                 p.participant.vars['matching_group_id'] = -1
             players = list(self.get_players())
@@ -63,72 +189,51 @@ class Subsession(BaseSubsession):
             matrix = [[players[i].id_in_subsession, players[i + 1].id_in_subsession] for i in range(0, len(players), 2)]
             self.set_group_matrix(matrix)
             return
-        # New group of 10 at the start of each part (logbook: each part has a new group of 10)
-        # With USE_BATCH_START, rounds 11 and 21 do not assign groups here; lobby at part 2/3 does.
-        if Constants.USE_BATCH_START and self.round_number in (11, 21):
-            set_random_pairs_within_matching_groups(self)
-        else:
-            if self.round_number in (1, 11, 21):
-                assign_matching_groups(self)
-            if self.round_number == 1:
-                draw_group_rounds(self, parts=(1, 2, 3))
-            elif self.round_number == 11:
-                draw_group_rounds(self, parts=(2, 3))
-            elif self.round_number == 21:
-                draw_group_rounds(self, parts=(3,))
-            set_random_pairs_within_matching_groups(self)
-
-        # When timeout/dropouts are enabled: set simulated players' choices (random A/B) and Part 3 always delegate
-        if Constants.USE_WAIT_TIMEOUT:
-            for p in get_active_players(self):
-                if p.participant.vars.get('is_simulated'):
-                    p.choice = random.choice(['A', 'B'])
-                    if self.round_number >= 21:
-                        p.delegate_decision_optional = True
-        # Part 4 (GuessDelegation): set random Yes/No for simulated participants so they don't need to submit the form
-        if self.round_number == 3 * Constants.rounds_per_part:  # round 30
-            start = 2 * Constants.rounds_per_part + 1  # 21
-            for p in self.get_players():
-                if p.participant.vars.get('is_simulated'):
-                    for i in range(1, 11):
-                        guess = random.choice(['yes', 'no'])
-                        setattr(p, f'guess_round_{i}', guess)
-                        r = start + i - 1
-                        future_player = p.in_round(r)
-                        setattr(future_player, f'guess_round_{i}', guess)
-                        future_player.guess_opponent_delegated = guess
-                        other = future_player.get_others_in_group()[0]
-                        actual = bool(other.field_maybe_none("delegate_decision_optional"))
-                        future_player.guess_payoff = (
-                            cu(10) if (guess == 'yes') == actual else cu(0)
-                        )
-                    p.participant.vars['guess_submitted'] = True
+        if self.round_number in (11, 21):
+            # Parts 2/3: default matrix; lobby will overwrite for released batches
+            players = list(self.get_players())
+            random.shuffle(players)
+            matrix = [[players[i].id_in_subsession, players[i + 1].id_in_subsession] for i in range(0, len(players), 2)]
+            self.set_group_matrix(matrix)
 
 
 
 class Group(BaseGroup):
 
     def set_payoffs(self):
-        p1, p2 = self.get_players()
-
+        players = self.get_players()
+        if len(players) == 1:
+            players[0].payoff = cu(0)
+            return
+        if len(players) >= 3:
+            # Batch group: one group of N; payoffs from round-robin opponent per round
+            rnd = self.round_number
+            for p in players:
+                opp = get_opponent_in_round(p, rnd)
+                if opp is None:
+                    p.payoff = cu(0)
+                    continue
+                c1 = p.field_maybe_none("choice")
+                c2 = opp.field_maybe_none("choice")
+                if c1 is None or c2 is None:
+                    p.payoff = cu(0)
+                    continue
+                pay = Constants.PD_PAYOFFS.get((c1, c2))
+                if pay is not None:
+                    p.payoff = cu(pay[0])
+                else:
+                    p.payoff = cu(0)
+            return
+        p1, p2 = players[0], players[1]
         c1 = p1.field_maybe_none("choice")
         c2 = p2.field_maybe_none("choice")
-
         if c1 is None or c2 is None:
+            p1.payoff = cu(0)
+            p2.payoff = cu(0)
             return
-
         payoff1, payoff2 = Constants.PD_PAYOFFS[(c1, c2)]
-
         p1.payoff = cu(payoff1)
         p2.payoff = cu(payoff2)
-
-        # ✅ DEBUG PRINT (requested)
-        print(
-            f"[PAYOFF CALCULATED] "
-            f"Round {self.round_number} | "
-            f"P1(choice={c1}, payoff={payoff1}) | "
-            f"P2(choice={c2}, payoff={payoff2})"
-        )
 
 
 
@@ -400,641 +505,148 @@ class Player(BasePlayer):
 def custom_export(players):
     from collections import defaultdict
 
-    # -------------------------------------------------
-    # Group Player objects by participant
-    # -------------------------------------------------
     by_participant = defaultdict(list)
     for p in players:
         by_participant[p.participant.code].append(p)
 
-    # -------------------------------------------------
-    # Build header
-    # -------------------------------------------------
     header = [
-        "Condition",
-        "ProlificID",
-        "Session",
-        "Group",
-        "PlayerID",
-        "IsSimulated",
-        # Exit questionnaire / demographics
-        "Gender",
-        "Age",
-        "Occupation",
-        "AIuse",
-        "TaskDifficulty",
-        "Part3Feedback",
-        "Part3FeedbackOther",
-        "Part4Feedback",
-        "Part4FeedbackOther",
-        "FeedbackFreeText",
+        "Condition", "ProlificID", "Session", "Group", "PlayerID", "IsSimulated",
+        "Gender", "Age", "Occupation", "AIuse", "TaskDifficulty",
+        "Part3Feedback", "Part3FeedbackOther", "Part4Feedback", "Part4FeedbackOther", "FeedbackFreeText",
     ]
-
-    # Per-round columns (1–30)
     for r in range(1, 31):
-        header += [
-            f"Round{r}Decision",
-            f"Round{r}CoplayerID",
-            f"Round{r}CoplayerDecision",
-            f"Round{r}Ecoins",
-            f"Round{r}PlayerAgent",
-            f"Round{r}CoPlayerAgent",
-        ]
-
-    # Guessing (Part 3 → rounds 21–30)
+        header += [f"Round{r}Decision", f"Round{r}CoplayerID", f"Round{r}CoplayerDecision",
+                   f"Round{r}Ecoins", f"Round{r}PlayerAgent", f"Round{r}CoPlayerAgent"]
     for i in range(1, 11):
-        header += [
-            f"Guess{i}",
-            f"TruthGuess{i}",
-            f"EarningsGuess{i}",
-        ]
-
-    # Totals
+        header += [f"Guess{i}", f"TruthGuess{i}", f"EarningsGuess{i}"]
     header += [
-        "TotalEarningsPart1Ecoins",
-        "TotalEarningsPart2Ecoins",
-        "TotalEarningsPart3Ecoins",
-        "PartChosenBonus",
-        "TotalEarningsParts123Dollars",
-        "TotalEarningsPart4Dollars",
-        "BonusPaymentTotal",
-    ]
-
-    # Agent / LLM metadata
-    header += [
-        "SupervisedListChoicesDelegation",
-        "SupervisedListChoicesOptional",
-        "GoalListChoicesDelegation",
-        "GoalListChoicesOptional",
-        "LLMchatDelegation",
-        "LLMchatOptional",
-        "GameUsed",
+        "TotalEarningsPart1Ecoins", "TotalEarningsPart2Ecoins", "TotalEarningsPart3Ecoins",
+        "PartChosenBonus", "TotalEarningsParts123Dollars", "TotalEarningsPart4Dollars", "BonusPaymentTotal",
+        "SupervisedListChoicesDelegation", "SupervisedListChoicesOptional",
+        "GoalListChoicesDelegation", "GoalListChoicesOptional", "LLMchatDelegation", "LLMchatOptional", "GameUsed",
     ]
 
     yield header
 
-    # -------------------------------------------------
-    # Build one row per participant
-    # -------------------------------------------------
+    pvars = lambda p, k, default=None: p.participant.vars.get(k, default)
+    fld = lambda p, k: p.field_maybe_none(k)
+
     for code, rounds in by_participant.items():
         try:
             rounds = sorted(rounds, key=lambda p: p.round_number)
             p0 = rounds[0]
-
             row = dict.fromkeys(header, "")
 
-            # ---- Identifiers ----
-            row["Condition"]   = "rule2nd"
-            row["ProlificID"]  = p0.field_maybe_none("prolific_id") if not p0.participant.vars.get("is_simulated") else "SIMULATED"
-            row["Session"]     = p0.session.code
-            row["Group"]       = p0.participant.vars.get("matching_group_id")
-            row["PlayerID"]    = p0.participant.vars.get("matching_group_position")
-            row["IsSimulated"] = 1 if p0.participant.vars.get("is_simulated") else 0
+            row["Condition"] = "rule2nd"
+            row["ProlificID"] = "SIMULATED" if pvars(p0, "is_simulated") else fld(p0, "prolific_id")
+            row["Session"] = p0.session.code
+            row["Group"] = pvars(p0, "matching_group_id")
+            row["PlayerID"] = pvars(p0, "matching_group_position")
+            row["IsSimulated"] = 1 if pvars(p0, "is_simulated") else 0
+            # Exit questionnaire and random_payoff_part are set at round 30; use last-round player
+            p_last = p0.in_round(Constants.num_rounds)
+            row["Gender"] = fld(p_last, "gender")
+            row["Age"] = fld(p_last, "age")
+            row["Occupation"] = fld(p_last, "occupation")
+            row["AIuse"] = fld(p_last, "ai_use")
+            row["TaskDifficulty"] = fld(p_last, "task_difficulty")
+            row["Part3Feedback"] = fld(p_last, "part_3_feedback")
+            row["Part3FeedbackOther"] = fld(p_last, "part_3_feedback_other")
+            row["Part4Feedback"] = fld(p_last, "part_4_feedback")
+            row["Part4FeedbackOther"] = fld(p_last, "part_4_feedback_other")
+            row["FeedbackFreeText"] = fld(p_last, "feedback")
 
-            # ---- Exit questionnaire (all stored on final round) ----
-            row["Gender"]             = p0.field_maybe_none("gender")
-            row["Age"]                = p0.field_maybe_none("age")
-            row["Occupation"]         = p0.field_maybe_none("occupation")
-            row["AIuse"]              = p0.field_maybe_none("ai_use")
-            row["TaskDifficulty"]     = p0.field_maybe_none("task_difficulty")
-            row["Part3Feedback"]      = p0.field_maybe_none("part_3_feedback")
-            row["Part3FeedbackOther"] = p0.field_maybe_none("part_3_feedback_other")
-            row["Part4Feedback"]      = p0.field_maybe_none("part_4_feedback")
-            row["Part4FeedbackOther"] = p0.field_maybe_none("part_4_feedback_other")
-            row["FeedbackFreeText"]   = p0.field_maybe_none("feedback")
-
-            # ---- Per-round data ----
+            part_totals = [0, 0, 0]
             for pr in rounds:
                 r = pr.round_number
-                other = pr.get_others_in_group()[0]
-
-                row[f"Round{r}Decision"] = pr.field_maybe_none("choice")
-                row[f"Round{r}Ecoins"]   = pr.payoff
-
-                row[f"Round{r}CoplayerDecision"] = other.field_maybe_none("choice")
-                row[f"Round{r}CoplayerID"]       = (
-                    other.participant.vars.get("matching_group_position")
-                )
-
-                # Agent labels (hard-coded logic for now)
-                if r <= 10:
-                    row[f"Round{r}PlayerAgent"]   = "rule"
-                    row[f"Round{r}CoPlayerAgent"] = "rule"
-                elif r <= 20:
-                    row[f"Round{r}PlayerAgent"]   = "no-agent"
-                    row[f"Round{r}CoPlayerAgent"] = "no-agent"
+                other = get_opponent_in_round(pr, r)
+                row[f"Round{r}Decision"] = fld(pr, "choice") if fld(pr, "choice") is not None else ""
+                row[f"Round{r}Ecoins"] = pr.payoff
+                if other:
+                    row[f"Round{r}CoplayerDecision"] = fld(other, "choice") if fld(other, "choice") is not None else ""
+                    pos = pvars(other, "matching_group_position")
+                    if pos is not None and pos != "" and pos != -1:
+                        row[f"Round{r}CoplayerID"] = str(pos)
+                    else:
+                        row[f"Round{r}CoplayerID"] = str(getattr(other.participant, "id_in_session", "") or "")
                 else:
-                    row[f"Round{r}PlayerAgent"]   = "rule"
-                    row[f"Round{r}CoPlayerAgent"] = "rule"
+                    row[f"Round{r}CoplayerDecision"] = ""
+                    row[f"Round{r}CoplayerID"] = ""
+                agent = "rule" if r <= 10 or r > 20 else "no-agent"
+                row[f"Round{r}PlayerAgent"] = row[f"Round{r}CoPlayerAgent"] = agent
+                if r <= 10:
+                    part_totals[0] += pr.payoff or 0
+                elif r <= 20:
+                    part_totals[1] += pr.payoff or 0
+                else:
+                    part_totals[2] += pr.payoff or 0
 
-            # ---- Guessing ----
-            part3_start = 21
+            for i, part_key in enumerate(["TotalEarningsPart1Ecoins", "TotalEarningsPart2Ecoins", "TotalEarningsPart3Ecoins"], start=1):
+                row[part_key] = part_totals[i - 1]
+
+            n_rounds = len(rounds)
             for i in range(1, 11):
-                pr = p0.in_round(part3_start + i - 1)
-                other = pr.get_others_in_group()[0]
+                idx = 19 + i
+                pr = rounds[idx] if idx < n_rounds else p0.in_round(20 + i)
+                other = get_opponent_in_round(pr, 20 + i)
+                row[f"Guess{i}"] = 1 if fld(pr, "guess_opponent_delegated") == "yes" else 0
+                row[f"TruthGuess{i}"] = 1 if (other and fld(other, "delegate_decision_optional")) else 0
+                row[f"EarningsGuess{i}"] = fld(pr, "guess_payoff") or 0
 
-                guess = pr.field_maybe_none("guess_opponent_delegated")
-                # Simulated opponents always delegate (Part 3)
-                truth = bool(
-                    other.field_maybe_none("delegate_decision_optional")
-                    or other.participant.vars.get("is_simulated")
-                )
-
-                row[f"Guess{i}"] = 1 if guess == "yes" else 0
-                row[f"TruthGuess{i}"] = 1 if truth else 0
-                row[f"EarningsGuess{i}"] = pr.field_maybe_none("guess_payoff") or 0
-
-            # ---- Totals ----
-            row["TotalEarningsPart1Ecoins"] = sum(
-                p0.in_round(r).payoff or 0 for r in range(1, 11)
-            )
-            row["TotalEarningsPart2Ecoins"] = sum(
-                p0.in_round(r).payoff or 0 for r in range(11, 21)
-            )
-            row["TotalEarningsPart3Ecoins"] = sum(
-                p0.in_round(r).payoff or 0 for r in range(21, 31)
-            )
-
-            part_chosen = p0.field_maybe_none("random_payoff_part")
-
-            if part_chosen in [1, 2, 3]:
-                ecoins = row[f"TotalEarningsPart{part_chosen}Ecoins"] or 0
+            part_chosen = fld(p_last, "random_payoff_part")
+            if pvars(p0, "quit_to_prolific"):
+                row["PartChosenBonus"] = "quit"
+                row["TotalEarningsParts123Dollars"] = 0
+                row["TotalEarningsPart4Dollars"] = 0
+                row["BonusPaymentTotal"] = 1.0
+            elif part_chosen in (1, 2, 3):
+                ecoins = part_totals[part_chosen - 1]
+                row["PartChosenBonus"] = part_chosen
+                row["TotalEarningsParts123Dollars"] = ecoins * 0.001
+                row["TotalEarningsPart4Dollars"] = sum(row[f"EarningsGuess{i}"] for i in range(1, 11)) * 0.01
+                row["BonusPaymentTotal"] = row["TotalEarningsParts123Dollars"] + row["TotalEarningsPart4Dollars"]
             else:
                 ecoins = 0
-                part_chosen = ""   # keep column but avoid None
-            row["PartChosenBonus"] = part_chosen
+                part_chosen = ""
+                row["PartChosenBonus"] = part_chosen
+                row["TotalEarningsParts123Dollars"] = ecoins * 0.001
+                row["TotalEarningsPart4Dollars"] = sum(row[f"EarningsGuess{i}"] for i in range(1, 11)) * 0.01
+                row["BonusPaymentTotal"] = row["TotalEarningsParts123Dollars"] + row["TotalEarningsPart4Dollars"]
 
-            
-            row["TotalEarningsParts123Dollars"] = ecoins * 0.01
-
-            row["TotalEarningsPart4Dollars"] = sum(
-                row[f"EarningsGuess{i}"] for i in range(1, 11)
-            ) * 0.01
-
-            row["BonusPaymentTotal"] = (
-                row["TotalEarningsParts123Dollars"]
-                + row["TotalEarningsPart4Dollars"]
-            )
-
-            # ---- Empty advanced fields (future use) ----
-            row["SupervisedListChoicesDelegation"] = ""
-            row["SupervisedListChoicesOptional"]   = ""
-            row["GoalListChoicesDelegation"]       = ""
-            row["GoalListChoicesOptional"]         = ""
-            row["LLMchatDelegation"]               = ""
-            row["LLMchatOptional"]                 = ""
-            row["GameUsed"]                        = "PD"
+            for k in ("SupervisedListChoicesDelegation", "SupervisedListChoicesOptional", "GoalListChoicesDelegation",
+                      "GoalListChoicesOptional", "LLMchatDelegation", "LLMchatOptional"):
+                row[k] = ""
+            row["GameUsed"] = "PD"
 
             yield [row[h] for h in header]
-        except Exception as e:
-            print("EXPORT ERROR for participant", code, e)
+        except Exception:
             continue
 
-
-
-
-
-# def custom_export(players):
-#     from collections import defaultdict
-
-#     # =========================
-#     # HEADER (participant-level)
-#     # =========================
-#     yield [
-#         "participant_code",
-#         "participant_label",
-#         "prolific_id",
-#         "gender",
-#         "age",
-#         "occupation",
-#         "ai_use",
-#         "task_difficulty",
-#         "part_3_feedback",
-#         "part_3_feedback_other",
-#         "part_4_feedback",
-#         "part_4_feedback_other",
-#         "feedback",
-#         "comprehension_attempts",
-#         "incorrect_answers",
-#         "is_excluded",
-#         "random_payoff_part",
-#         "delegate_decision_optional_final",
-
-#         # comprehension
-#         "q1","q2","q3","q4","q5","q6","q7","q8","q9","q10",
-
-#         # mandatory delegation (Part 1)
-#         *[f"agent_mandatory_{i}" for i in range(1, 11)],
-
-#         # human decisions (Part 2)
-#         *[f"human_{i}" for i in range(1, 11)],
-
-#         # optional delegation choice
-#         "delegate_decision_optional",
-
-#         # agent optional delegation (Part 3)
-#         *[f"agent_optional_{i}" for i in range(1, 11)],
-
-#         # guessing
-#         *[f"guess_{i}" for i in range(1, 11)],
-#         "guess_payoff_total",
-#     ]
-
-#     # =========================
-#     # GROUP PLAYERS BY PARTICIPANT
-#     # =========================
-#     by_participant = defaultdict(list)
-#     for p in players:
-#         by_participant[p.participant.code].append(p)
-
-#     # =========================
-#     # BUILD ONE ROW PER PARTICIPANT
-#     # =========================
-#     for code, rounds in by_participant.items():
-#         rounds = sorted(rounds, key=lambda p: p.round_number)
-#         p0 = rounds[0]   # anchor row (round 1)
-
-#         row = {
-#             "participant_code": code,
-#             "participant_label": p0.participant.label,
-#             "prolific_id": p0.field_maybe_none("prolific_id"),
-#             "gender": p0.field_maybe_none("gender"),
-#             "age": p0.field_maybe_none("age"),
-#             "occupation": p0.field_maybe_none("occupation"),
-#             "ai_use": p0.field_maybe_none("ai_use"),
-#             "task_difficulty": p0.field_maybe_none("task_difficulty"),
-#             "part_3_feedback": p0.field_maybe_none("part_3_feedback"),
-#             "part_3_feedback_other": p0.field_maybe_none("part_3_feedback_other"),
-#             "part_4_feedback": p0.field_maybe_none("part_4_feedback"),
-#             "part_4_feedback_other": p0.field_maybe_none("part_4_feedback_other"),
-#             "feedback": p0.field_maybe_none("feedback"),
-#             "comprehension_attempts": p0.field_maybe_none("comprehension_attempts"),
-#             "incorrect_answers": p0.field_maybe_none("incorrect_answers"),
-#             "is_excluded": p0.field_maybe_none("is_excluded"),
-#             "random_payoff_part": p0.field_maybe_none("random_payoff_part"),
-#             "delegate_decision_optional_final": p0.field_maybe_none("delegate_decision_optional_final"),
-#         }
-
-#         # comprehension answers
-#         for i in range(1, 11):
-#             row[f"q{i}"] = p0.field_maybe_none(f"q{i}")
-
-#         # =========================
-#         # PART 1 — mandatory delegation (rounds 1–10)
-#         # =========================
-#         for i in range(1, 11):
-#             row[f"agent_mandatory_{i}"] = (
-#                 rounds[i - 1]
-#                 .field_maybe_none(f"agent_decision_mandatory_delegation_round_{i}")
-#             )
-
-#         # =========================
-#         # PART 2 — human decisions (rounds 11–20)
-#         # =========================
-#         for i in range(1, 11):
-#             row[f"human_{i}"] = (
-#                 rounds[10 + i - 1]
-#                 .field_maybe_none(f"human_decision_no_delegation_round_{i}")
-#             )
-
-#         # =========================
-#         # PART 3 — optional delegation (rounds 21–30)
-#         # =========================
-#         row["delegate_decision_optional"] = (
-#             rounds[20].field_maybe_none("delegate_decision_optional")
-#         )
-
-#         for i in range(1, 11):
-#             row[f"agent_optional_{i}"] = (
-#                 rounds[20 + i - 1]
-#                 .field_maybe_none(f"decision_optional_delegation_round_{i}")
-#             )
-
-#         # =========================
-#         # GUESSING (stored on round 30)
-#         # =========================
-#         guess_payoff = 0
-#         for i in range(1, 11):
-#             row[f"guess_{i}"] = rounds[-1].field_maybe_none(f"guess_round_{i}")
-#             guess_payoff += rounds[20 + i - 1].field_maybe_none("guess_payoff") or 0
-
-#         row["guess_payoff_total"] = guess_payoff
-
-#         # =========================
-#         # YIELD FINAL ROW
-#         # =========================
-#         yield [row[h] for h in row]
-
-
-def custom_export_debug(players):
-    print("=== CUSTOM EXPORT DEBUG CALLED ===")
-    print("Number of Player objects received:", len(players))
-
-    for p in players:
-        try:
-            print(
-                "participant_code =",
-                p.participant.code,
-                "| prolific_id =",
-                p.field_maybe_none("prolific_id"),
-            )
-        except Exception as e:
-            print("ERROR reading player:", e)
-
-        rows = []
-
-    for p in players:
-        rows.append({
-            "participant_code": p.participant.code
-        })
-
-    # IMPORTANT: return empty list so UI does not fabricate rows
-    return rows
-
-def custom_export_debugg(players):
-    """
-    Writes participant_code and prolific_id to a CSV file on disk.
-    Does NOT rely on oTree's CSV rendering.
-    """
-
-    import csv
-    import os
-    from datetime import datetime
-
-    print("=== CUSTOM EXPORT DEBUG CALLED ===")
-    print("Number of Player objects received:", len(players))
-
-    #  choose output path (project root)
-    filename = f"prolific_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-    filepath = os.path.join(os.getcwd(), filename)
-
-    seen = set()
-
-    with open(filepath, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow(["participant_code", "prolific_id"])
-
-        for p in players:
-            code = p.participant.code
-            pid = p.field_maybe_none("prolific_id")
-
-            print(
-                "participant_code =",
-                code,
-                "| prolific_id =",
-                pid,
-            )
-
-            #  one row per participant, keep non‑None ID
-            if code in seen:
-                continue
-            if pid:
-                writer.writerow([code, pid])
-                seen.add(code)
-
-    print(" CSV written to:", filepath)
-
-    #  IMPORTANT: return empty list so UI export doesn't fabricate rows
-    return []
-
-def custom_export_prolific(players):
-    rows = {}
-    for p in players:
-        code = p.participant.code
-        pid = p.field_maybe_none("prolific_id")
-        if pid and code not in rows:
-            rows[code] = pid
-
-    return [
-        {"participant_code": c, "prolific_id": pid}
-        for c, pid in rows.items()
-    ]
-
-def custom_export_small(players):
-    # header row (EXACTLY as in the docs)
-    yield [
-        'participant_code',
-        'prolific_id',
-    ]
-
-    seen = set()
-
-    for p in players:
-        participant = p.participant
-        code = participant.code
-        prolific_id = p.field_maybe_none('prolific_id')
-
-        # one row per participant, keep the non‑None prolific_id
-        if code in seen:
-            continue
-        if not prolific_id:
-            continue
-
-        seen.add(code)
-
-        yield [
-            code,
-            prolific_id,
-        ]
-
-
-#helper functions
-
-def mark_dropped_per_participant_timeout(session, current_part):
-    """
-    When USE_WAIT_TIMEOUT: mark as dropped any participant who has not arrived at the wait page
-    and whose 90 seconds from their part start (part_X_start_time) has elapsed.
-    Per-participant timer: each has 90s from when they started the part to reach the wait page.
-    """
-    import time
-    arrived_key = f'wait_arrived_part_{current_part}'
-    start_key = f'part_{current_part}_start_time'
-    timeout_sec = Constants.WAIT_PAGE_TIMEOUT_SECONDS
-    now = time.time()
-    for p in session.get_participants():
-        if p.vars.get(arrived_key):
-            continue
-        started = p.vars.get(start_key)
-        if started is not None and (now - started) >= timeout_sec:
-            p.vars['dropped_out'] = True
-
-
-def repurpose_dropouts_as_simulated(session):
-    """
-    Repurpose (10 - n_active % 10) dropped as simulated so next part has multiples of 10.
-    Call when a batch proceeds with dropouts so simulated slots exist for the next part.
-    """
-    participants = session.get_participants()
-    n_active = sum(1 for p in participants if not p.vars.get('dropped_out'))
-    n_sim = (10 - (n_active % 10)) % 10
-    if n_sim > 0:
-        dropped = [p for p in participants if p.vars.get('dropped_out') and not p.vars.get('is_simulated')]
-        for p in dropped[:n_sim]:
-            p.vars['is_simulated'] = True
-
-
-def apply_wait_timeout_after_part(subsession):
-    """
-    Call when the wait page times out (USE_WAIT_TIMEOUT). Marks non-arrivers as dropped,
-    repurposes some dropped as simulated so the next part has groups of 10, and runs payoffs for this part.
-    Works for any session size (50, 76, 100, etc.). When there are not enough dropouts to repurpose,
-    the last matching group may have fewer than 10 members (e.g. 6); pairing still works as long as
-    the number of active participants is even.
-    """
-    import time
-    rnd = subsession.round_number
-    current_part = Constants.get_part(rnd)
-    if current_part == 1:
-        start, end = 1, 10
-    elif current_part == 2:
-        start, end = 11, 20
-    elif current_part == 3:
-        start, end = 21, 30
-    else:
-        return
-    arrived_key = f'wait_arrived_part_{current_part}'
-
-    session = subsession.session
-    participants = session.get_participants()
-
-    # 1. Mark non-arrivers as dropped
-    for participant in participants:
-        if not participant.vars.get(arrived_key):
-            participant.vars['dropped_out'] = True
-
-    # 2. Repurpose (10 - n_active % 10) dropped as simulated so next part has multiples of 10
-    n_active = sum(1 for p in participants if not p.vars.get('dropped_out'))
-    n_sim = (10 - (n_active % 10)) % 10
-    if n_sim > 0:
-        dropped = [p for p in participants if p.vars.get('dropped_out') and not p.vars.get('is_simulated')]
-        for p in dropped[:n_sim]:
-            p.vars['is_simulated'] = True
-
-    # 3. Run payoffs for this part's rounds (handle groups with one dropped)
-    for r in range(start, end + 1):
-        round_ss = subsession.in_round(r)
-        for group in round_ss.get_groups():
-            p1, p2 = group.get_players()
-            d1 = p1.participant.vars.get('dropped_out') and not p1.participant.vars.get('is_simulated')
-            d2 = p2.participant.vars.get('dropped_out') and not p2.participant.vars.get('is_simulated')
-            c1 = p1.field_maybe_none('choice')
-            c2 = p2.field_maybe_none('choice')
-            if d1 and not d2:
-                opp = random.choice(['A', 'B'])
-                pay = Constants.PD_PAYOFFS[(c2, opp)] if c2 else (0, 0)
-                p2.payoff = cu(pay[0])
-                p1.payoff = cu(0)
-            elif d2 and not d1:
-                opp = random.choice(['A', 'B'])
-                pay = Constants.PD_PAYOFFS[(c1, opp)] if c1 else (0, 0)
-                p1.payoff = cu(pay[0])
-                p2.payoff = cu(0)
-            elif not d1 and not d2:
-                group.set_payoffs()
-            else:
-                p1.payoff = cu(0)
-                p2.payoff = cu(0)
-
+# ---------------------------------------------------------------------------
+# Helper functions (lobby release, payoffs)
+# ---------------------------------------------------------------------------
 
 def get_active_players(subsession):
-    """
-    When USE_BATCH_START is True: only players released from the lobby (matching_group_id >= 0).
-    When USE_WAIT_TIMEOUT is True: among those, exclude dropped unless simulated.
-    When both False: all players.
-    """
-    players = list(subsession.get_players())
-    if Constants.USE_BATCH_START:
-        players = [p for p in players if p.participant.vars.get('matching_group_id', -1) >= 0]
-    if not Constants.USE_WAIT_TIMEOUT:
-        return players
-    return [
-        p for p in players
-        if not p.participant.vars.get('dropped_out') or p.participant.vars.get('is_simulated')
-    ]
+    """Players released from lobby (matching_group_id >= 0)."""
+    return [p for p in subsession.get_players() if p.participant.vars.get('matching_group_id', -1) >= 0]
 
 
-def assign_matching_groups(subsession, active_players=None, batch_id=0):
+def release_lobby_batch(subsession, batch_players, batch_id=0, part=1):
     """
-    Assigns participants to fixed groups of size Constants.matching_group_size (e.g. 10).
-    When active_players is provided (lobby release): assign those matching_group_id = batch_id, rest = -1.
-    Otherwise uses get_active_players; supports any session size.
+    Call when a batch of 3+ is released from the lobby. Assigns matching_group_id and position,
+    sets round-robin group matrices for this part, and marks can_leave_lobby for that part.
     """
-    all_players = list(subsession.get_players())
-    if active_players is not None:
-        active_participant_ids = {p.participant.id_in_session for p in active_players}
-        for p in all_players:
-            p.participant.vars['matching_group_id'] = batch_id if p.participant.id_in_session in active_participant_ids else -1
-        return
-    players = get_active_players(subsession)
-    random.shuffle(players)
-    for i, p in enumerate(players):
-        p.participant.vars['matching_group_id'] = (
-            i // Constants.matching_group_size
-        )
+    for i, p in enumerate(batch_players):
+        p.participant.vars['matching_group_id'] = batch_id
+        p.participant.vars['matching_group_position'] = i + 1
+    set_group_matrix_for_released_batch(subsession, batch_players, part)
+    can_key = 'can_leave_lobby' if part == 1 else f'can_leave_lobby_part_{part}'
+    for p in batch_players:
+        p.participant.vars[can_key] = True
 
-
-def draw_group_rounds(subsession, parts=(1, 2, 3)):
-    """
-    For each matching group and the given parts,
-    randomly draw ONE round (1–10 within the part).
-    Uses active players when USE_WAIT_TIMEOUT is True.
-    """
-    groups = defaultdict(list)
-    for p in get_active_players(subsession):
-        gid = p.participant.vars['matching_group_id']
-        groups[gid].append(p)
-    for gid in groups:
-        for part in parts:
-            drawn = random.randint(1, Constants.rounds_per_part)
-            subsession.session.vars[
-                f"group_{gid}_part_{part}_pay_round"
-            ] = drawn
-
-
-def set_random_pairs_within_matching_groups(subsession):
-    """
-    Within each matching group of 10, form random pairs of 2.
-    When USE_BATCH_START, active players (matching_group_id >= 0) pair within their group;
-    inactive (matching_group_id == -1) pair among themselves so the full matrix has one pair per two players.
-    If a batch has odd size (e.g. 9 after dropout), the leftover active is paired with one leftover inactive so we still get 50 groups.
-    """
-    active = get_active_players(subsession)
-    all_players = list(subsession.get_players())
-    inactive = [p for p in all_players if p.participant.vars.get('matching_group_id', -1) == -1]
-    matrix = []
-    leftover = []
-    if active:
-        groups = defaultdict(list)
-        for p in active:
-            gid = p.participant.vars['matching_group_id']
-            groups[gid].append(p)
-        for gid in sorted(groups.keys()):
-            pool = groups[gid]
-            random.shuffle(pool)
-            for i in range(0, len(pool), 2):
-                if i + 1 < len(pool):
-                    p1, p2 = pool[i], pool[i + 1]
-                    matrix.append([p1.id_in_subsession, p2.id_in_subsession])
-                else:
-                    leftover.append(pool[i])
-    if inactive:
-        random.shuffle(inactive)
-        for i in range(0, len(inactive), 2):
-            if i + 1 < len(inactive):
-                p1, p2 = inactive[i], inactive[i + 1]
-                matrix.append([p1.id_in_subsession, p2.id_in_subsession])
-            else:
-                leftover.append(inactive[i])
-    if len(leftover) >= 2:
-        random.shuffle(leftover)
-        for i in range(0, len(leftover), 2):
-            if i + 1 < len(leftover):
-                p1, p2 = leftover[i], leftover[i + 1]
-                matrix.append([p1.id_in_subsession, p2.id_in_subsession])
-    subsession.set_group_matrix(matrix)
 
 def run_payoffs_for_matching_group(subsession, matching_group_id):
-    """Run set_payoffs for all rounds in the current part, only for groups where both players have this matching_group_id."""
+    """Run set_payoffs for all rounds in the current part, only for groups where all players have this matching_group_id."""
     rnd = subsession.round_number
     current_part = Constants.get_part(rnd)
     if current_part == 1:
@@ -1048,150 +660,8 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
     for r in range(start, end + 1):
         round_ss = subsession.in_round(r)
         for group in round_ss.get_groups():
-            p1, p2 = group.get_players()
-            if (p1.participant.vars.get('matching_group_id') == matching_group_id
-                    and p2.participant.vars.get('matching_group_id') == matching_group_id):
-                group.set_payoffs()
-
-
-def run_payoffs_for_matching_group_with_dropouts(subsession, matching_group_id, arrived_participant_ids):
-    """
-    Like run_payoffs_for_matching_group but marks non-arrivers as dropped and sets payoffs:
-    both arrived -> set_payoffs(); one arrived one dropped -> arrived gets payoff vs random, dropped gets 0.
-    """
-    rnd = subsession.round_number
-    current_part = Constants.get_part(rnd)
-    if current_part == 1:
-        start, end = 1, 10
-    elif current_part == 2:
-        start, end = 11, 20
-    elif current_part == 3:
-        start, end = 21, 30
-    else:
-        return
-    arrived = set(arrived_participant_ids)
-    for r in range(start, end + 1):
-        round_ss = subsession.in_round(r)
-        for group in round_ss.get_groups():
-            p1, p2 = group.get_players()
-            if p1.participant.vars.get('matching_group_id') != matching_group_id or p2.participant.vars.get('matching_group_id') != matching_group_id:
+            players = group.get_players()
+            if not all(p.participant.vars.get('matching_group_id') == matching_group_id for p in players):
                 continue
-            a1 = p1.participant.id_in_session in arrived
-            a2 = p2.participant.id_in_session in arrived
-            if not a1:
-                p1.participant.vars['dropped_out'] = True
-            if not a2:
-                p2.participant.vars['dropped_out'] = True
-            c1 = p1.field_maybe_none('choice')
-            c2 = p2.field_maybe_none('choice')
-            if a1 and a2:
-                group.set_payoffs()
-            elif a1 and not a2:
-                opp = random.choice(['A', 'B'])
-                pay = Constants.PD_PAYOFFS[(c1, opp)] if c1 else (0, 0)
-                p1.payoff = cu(pay[0])
-                p2.payoff = cu(0)
-            elif a2 and not a1:
-                opp = random.choice(['A', 'B'])
-                pay = Constants.PD_PAYOFFS[(c2, opp)] if c2 else (0, 0)
-                p2.payoff = cu(pay[0])
-                p1.payoff = cu(0)
-            else:
-                p1.payoff = cu(0)
-                p2.payoff = cu(0)
+            group.set_payoffs()
 
-
-def ensure_round_groups_initialized(subsession, participant):
-    """
-    When USE_BATCH_START, call from first page of round 11 or 21 so the group matrix
-    includes all batches that have reached this round. Run once per batch.
-    """
-    if not Constants.USE_BATCH_START or subsession.round_number not in (11, 21):
-        return
-    rnd = subsession.round_number
-    key = f'round_{rnd}_batches'
-    batches_done = list(subsession.session.vars.get(key, []))
-    gid = participant.vars.get('matching_group_id')
-    if gid is None or gid < 0 or gid in batches_done:
-        return
-    batches_done.append(gid)
-    subsession.session.vars[key] = batches_done
-    assign_matching_groups(subsession)
-    set_random_pairs_within_matching_groups(subsession)
-    if rnd == 11:
-        draw_group_rounds(subsession, parts=(2, 3))
-    else:
-        draw_group_rounds(subsession, parts=(3,))
-
-
-def release_batch_from_lobby(subsession, batch_players, batch_id=0, part=1):
-    """
-    Call when USE_BATCH_START and a batch of participants is released from the lobby.
-    Assigns them matching_group_id = batch_id, sets pairs and payoff rounds, marks can_leave_lobby for that part.
-    part=1: Part 1 lobby (round 1), parts (1,2,3) for payoff round draw, can_leave_lobby.
-    part=2: Part 2 lobby (round 11), parts (2,3) for payoff round draw, can_leave_lobby_part_2.
-    part=3: Part 3 lobby (round 21), parts (3,) for payoff round draw, can_leave_lobby_part_3.
-    """
-    print(
-        f"[LOBBY] release_batch_from_lobby: part={part}, batch_id={batch_id}, "
-        f"num_players={len(batch_players)}, expected_batch_size={Constants.matching_group_size}"
-    )
-    assign_matching_groups(subsession, active_players=batch_players, batch_id=batch_id)
-    set_random_pairs_within_matching_groups(subsession)
-    if part == 1:
-        draw_group_rounds(subsession, parts=(1, 2, 3))
-        for p in batch_players:
-            gid = p.participant.vars.get('matching_group_id')
-            print(
-                f"[LOBBY] Part 1: participant_id={p.participant.id_in_session} "
-                f"matching_group_id={gid}"
-            )
-            p.participant.vars['can_leave_lobby'] = True
-    elif part == 2:
-        draw_group_rounds(subsession, parts=(2, 3))
-        for p in batch_players:
-            gid = p.participant.vars.get('matching_group_id')
-            print(
-                f"[LOBBY] Part 2: participant_id={p.participant.id_in_session} "
-                f"matching_group_id={gid}"
-            )
-            p.participant.vars['can_leave_lobby_part_2'] = True
-    elif part == 3:
-        draw_group_rounds(subsession, parts=(3,))
-        for p in batch_players:
-            gid = p.participant.vars.get('matching_group_id')
-            print(
-                f"[LOBBY] Part 3: participant_id={p.participant.id_in_session} "
-                f"matching_group_id={gid}"
-            )
-            p.participant.vars['can_leave_lobby_part_3'] = True
-
-
-def get_payoff_round(player):
-    """
-    Returns the absolute round number that is payoff relevant
-    for this player in the current part.
-    """
-    part = Constants.get_part(player.round_number)
-    gid = player.participant.vars['matching_group_id']
-
-    round_in_part = player.session.vars[
-        f"group_{gid}_part_{part}_pay_round"
-    ]
-
-    return (part - 1) * Constants.rounds_per_part + round_in_part
-
-
-def get_group_of_10_payoff_round(player):
-    """
-    Returns the absolute payoff round for the player's group-of-10
-    in the current part.
-    """
-    part = Constants.get_part(player.round_number)
-    gid = player.participant.vars['matching_group_id']
-
-    round_in_part = player.session.vars[
-        f"group_{gid}_part_{part}_pay_round"
-    ]
-
-    return (part - 1) * Constants.rounds_per_part + round_in_part

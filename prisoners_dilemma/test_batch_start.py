@@ -1,37 +1,38 @@
 """
-Tests for batch-start (USE_BATCH_START) and related behaviour.
+Tests for lobby release and BatchWaitForGroup behaviour.
 
 Run with oTree (when installed in your environment):
-  otree test prisoners_dilemma --num_participants 10
+  otree test prisoners_dilemma --num_participants 5
 
 Scenarios:
-1. 10+ participants in lobby -> they get batch_id, can_leave_lobby, and proceed to next part.
-2. Fewer than 10 participants -> they stay in lobby (never get can_leave_lobby).
-3. One drops out mid-game -> with USE_WAIT_TIMEOUT, BatchWaitForGroup can timeout and proceed with arrivals; otherwise the other 9 are stuck.
+1. 3+ participants in lobby (after timeout) -> batch is released and proceeds.
+2. Fewer than 3 participants -> they stay in lobby until timeout, then see wait-or-quit.
+3. BatchWaitForGroup proceeds when all in the same matching group have arrived.
 """
 
-
-def test_lobby_release_uses_10():
-    """When 10+ are in lobby, exactly 10 are taken and form a batch."""
-    batch_size = 10
-    lobby = [3, 1, 4, 5, 9, 2, 6, 7, 10, 8]
-    batch_ids = sorted(lobby)[:batch_size]
-    assert len(batch_ids) == batch_size
-    remaining = [x for x in lobby if x not in batch_ids]
-    assert len(remaining) == 0
+from .models import Constants
 
 
-def test_fewer_than_10_stay_in_lobby():
-    """With fewer than 10, release is not triggered."""
-    batch_size = 10
-    n_waiting = 6
-    would_release = n_waiting >= batch_size
+def test_lobby_release_min_players():
+    """When 3+ are in lobby and timeout, a batch of at least 3 is released."""
+    min_players = Constants.MIN_PLAYERS_TO_START
+    lobby = [3, 1, 4, 5]
+    batch = sorted(lobby)[:min_players]
+    assert len(batch) >= min_players
+
+
+def test_fewer_than_min_stay_in_lobby():
+    """With fewer than MIN_PLAYERS_TO_START, release is not triggered (until timeout then wait-or-quit)."""
+    min_players = Constants.MIN_PLAYERS_TO_START
+    n_waiting = 2
+    would_release = n_waiting >= min_players
     assert not would_release
 
 
-def test_batch_wait_requires_all_10_without_timeout():
-    """Without timeout, BatchWaitForGroup proceeds only when all 10 have arrived (9/10 = stuck)."""
-    batch_size = 10
-    n_arrived = 9
-    can_proceed = n_arrived >= batch_size
+def test_batch_wait_requires_all_in_group():
+    """BatchWaitForGroup proceeds only when all in the same matching group have arrived."""
+    min_players = Constants.MIN_PLAYERS_TO_START
+    n_arrived = 2
+    group_size = 3
+    can_proceed = n_arrived >= group_size
     assert not can_proceed

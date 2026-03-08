@@ -1,0 +1,9 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+
+{% block title %}Part {{ part }}{% endblock %}
+
+{% block content %}
+    <p>{{ intro_text }}</p>
+    {% next_button %}
+{% endblock %}

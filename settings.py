@@ -10,7 +10,7 @@ SESSION_CONFIGS = [
     ),
     dict(
         name='prisoners_dilemma_manual',
-        display_name="Rule Based Delegation First",
+        display_name="Rule Based Delegation First (manual test)",
         app_sequence=['prisoners_dilemma'],
         num_demo_participants=10,
         use_browser_bots=False,

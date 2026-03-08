@@ -646,24 +646,25 @@ def custom_export(players):
                 row[f"EarningsGuess{i}"] = fld(pr, "guess_payoff") or 0
 
             part_chosen = fld(p_last, "random_payoff_part")
+            _float = lambda x: float(x) if x is not None else 0.0
             if pvars(p0, "quit_to_prolific"):
                 row["PartChosenBonus"] = "quit"
-                row["TotalEarningsParts123Dollars"] = 0
-                row["TotalEarningsPart4Dollars"] = 0
+                row["TotalEarningsParts123Dollars"] = 0.0
+                row["TotalEarningsPart4Dollars"] = 0.0
                 row["BonusPaymentTotal"] = 1.0
             elif part_chosen in (1, 2, 3):
-                ecoins = part_totals[part_chosen - 1]
+                ecoins = _float(part_totals[part_chosen - 1])
                 row["PartChosenBonus"] = part_chosen
-                row["TotalEarningsParts123Dollars"] = ecoins * 0.001
-                row["TotalEarningsPart4Dollars"] = sum(row[f"EarningsGuess{i}"] for i in range(1, 11)) * 0.01
-                row["BonusPaymentTotal"] = row["TotalEarningsParts123Dollars"] + row["TotalEarningsPart4Dollars"]
+                row["TotalEarningsParts123Dollars"] = round(ecoins * 0.001, 4)
+                part4_ecoins = sum(_float(row.get(f"EarningsGuess{i}")) for i in range(1, 11)) * 0.01
+                row["TotalEarningsPart4Dollars"] = round(part4_ecoins, 4)
+                row["BonusPaymentTotal"] = round(row["TotalEarningsParts123Dollars"] + row["TotalEarningsPart4Dollars"], 4)
             else:
-                ecoins = 0
-                part_chosen = ""
-                row["PartChosenBonus"] = part_chosen
-                row["TotalEarningsParts123Dollars"] = ecoins * 0.001
-                row["TotalEarningsPart4Dollars"] = sum(row[f"EarningsGuess{i}"] for i in range(1, 11)) * 0.01
-                row["BonusPaymentTotal"] = row["TotalEarningsParts123Dollars"] + row["TotalEarningsPart4Dollars"]
+                row["PartChosenBonus"] = part_chosen if part_chosen is not None else ""
+                row["TotalEarningsParts123Dollars"] = 0.0
+                part4_ecoins = sum(_float(row.get(f"EarningsGuess{i}")) for i in range(1, 11)) * 0.01
+                row["TotalEarningsPart4Dollars"] = round(part4_ecoins, 4)
+                row["BonusPaymentTotal"] = round(row["TotalEarningsPart4Dollars"], 4)
 
             for k in ("SupervisedListChoicesDelegation", "SupervisedListChoicesOptional", "GoalListChoicesDelegation",
                       "GoalListChoicesOptional", "LLMchatDelegation", "LLMchatOptional"):

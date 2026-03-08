@@ -168,20 +168,18 @@ def set_group_matrix_for_released_batch(subsession, batch_players, part):
 
 class Subsession(BaseSubsession):
     def creating_session(self):
-        # Lobby-based: round 1 set everyone matching_group_id = -1 and a default random pair matrix; lobby will release batches of 3+ and set round-robin.
+        # Groups are assigned only when the lobby releases a batch (3+), not at session creation.
+        # Use one player per group so no one is pre-paired; set_group_matrix_for_released_batch overwrites when batches are released.
         if self.round_number == 1:
             for p in self.get_players():
                 p.participant.vars['matching_group_id'] = -1
             players = list(self.get_players())
-            random.shuffle(players)
-            matrix = [[players[i].id_in_subsession, players[i + 1].id_in_subsession] for i in range(0, len(players), 2)]
+            matrix = [[p.id_in_subsession] for p in players]
             self.set_group_matrix(matrix)
             return
         if self.round_number in (11, 21):
-            # Parts 2/3: default matrix; lobby will overwrite for released batches
             players = list(self.get_players())
-            random.shuffle(players)
-            matrix = [[players[i].id_in_subsession, players[i + 1].id_in_subsession] for i in range(0, len(players), 2)]
+            matrix = [[p.id_in_subsession] for p in players]
             self.set_group_matrix(matrix)
 
 

@@ -4,6 +4,7 @@ from .models import Constants, release_lobby_batch, run_payoffs_for_matching_gro
 import json
 import time
 
+
 BATCH_WAIT_MIN_SECONDS = 2
 
 
@@ -689,7 +690,6 @@ class Lobby(WaitPage):
         if part >= 2 and self.participant.vars.get('matching_group_id', -1) >= 0 and not self.participant.vars.get(can_leave_key, False):
             self.participant.vars['matching_group_id'] = -1
         n_waiting = len(lobby)
-        n_session = len(self.session.get_participants())
         next_batch_id = self.session.vars.get(next_batch_key, 0)
         now = time.time()
         first_join = self.session.vars.get(first_join_key)
@@ -699,9 +699,10 @@ class Lobby(WaitPage):
         elapsed = now - first_join
         min_players = Constants.MIN_PLAYERS_TO_START
         min_wait = getattr(Constants, 'LOBBY_MIN_WAIT_SECONDS', 2)
-        # Release only when everyone in the session is in the lobby (and N>=3, min_wait passed). One group of N, no "others".
+        # First in first out: when N>=3 are in the lobby and min_wait passed, release those N as one group.
+        # (oTree alternative: WaitPage with group_by_arrival_time_method returning waiting_players when len >= 3.)
         # Use a session lock so only one request runs release (avoids IntegrityError from concurrent set_group_matrix).
-        if n_waiting >= min_players and elapsed >= min_wait and n_waiting == n_session:
+        if n_waiting >= min_players and elapsed >= min_wait:
             lock_key = f'_lobby_release_lock_part_{part}'
             if not self.session.vars.get(lock_key):
                 self.session.vars[lock_key] = True

@@ -218,7 +218,9 @@ class Group(BaseGroup):
                 else:
                     p.payoff = cu(0)
             return
-        p1, p2 = players[0], players[1]
+        # N == 2: ensure stable order by id_in_group so payoff1 -> id_in_group 1, payoff2 -> 2 (avoids swap if get_players() order differs)
+        by_id = sorted(players, key=lambda x: x.id_in_group)
+        p1, p2 = by_id[0], by_id[1]
         c1 = p1.field_maybe_none("choice")
         c2 = p2.field_maybe_none("choice")
         if c1 is None or c2 is None:

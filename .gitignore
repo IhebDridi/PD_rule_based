@@ -33,3 +33,6 @@ prisoners_dilemma/TEST_30_FAILURE_REPORT.md
 prisoners_dilemma/TEST_BATCH_README.md
 OTREE_DOCS_ALTERNATIVES.md
 FLOW_TRACE_10_PARTICIPANTS.md
+check_wide_payoffs.py
+prisoners_dilemma/PAYOFF_TRACE.md
+check_export.py

@@ -38,7 +38,7 @@
 
 
     <form method="post" class="form-container">
-        <button type="submit" class="modern-btn" id="delayedForm" hidden>Continue</button>
+        <button type="submit" class="modern-btn" id="">Continue</button>
     </form>
 </div>
 <script>
@@ -47,7 +47,7 @@
       // Reveal the form after 90 000 ms = 90 s
       setTimeout(() => {
         document.getElementById('delayedForm').hidden = false;
-      }, 5000);
+      }, 500); // 500 ms = 0.5 second
     });
   </script>
 <style>

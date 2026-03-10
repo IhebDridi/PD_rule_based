@@ -15,10 +15,12 @@ from .models import Constants
 from .pages import (
     BATCH_WAIT_MIN_SECONDS,
     AgentProgramming,
+    ComprehensionTest,
     DecisionNoDelegation,
     DelegationDecision,
     Debriefing,
     ExitQuestionnaire,
+    FailedTest,
     GuessDelegation,
     InformedConsent,
     InstructionsDelegation,
@@ -31,6 +33,12 @@ from .pages import (
     ResultsGuess,
     Thankyou,
 )
+
+# Correct answers for comprehension test (bots pass so they are not excluded)
+COMPREHENSION_ANSWERS = {
+    'q1': 'c', 'q2': 'b', 'q3': 'c', 'q4': 'c', 'q5': 'a',
+    'q6': 'c', 'q7': 'a', 'q8': 'b', 'q9': 'b', 'q10': 'b',
+}
 
 os.environ.setdefault('OTREE_SKIP_CSRF', '1')
 
@@ -273,6 +281,10 @@ def _yield_for_lookup(bot_self, lookup):
         return (InformedConsent, {'prolific_id': f'TESTBOT_{pid:03d}'})
     if page_name == 'MainInstructions':
         return (MainInstructions, None)
+    if page_name == 'ComprehensionTest':
+        return (ComprehensionTest, COMPREHENSION_ANSWERS)
+    if page_name == 'FailedTest':
+        return (FailedTest, None)
     if page_name == 'InstructionsNoDelegation':
         return (InstructionsNoDelegation, None)
     if page_name == 'InstructionsDelegation':
@@ -338,6 +350,7 @@ class PlayerBot(Bot):
         if rnd == 1:
             yield InformedConsent, {'prolific_id': f'TESTBOT_{getattr(self.participant, "id_in_session", 0):03d}'}
             yield MainInstructions
+            yield ComprehensionTest, COMPREHENSION_ANSWERS
             if DELEGATION_FIRST:
                 yield InstructionsDelegation
             else:
@@ -389,6 +402,6 @@ class PlayerBot(Bot):
             yield InstructionsGuessingGame
             yield GuessDelegation, {f'guess_round_{i}': random.choice(['yes', 'no']) for i in range(1, 11)}
             yield ResultsGuess
-            yield Debriefing
-            yield ExitQuestionnaire, _exit_form()
-            yield Submission(Thankyou, {}, check_html=False)
+            # yield Debriefing
+            # yield ExitQuestionnaire, _exit_form()
+            # yield Submission(Thankyou, {}, check_html=False)

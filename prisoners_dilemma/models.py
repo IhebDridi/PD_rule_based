@@ -1,6 +1,23 @@
+"""
+Prisoners' dilemma app models: constants, round-robin matching, grouping, payoffs, and custom export.
+
+- Constants: payoff matrix, lobby timeouts, part/round mapping.
+- Round-robin: compute_round_robin_assignments, get_opponent_in_round (with cache).
+- Grouping: set_group_matrix_for_released_batch (batch + one "others" group for speed).
+- Subsession.creating_session: mark everyone as not yet grouped (matching_group_id = -1).
+- Group.set_payoffs: round-robin payoffs for batch groups; payoff 0 for waiting/leftover groups.
+- Player: all form fields and helpers (get_agent_decision_*, get_part_data).
+- Export: _opponent_for_export, custom_export.
+- Lobby helpers: release_lobby_batch, run_payoffs_for_matching_group.
+"""
 from otree.api import *
 import random
 from collections import defaultdict
+
+
+# =============================================================================
+# Constants
+# =============================================================================
 
 class Constants(BaseConstants):
     name_in_url = 'prisoners_dilemma'
@@ -29,44 +46,40 @@ class Constants(BaseConstants):
 
     @staticmethod
     def get_part(round_number):
-        """Determine the part of the experiment based on the round number."""
+        """Map round_number (1–30) to part 1, 2, or 3. Rounds 1–10 → 1, 11–20 → 2, 21–30 → 3."""
         return (round_number - 1) // Constants.rounds_per_part + 1
 
     @staticmethod
     def part_no_delegation():
-        """Displayed part number for the no-delegation block (Part X)."""
+        """Part number shown in UI for the no-delegation block (e.g. Part 1 or Part 2 depending on DELEGATION_FIRST)."""
         return 2 if Constants.DELEGATION_FIRST else 1
 
     @staticmethod
     def part_delegation():
-        """Displayed part number for the delegation block (Part Y)."""
+        """Part number shown in UI for the mandatory-delegation block."""
         return 1 if Constants.DELEGATION_FIRST else 2
 
     @staticmethod
     def is_mandatory_delegation_round(round_number):
-        """True if this round is in the mandatory delegation block (Part 1 when DELEGATION_FIRST, else Part 2)."""
+        """True if this round is in the block where delegation is mandatory (Part 1 if DELEGATION_FIRST else Part 2)."""
         part = Constants.get_part(round_number)
         if Constants.DELEGATION_FIRST:
             return part == 1  # rounds 1-10 = delegation
         return part == 2  # rounds 11-20 = delegation
 
 
-# ---------------------------------------------------------------------------
-# New structure logic here:
-# N_players >= 3, N_rounds = 10. For each round, assign opponents in round-robin:
-#   player_assignments[player] = list of (opponent, r) for r in 1..N_rounds
-#   opponent = opponents[(player + i + r - 1) % N_players] (skip self).
-# Ensures at least 2 unique opponents per player; total matches = N_players * N_rounds.
-# Opponent is applied when computing payoffs and displaying results (one group of N per round).
-# ---------------------------------------------------------------------------
-
+# =============================================================================
+# Round-robin opponent assignment (used for N >= 3 batch groups)
+# =============================================================================
 def compute_round_robin_assignments(N_players, N_rounds=10):
     """
-    Round-robin opponent assignment (new structure logic). Returns list of length N_players:
-    result[logical_idx] = list of (opponent_logical_idx, round_1based) for each round.
-    Uses 0-based logical indices. Lone participants are not given a group; they stay in the lobby.
+    Build round-robin opponent assignments for N_players over N_rounds.
+
+    Returns: list of length N_players. result[i] = list of (opponent_0based_index, round_1based)
+    for each round. Each player gets exactly one opponent per round; indices are 0-based for
+    use with sorted_players[opp_idx]. Used by get_opponent_in_round and _opponent_for_export.
     """
-    # 1-indexed as in user's spec
+    # 1-indexed as in user spec; then convert to 0-based at the end
     player_assignments = {p: [] for p in range(1, N_players + 1)}
     for r in range(1, N_rounds + 1):
         opponents = list(range(1, N_players + 1))
@@ -96,8 +109,10 @@ _ROUND_ROBIN_CACHE = {}
 
 def get_opponent_in_round(player, round_number):
     """
-    For the given player in the given round, return the opponent Player (for payoff/display).
-    Groups are always 3+ (batch) or 1 (leftover); no groups of 2. Use round-robin for N >= 3.
+    Return the Player who is this player's opponent in the given round (for payoffs and results).
+
+    Uses round-robin assignments when group size N >= 3; orders players by id_in_group so
+    indices match compute_round_robin_assignments. Returns None for group size 0, 1, or 2.
     """
     me = player.in_round(round_number)
     group_players = list(me.group.get_players())
@@ -131,9 +146,12 @@ def get_opponent_in_round(player, round_number):
 
 def set_group_matrix_for_released_batch(subsession, batch_players, part):
     """
-    Set group matrix for the released batch. One group per released batch (3+ players), and one group
-    for all "others" (matching_group_id < 0), so we only create 2–3 groups per round instead of hundreds.
-    That keeps lobby release fast with large sessions. Others get payoff 0 in set_payoffs.
+    Update the group matrix for all rounds in this part so the released batch forms one group
+    and all other players form a single "waiting" group.
+
+    Called from release_lobby_batch after assigning matching_group_id/position to batch_players.
+    We create only 2 groups per round (batch + others) so set_group_matrix is fast with many
+    participants. Players in the "others" group get payoff 0 in Group.set_payoffs.
     """
     part_start_round = (part - 1) * Constants.rounds_per_part + 1
     part_end_round = part * Constants.rounds_per_part
@@ -157,6 +175,7 @@ def set_group_matrix_for_released_batch(subsession, batch_players, part):
         # Put all others in one "waiting" group (payoff 0) so we have 2 groups total, not 1 + N.
         if others:
             groups.append([p.id_in_subsession for p in others])
+        # oTree requires every player in the round to appear exactly once in the matrix.
         ids_in_matrix = [sid for g in groups for sid in g]
         expected_ids = {p.id_in_subsession for p in all_players}
         if len(ids_in_matrix) != len(expected_ids) or set(ids_in_matrix) != expected_ids:
@@ -164,24 +183,37 @@ def set_group_matrix_for_released_batch(subsession, batch_players, part):
         try:
             round_ss.set_group_matrix(groups)
         except Exception as e:
+            # Ignore FK/IntegrityError from concurrent updates; re-raise others.
             if "FOREIGN KEY" in str(e) or "IntegrityError" in type(e).__name__:
                 pass
             else:
                 raise
 
 
+# =============================================================================
+# Subsession: session creation (no group matrix change; oTree uses one group of all)
+# =============================================================================
+
 class Subsession(BaseSubsession):
     def creating_session(self):
-        # Everyone starts in one group (players_per_group=None). Real groups form only when lobby releases a batch.
+        """Run once per subsession. Round 1 only: set matching_group_id = -1 so everyone is 'not yet released'."""
         if self.round_number == 1:
             for p in self.get_players():
                 p.participant.vars['matching_group_id'] = -1
 
 
 
-class Group(BaseGroup):
+# =============================================================================
+# Group: payoff computation (round-robin for batch groups, 0 for waiting/fallback)
+# =============================================================================
 
+class Group(BaseGroup):
     def set_payoffs(self):
+        """
+        Set payoff for each player in this group. Single-player → 0. For N >= 3: if all share
+        the same matching_group_id >= 0 (released batch), use round-robin and PD matrix; otherwise
+        (waiting group or mixed) set payoff 0 for everyone.
+        """
         players = self.get_players()
         if len(players) == 1:
             players[0].payoff = cu(0)
@@ -219,8 +251,12 @@ class Group(BaseGroup):
 
 
 
+# =============================================================================
+# Player: form fields and helper methods
+# =============================================================================
+
 class Player(BasePlayer):
-    # Allocation for the current decision (manual or agent-based)
+    """One row per participant per round. choice = A/B for PD; agent/human fields for delegation parts."""
     app_name = models.StringField(initial='rulebased_del1st')
     delegate_decision_optional_final = models.BooleanField()
 
@@ -451,18 +487,13 @@ class Player(BasePlayer):
     guess_payoff = models.CurrencyField(initial=0)
 
     def get_agent_decision_mandatory(self, round_number):
-        """Retrieve the agent's decision for a given round in Part 1."""
+        """Return the stored agent decision (A or B) for the given round in the mandatory-delegation part, or None."""
         field_name = f"agent_decision_mandatory_delegation_round_{round_number}"
-
         value = self.field_maybe_none(field_name)
-
-        if value is None:
-            return None   # ✅ safe, explicit, oTree‑compliant
-
-        return value
+        return value if value is not None else None
 
     def get_agent_decision_optional(self, round_number):
-        """Retrieve the agent's allocation for a given round in Part 3."""
+        """Return the stored agent decision for the given round in Part 3 (optional delegation). Raises if missing."""
         field_name = f"decision_optional_delegation_round_{round_number}"
         if hasattr(self, field_name):
             value = getattr(self, field_name)
@@ -472,7 +503,7 @@ class Player(BasePlayer):
         raise AttributeError(f"Agent allocation for {field_name} not found.")
 
     def get_part_data(self):
-        """Get all rounds' data for the current part."""
+        """Return list of Player instances for all rounds in the current part (used for iteration)."""
         current_part = Constants.get_part(self.round_number)
         rounds = self.in_rounds(
             (current_part - 1) * Constants.rounds_per_part + 1,
@@ -483,8 +514,16 @@ class Player(BasePlayer):
 
 
 
+# =============================================================================
+# Custom export: opponent resolution and CSV generation
+# =============================================================================
+
 def _opponent_for_export(pr, r, round_data, rr_cache):
-    """Resolve opponent for export using pre-built round_data (no DB/ORM calls)."""
+    """
+    Return the opponent Player for participant pr in round r for the custom export.
+    Uses pre-built round_data[r][group_id] = sorted_players and rr_cache for round-robin;
+    no extra DB queries. Returns None if no opponent (group size <= 1 or invalid).
+    """
     if r not in round_data:
         return None
     gid = getattr(pr, "group_id", None)
@@ -520,6 +559,11 @@ def _opponent_for_export(pr, r, round_data, rr_cache):
 
 
 def custom_export(players):
+    """
+    oTree custom export: yield CSV rows (header first, then one row per participant).
+    Builds round_data and rr_cache once, then uses _opponent_for_export for each round.
+    Handles quit_to_prolific (BonusPaymentTotal=1.0), random_payoff_part, and Part 4 guessing.
+    """
     from collections import defaultdict
 
     by_participant = defaultdict(list)
@@ -659,20 +703,15 @@ def custom_export(players):
         except Exception:
             continue
 
-# ---------------------------------------------------------------------------
-# Helper functions (lobby release, payoffs)
-# ---------------------------------------------------------------------------
-
-# Unused: no callers; lobby uses batch_players from session.vars directly.
-# def get_active_players(subsession):
-#     """Players released from lobby (matching_group_id >= 0)."""
-#     return [p for p in subsession.get_players() if p.participant.vars.get('matching_group_id', -1) >= 0]
-
+# =============================================================================
+# Lobby release and payoff runner (called from pages.Lobby and BatchWaitForGroup)
+# =============================================================================
 
 def release_lobby_batch(subsession, batch_players, batch_id=0, part=1):
     """
-    Call when a batch of 3+ is released from the lobby. Assigns matching_group_id and position,
-    sets round-robin group matrices for this part, and marks can_leave_lobby for that part.
+    Called from Lobby when 3+ participants are released. Sets matching_group_id and
+    matching_group_position on each batch player, updates the group matrix for this part
+    via set_group_matrix_for_released_batch, and sets can_leave_lobby so they can leave the Lobby page.
     """
     for i, p in enumerate(batch_players):
         p.participant.vars['matching_group_id'] = batch_id
@@ -684,8 +723,11 @@ def release_lobby_batch(subsession, batch_players, batch_id=0, part=1):
 
 
 def run_payoffs_for_matching_group(subsession, matching_group_id):
-    """Run set_payoffs for all rounds in the current part, only for the batch group (matching_group_id).
-    Uses one get_players() per round and groups in memory so it stays fast with large sessions.
+    """
+    Run Group.set_payoffs for every round in the current part, but only for the group whose
+    players all have the given matching_group_id. Fetches all players per round once and
+    groups by group_id in memory so it stays fast with large sessions. Short sleep before
+    running so the last arriver's choice can commit.
     """
     import time as _time
     _time.sleep(0.5)  # Brief moment so last arriver's choice can commit

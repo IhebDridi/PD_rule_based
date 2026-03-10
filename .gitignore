@@ -40,3 +40,6 @@ test_payoff_20participants.py
 run_otree_test.py
 ddd.sqlite3
 check_export.py
+CODE_REFERENCE.md
+DOC_QUICK_SWITCH_GAME.md
+DOC_SWITCH_GAME_DETAILED.md

@@ -1,23 +1,35 @@
+"""
+Prisoners' dilemma app pages: consent, instructions, lobby, decisions, wait pages, results, debriefing.
+
+Flow: InformedConsent → MainInstructions → Lobby (per part) → part-specific instructions →
+DecisionNoDelegation / AgentProgramming → BatchWaitForGroup → Results → (Part 4) GuessDelegation →
+ResultsGuess → Debriefing → ExitQuestionnaire → Thankyou. Lobby and BatchWaitForGroup implement
+custom wait/release and payoff logic; DelegationDecision is Part 3 only.
+"""
 from starlette.responses import RedirectResponse
 from otree.api import *
 from .models import Constants, release_lobby_batch, run_payoffs_for_matching_group, get_opponent_in_round
 import json
 import time
 
-
+# Minimum seconds all batch members must have been on BatchWaitForGroup before payoffs run (avoids races).
 BATCH_WAIT_MIN_SECONDS = 2
 
 
 def part_vars():
+    """Template vars for part labels (part_no_delegation, part_delegation) used across instruction pages."""
     return {
         "part_no_delegation": Constants.part_no_delegation(),
         "part_delegation": Constants.part_delegation(),
     }
 
 
-# --- Consent & instructions ---
+# =============================================================================
+# Consent and instructions
+# =============================================================================
 
 class InformedConsent(Page):
+    """Round 1 only. Collect 24-character Prolific ID; validated in error_message_prolific_id."""
     form_model = 'player'
     form_fields = ['prolific_id']
 
@@ -41,10 +53,83 @@ class MainInstructions(Page):
         return part_vars()
 
 
+class ComprehensionTest(Page):
+    """
+    Round-1 comprehension quiz about the task. Uses q1–q10 fields on Player and
+    tracks attempts via comprehension_attempts / is_excluded. Shows a dynamic
+    error message via participant.vars['comp_error_message'].
+    """
+    form_model = 'player'
+    form_fields = ['q1', 'q2', 'q3', 'q4', 'q5',
+                   'q6', 'q7', 'q8', 'q9', 'q10']
+
+    def is_displayed(self):
+        return self.round_number == 1 and not self.player.is_excluded
+
+    def vars_for_template(self):
+        return {
+            "comp_error_message": self.participant.vars.get(
+                "comp_error_message"
+            ),
+            **part_vars(),
+        }
+
+    def error_message(self, values):
+        correct_answers = {
+            'q1': 'c',
+            'q2': 'b',
+            'q3': 'c',
+            'q4': 'c',
+            'q5': 'a',
+            'q6': 'c',
+            'q7': 'a',
+            'q8': 'b',
+            'q9': 'b',
+            'q10': 'b',
+        }
+
+        incorrect = [
+            q for q, correct in correct_answers.items()
+            if values.get(q) != correct
+        ]
+
+        if not incorrect:
+            # all correct → proceed
+            self.participant.vars.pop("comp_error_message", None)
+            return
+
+        # incorrect answers
+        self.player.comprehension_attempts += 1
+        attempts_left = 3 - self.player.comprehension_attempts
+
+        if attempts_left > 0:
+            msg = (
+                f"You have failed questions: {', '.join(incorrect)}. "
+                f"You have {attempts_left} attempt(s) remaining."
+            )
+            self.participant.vars["comp_error_message"] = msg
+            return msg
+
+        # no attempts left → exclude
+        self.player.is_excluded = True
+        return (
+            "You have failed the comprehension test too many times "
+            "and cannot continue with the experiment."
+        )
+
+
+class FailedTest(Page):
+    """Shown only if comprehension attempts exceeded and player.is_excluded is True."""
+    def is_displayed(self):
+        return self.player.is_excluded
+
+
 class InstructionsNoDelegation(Page):
+    """Shown at start of the no-delegation block (Part 1 round 1 or Part 2 round 11 depending on DELEGATION_FIRST). Hidden if not yet released from lobby."""
     template_name = 'prisoners_dilemma/InstructionsNoDelegation.html'
 
     def is_displayed(self):
+        # Must have left lobby (matching_group_id >= 0) to see any part instructions.
         if self.round_number in (1, 11) and self.participant.vars.get('matching_group_id', -1) < 0:
             return False
         if self.round_number == 1:
@@ -58,6 +143,7 @@ class InstructionsNoDelegation(Page):
 
 
 class InstructionsDelegation(Page):
+    """Shown at start of the mandatory-delegation block (Part 1 or Part 2 per DELEGATION_FIRST)."""
     template_name = 'prisoners_dilemma/InstructionsDelegation.html'
 
     def is_displayed(self):
@@ -74,6 +160,7 @@ class InstructionsDelegation(Page):
 
 
 class InstructionsOptional(Page):
+    """Part 3 intro (round 21 only): explains optional delegation. Shown only after leaving Part 3 lobby."""
     template_name = 'prisoners_dilemma/InstructionsOptional.html'
 
     def is_displayed(self):
@@ -96,14 +183,22 @@ class InstructionsGuessingGame(Page):
         return part_vars()
 
 
-# --- Agent Programming (delegation rounds) ---
+# =============================================================================
+# Agent programming (delegation: set A/B per round via table; live_method + before_next_page sync to choice)
+# =============================================================================
 
 class AgentProgramming(Page):
+    """
+    Page where participants set agent decisions (A or B) for each round of the delegation block.
+    live_method receives JSON from the front end and stores in participant.vars; before_next_page
+    copies those (or form fields for mandatory blocks) into player.in_round(r).choice.
+    """
+
     form_model = 'player'
 
     @staticmethod
     def live_method(player, data):
-        """Receive allocations from liveSend (table A/B choices) and store in participant.vars."""
+        """Receive allocations from liveSend (table A/B choices) and store in participant.vars (agent_programming_part1/2/3)."""
         if not data or 'allocations' not in data:
             return
         raw = json.loads(data['allocations'])
@@ -174,7 +269,7 @@ class AgentProgramming(Page):
             "delegate_decision": self.player.field_maybe_none(
                 "delegate_decision_optional"
             ),
-            "countdown_seconds": 15,
+            "countdown_seconds": 90,
             **part_vars(),
         }
 
@@ -237,12 +332,14 @@ class AgentProgramming(Page):
 
 class BatchWaitForGroup(WaitPage):
     """
-    Wait page at end of each part. Waits for all in your round-robin batch (matching_group_id >= 0);
-    then runs payoffs. No dropout/simulated logic.
+    Shown at end of each part (rounds 10, 20, 30). Waits until every participant in the same
+    matching_group_id has arrived; then one request runs run_payoffs_for_matching_group and all
+    proceed. Uses session key payoffs_run_matching_group_{gid}_part_{part} so payoffs run only once.
     """
     template_name = 'prisoners_dilemma/BatchWaitForGroup.html'
 
     def is_displayed(self):
+        """Only at part boundaries (round 10, 20, 30) and only if participant was released from lobby."""
         return (
             self.round_number % Constants.rounds_per_part == 0
             and self.participant.vars.get('matching_group_id', -1) >= 0
@@ -303,14 +400,17 @@ class BatchWaitForGroup(WaitPage):
         return {player.id_in_group: payload}
 
 
-# --- Delegation Decision (Part 3 only) ---
+# =============================================================================
+# Delegation decision (Part 3 only: delegate or play yourself)
+# =============================================================================
 
 class DelegationDecision(Page):
+    """Part 3 start (round 21): one-time choice whether to delegate or not. Invalid round in URL → redirect to 21."""
     form_model = 'player'
     form_fields = ['delegate_decision_optional']
 
     def get(self):
-        # If URL has an invalid round (e.g. 347 when only 30 rounds exist), redirect to the valid round for this page (21).
+        # Redirect invalid round numbers (e.g. 347) to round 21 so the page doesn't 500.
         rnd = self.round_number
         if rnd > Constants.num_rounds or rnd != 21:
             path = getattr(self.request, 'path', None) or getattr(self.request, 'path_info', '') or (getattr(self.request, 'url', None) and getattr(self.request.url, 'path', '')) or ''
@@ -342,10 +442,12 @@ class DelegationDecision(Page):
             )
 
 
-# --- Results (end of each part) ---
-
+# =============================================================================
+# Results (end of Parts 1–3: show round-by-round choices, opponent, payoff)
+# =============================================================================
 
 class Results(Page):
+    """Shown at end of each part (rounds 10, 20, 30). Builds rounds_data from get_opponent_in_round; repairs payoffs if 0 but choices exist (late-arriving batch fix)."""
     def is_displayed(self):
         r = self.round_number
         current_part = Constants.get_part(r)
@@ -415,18 +517,16 @@ class Results(Page):
             rounds_data=rounds_data,
         )
 
-# -------------------------
-#  Delegation guessing
-# -------------------------
+# =============================================================================
+# Part 4: guessing whether opponent delegated (per Part 3 round)
+# =============================================================================
 
 class GuessDelegation(Page):
+    """Shown once after Part 3 (round 30). Ten guesses (guess_round_1..10); before_next_page sets guess_payoff (10 cu if correct)."""
     form_model = 'player'
 
     def is_displayed(self):
-        #  show ONCE, at end of Part 3; simulated participants skip (guesses set in creating_session)
-        if self.round_number != 3 * Constants.rounds_per_part:
-            return False
-        return True
+        return self.round_number == 3 * Constants.rounds_per_part
 
     def get_form_fields(self):
         return [f"guess_round_{i}" for i in range(1, 11)]
@@ -448,7 +548,7 @@ class GuessDelegation(Page):
 
         return {
             "rows": rows,
-            "countdown_seconds": 15,
+            "countdown_seconds": 90,
         }
 
     def before_next_page(self):
@@ -467,11 +567,10 @@ class GuessDelegation(Page):
             #  2. store unified guess field (used elsewhere)
             future_player.guess_opponent_delegated = guess
 
-            #  3. compute and ALWAYS store payoff
+            #  3. compute and ALWAYS store payoff (10 cents per correct → 10 correct = $1 total)
             other = get_opponent_in_round(self.player, r)
             actual = bool(other and other.field_maybe_none("delegate_decision_optional"))
 
-            # 10 cents per correct answer (1 point = 1 cent)
             future_player.guess_payoff = (
                 cu(10) if (guess == 'yes') == actual else cu(0)
             )
@@ -479,13 +578,14 @@ class GuessDelegation(Page):
         self.participant.vars['guess_submitted'] = True
 
 
-# -------------------------
-#  Debriefing
-# -------------------------
+# =============================================================================
+# Debriefing and exit questionnaire
+# =============================================================================
 
 class Debriefing(Page):
+    """Final round only. Shows results_by_part, random_payoff_part, Part 4 guessing table, and total bonus."""
     def is_displayed(self):
-        return  self.round_number == Constants.num_rounds
+        return self.round_number == Constants.num_rounds
 
 
     def vars_for_template(self):
@@ -563,8 +663,10 @@ class Debriefing(Page):
         total_payoff_ecoins = int(total_payoff_val) if total_payoff_val is not None else 0
         total_payoff_cents = total_payoff_ecoins // 10
         guessing_bonus_ecoins = int(guessing_bonus or 0)
-        guessing_bonus_cents = guessing_bonus_ecoins // 10
+        # Part 4: 10 cu per correct = 10 cents, so 1 cu = 1 cent (guessing_bonus_cents = cu total)
+        guessing_bonus_cents = guessing_bonus_ecoins
         total_bonus_cents = total_payoff_cents + guessing_bonus_cents
+        total_bonus_dollars = round(total_bonus_cents / 100, 2)
         # Part 4 guess payoffs: 10 cu = 1 cent -> display "0.1" or "0"
         for row in guess_rounds_data:
             p = row.get("payoff") or 0
@@ -580,11 +682,13 @@ class Debriefing(Page):
             "guessing_bonus_cents": guessing_bonus_cents,
             "total_bonus": total_bonus,
             "total_bonus_cents": total_bonus_cents,
+            "total_bonus_dollars": total_bonus_dollars,
         }
 
 
 
 class ExitQuestionnaire(Page):
+    """Final round: demographics, feedback, part_3/part_4 feedback. Validates part_3_other requires part_3_feedback_other."""
     def error_message(self, values):
         if values.get('part_3_feedback') == 'part_3_other':
             if not values.get('part_3_feedback_other'):
@@ -609,9 +713,14 @@ class ExitQuestionnaire(Page):
 
 
 class Thankyou(Page):
+    """Final page: shown only on last round."""
     def is_displayed(self):
         return self.round_number == Constants.num_rounds
 
+
+# =============================================================================
+# Lobby: wait for 3+ participants, release batch (first-in first-out), wait-or-quit on timeout
+# =============================================================================
 
 class Lobby(WaitPage):
     """
@@ -631,6 +740,7 @@ class Lobby(WaitPage):
         return False
 
     def _lobby_part(self):
+        """Return 1, 2, or 3 for the part this Lobby instance belongs to (round 1 → part 1, 11 → 2, 21 → 3)."""
         if self.round_number == 1:
             return 1
         if self.round_number == 11:
@@ -750,8 +860,12 @@ class Lobby(WaitPage):
 
 
 
-#changes are made
+# =============================================================================
+# Decision page (no delegation: human chooses A or B)
+# =============================================================================
+
 class DecisionNoDelegation(Page):
+    """A/B choice page for no-delegation rounds. Shown when not in mandatory-delegation block and (in Part 3) when participant did not delegate."""
     template_name = "prisoners_dilemma/DecisionNoDelegation.html"
     form_model = "player"
     form_fields = ["choice"]
@@ -780,6 +894,7 @@ class DecisionNoDelegation(Page):
 
 
 class ResultsGuess(Page):
+    """Shown after GuessDelegation (round 30). Displays Part 4 guess results (yes/no vs actual delegation, earnings)."""
     def is_displayed(self):
         return (
             self.round_number == Constants.num_rounds
@@ -826,6 +941,8 @@ class ResultsGuess(Page):
 page_sequence = [
     InformedConsent,
     MainInstructions,
+    ComprehensionTest,
+    FailedTest,
     Lobby,
     InstructionsNoDelegation,
     InstructionsDelegation,

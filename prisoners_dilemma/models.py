@@ -150,12 +150,13 @@ def get_opponent_in_round(player, round_number):
 
 def set_group_matrix_for_released_batch(subsession, batch_players, part):
     """
-    Update the group matrix for all rounds in this part so the released batch forms one group
-    and all other players form a single "waiting" group.
+    Update the group matrix for all rounds in this part so released batches form groups 2, 3, 4, ...
+    and all other players stay in a single "waiting" group (group 1).
 
     Called from release_lobby_batch after assigning matching_group_id/position to batch_players.
-    We create only 2 groups per round (batch + others) so set_group_matrix is fast with many
-    participants. Players in the "others" group get payoff 0 in Group.set_payoffs.
+    Order: [others, batch0, batch1, ...] so "others" always has group_id 1 (stable); new batches
+    get increasing ids. Reduces churn vs putting others last (where its id would change each time).
+    Players in the "others" group get payoff 0 in Group.set_payoffs.
     """
     part_start_round = (part - 1) * Constants.rounds_per_part + 1
     part_end_round = part * Constants.rounds_per_part
@@ -170,15 +171,15 @@ def set_group_matrix_for_released_batch(subsession, batch_players, part):
                 gid = -1
             by_gid[gid].append(p)
         others = [p for gid, plist in by_gid.items() if gid < 0 for p in plist]
+        # Others first (stable group 1), then batches in order (group 2, 3, 4, ...).
         groups = []
+        if others:
+            groups.append([p.id_in_subsession for p in others])
         for gid in sorted(by_gid.keys()):
             if gid < 0:
                 continue
             batch_list = sorted(by_gid[gid], key=lambda p: p.participant.vars.get("matching_group_position", 0))
             groups.append([p.id_in_subsession for p in batch_list])
-        # Put all others in one "waiting" group (payoff 0) so we have 2 groups total, not 1 + N.
-        if others:
-            groups.append([p.id_in_subsession for p in others])
         # oTree requires every player in the round to appear exactly once in the matrix.
         ids_in_matrix = [sid for g in groups for sid in g]
         expected_ids = {p.id_in_subsession for p in all_players}
@@ -729,9 +730,9 @@ def release_lobby_batch(subsession, batch_players, batch_id=0, part=1):
 def run_payoffs_for_matching_group(subsession, matching_group_id):
     """
     Run Group.set_payoffs for every round in the current part, but only for the group whose
-    players all have the given matching_group_id. Fetches all players per round once and
-    groups by group_id in memory so it stays fast with large sessions. Short sleep before
-    running so the last arriver's choice can commit.
+    players all have the given matching_group_id. Waits until all 3 players have submitted
+    choices for all rounds in the part before running payoffs (avoids None opponent choices
+    when many bots/participants run concurrently).
     """
     import time as _time
     _time.sleep(0.5)  # Brief moment so last arriver's choice can commit
@@ -745,23 +746,49 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
         start, end = 21, 30
     else:
         return
+    # Find the group (same 3 players in every round)
+    round_ss = subsession.in_round(start)
+    all_players = list(round_ss.get_players())
+    by_group = defaultdict(list)
+    for p in all_players:
+        by_group[p.group_id].append(p)
+    players_in_group = None
+    group = None
+    for group_id, players in by_group.items():
+        if len(players) < 3:
+            continue
+        if not all(p.participant.vars.get('matching_group_id') == matching_group_id for p in players):
+            continue
+        players_in_group = players
+        group = players[0].group
+        break
+    if not players_in_group or not group:
+        return
+    # Wait until all 3 players have choice set for every round in the part (avoids None when 30+ bots run at once)
+    for _ in range(360):  # up to 3 minutes (360 × 0.5s)
+        all_ready = True
+        for r in range(start, end + 1):
+            for p in players_in_group:
+                pr = p.in_round(r)
+                if pr.field_maybe_none('choice') is None:
+                    all_ready = False
+                    break
+            if not all_ready:
+                break
+        if all_ready:
+            break
+        _time.sleep(0.5)
     for r in range(start, end + 1):
         round_ss = subsession.in_round(r)
-        all_players = list(round_ss.get_players())
-        by_group = defaultdict(list)
-        for p in all_players:
-            by_group[p.group_id].append(p)
-        for group_id, players in by_group.items():
+        all_players_r = list(round_ss.get_players())
+        by_group_r = defaultdict(list)
+        for p in all_players_r:
+            by_group_r[p.group_id].append(p)
+        for group_id, players in by_group_r.items():
             if len(players) < 3:
                 continue
             if not all(p.participant.vars.get('matching_group_id') == matching_group_id for p in players):
                 continue
-            group = players[0].group
-            for _ in range(4):
-                ready = all(p.field_maybe_none('choice') is not None for p in players)
-                if ready:
-                    break
-                _time.sleep(0.25)
-            group.set_payoffs()
+            players[0].group.set_payoffs()
             break
 

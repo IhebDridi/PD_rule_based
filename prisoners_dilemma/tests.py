@@ -402,6 +402,6 @@ class PlayerBot(Bot):
             yield InstructionsGuessingGame
             yield GuessDelegation, {f'guess_round_{i}': random.choice(['yes', 'no']) for i in range(1, 11)}
             yield ResultsGuess
-            # yield Debriefing
-            # yield ExitQuestionnaire, _exit_form()
-            # yield Submission(Thankyou, {}, check_html=False)
+            yield Debriefing
+            yield ExitQuestionnaire, _exit_form()
+            yield Submission(Thankyou, {}, check_html=False)

@@ -73,7 +73,6 @@ class InformedConsent(Page):
 
 class MainInstructions(Page):
     """Main instructions (experiment structure) at round 1."""
-    template_name = 'prisoners_dilemma/MainInstructions.html'
 
     def is_displayed(self):
         return self.round_number == 1
@@ -160,7 +159,6 @@ class BotDetection(Page):
     Shown only if participant was flagged as a bot by hidden attention checks.
     The DB flag is stored in `Player.bot_detected` (models.py).
     """
-    template_name = "prisoners_dilemma/BotDetection.html"
 
     def is_displayed(self):
         return _is_bot_suspected(self.participant)
@@ -176,7 +174,6 @@ class BotDetection(Page):
 
 class InstructionsNoDelegation(Page):
     """Shown at start of the no-delegation block (Part 1 round 1 or Part 2 round 11 depending on DELEGATION_FIRST). Hidden if not yet released from lobby."""
-    template_name = 'prisoners_dilemma/InstructionsNoDelegation.html'
 
     def is_displayed(self):
         if self.round_number == 1 and not _has_left_lobby_for_part(self.participant, 1):
@@ -195,7 +192,6 @@ class InstructionsNoDelegation(Page):
 
 class InstructionsDelegation(Page):
     """Shown at start of the mandatory-delegation block (Part 1 or Part 2 per DELEGATION_FIRST)."""
-    template_name = 'prisoners_dilemma/InstructionsDelegation.html'
 
     def is_displayed(self):
         if self.round_number == 1 and not _has_left_lobby_for_part(self.participant, 1):
@@ -214,7 +210,6 @@ class InstructionsDelegation(Page):
 
 class InstructionsOptional(Page):
     """Part 3 intro (round 21 only): explains optional delegation. Shown only after leaving Part 3 lobby."""
-    template_name = 'prisoners_dilemma/InstructionsOptional.html'
 
     def is_displayed(self):
         return self.round_number == 21 and _has_left_lobby_for_part(self.participant, 3)
@@ -224,7 +219,6 @@ class InstructionsOptional(Page):
 
 
 class InstructionsGuessingGame(Page):
-    template_name = 'prisoners_dilemma/InstructionsGuessingGame.html'
 
     def is_displayed(self):
         return self.round_number == Constants.num_rounds
@@ -386,7 +380,6 @@ class BatchWaitForGroup(WaitPage):
     matching_group_id has arrived; then one request runs run_payoffs_for_matching_group and all
     proceed. Uses session key payoffs_run_matching_group_{gid}_part_{part} so payoffs run only once.
     """
-    template_name = 'prisoners_dilemma/BatchWaitForGroup.html'
 
     def is_displayed(self):
         """At part boundaries (round 10, 20, 30): show if left lobby for this part and not yet in a formed results group."""
@@ -516,7 +509,6 @@ class BatchWaitForGroup(WaitPage):
 
 class TimeOutquit(Page):
     """Shown only when participant chose to quit from BatchWaitForGroup; redirects to Prolific show-up fee. Admin displays this page name instead of BatchWaitForGroup."""
-    template_name = 'prisoners_dilemma/TimeOutquit.html'
 
     def is_displayed(self):
         return bool(self.participant.vars.get('quit_to_prolific_results', False))
@@ -894,7 +886,6 @@ class Thankyou(Page):
 # If you later reintroduce a lobby gate, restore this class and add it back to `page_sequence`.
 #
 # class Lobby(WaitPage):
-#     template_name = 'prisoners_dilemma/Lobby.html'
 #     ...
 
 
@@ -905,7 +896,6 @@ class Thankyou(Page):
 
 class DecisionNoDelegation(Page):
     """A/B choice page for no-delegation rounds. Shown when not in mandatory-delegation block and (in Part 3) when participant did not delegate."""
-    template_name = "prisoners_dilemma/DecisionNoDelegation.html"
     form_model = "player"
     form_fields = ["choice"]
 

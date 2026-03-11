@@ -380,7 +380,7 @@ class BatchWaitForGroup(WaitPage):
     matching_group_id has arrived; then one request runs run_payoffs_for_matching_group and all
     proceed. Uses session key payoffs_run_matching_group_{gid}_part_{part} so payoffs run only once.
     """
-
+    template_name = 'PD_rule_based_delegation_2nd/BatchWaitForGroup.html'
     def is_displayed(self):
         """At part boundaries (round 10, 20, 30): show if left lobby for this part and not yet in a formed results group."""
         r = self.round_number
@@ -420,11 +420,30 @@ class BatchWaitForGroup(WaitPage):
                 self.participant.vars[joined_at_key] = time.time()
 
         # If already assigned to a results group, go to Results.
+        # Update the shared results pool and maybe form a group for this part
+        self._update_results_pool_and_maybe_group()
+        # If already assigned to a results group, go to Results immediately.
         if self.participant.vars.get(can_proceed_key):
             return self._response_when_ready()
         return self._get_wait_page()
 
-    def vars_for_template(self):
+    def post(self):
+        """
+        Handle auto-refresh POSTs from oTree's wait page JS.
+        We mirror the GET logic so that participants who already have
+        can_proceed_to_results_part_X set are redirected without needing
+        a full manual refresh.
+        """
+        current_part = Constants.get_part(self.round_number)
+        can_proceed_key = f"can_proceed_to_results_part_{current_part}"
+        # Pool/group update is idempotent when a group is already formed.
+        self._update_results_pool_and_maybe_group()
+        if self.participant.vars.get(can_proceed_key):
+            return self._response_when_ready()
+        return self._get_wait_page()
+
+    def _update_results_pool_and_maybe_group(self):
+        """Side-effect helper: add self to pool and, if pool has 3, form group and run payoffs."""
         current_part = Constants.get_part(self.round_number)
         pool_key = f'results_pool_part_{current_part}'
         group_size = getattr(Constants, 'FIXED_GROUP_SIZE', 3)
@@ -432,7 +451,6 @@ class BatchWaitForGroup(WaitPage):
         lock_key = f'_results_pool_lock_part_{current_part}'
         first_join_key = f'results_first_join_part_{current_part}'
         joined_at_key = f'results_wait_joined_at_part_{current_part}'
-        timeout_seconds = 300  # 5 minutes: show wait-or-quit only after this participant has waited this long
         if pool_key not in self.session.vars:
             self.session.vars[pool_key] = []
         now = time.time()
@@ -473,6 +491,19 @@ class BatchWaitForGroup(WaitPage):
                                 p.vars[f'can_proceed_to_results_part_{current_part}'] = True
             finally:
                 self.session.vars[lock_key] = False
+
+    def vars_for_template(self):
+        current_part = Constants.get_part(self.round_number)
+        pool_key = f'results_pool_part_{current_part}'
+        group_size = getattr(Constants, 'FIXED_GROUP_SIZE', 3)
+        first_join_key = f'results_first_join_part_{current_part}'
+        joined_at_key = f'results_wait_joined_at_part_{current_part}'
+        timeout_seconds = 300  # 5 minutes: show wait-or-quit only after this participant has waited this long
+        now = time.time()
+        if pool_key not in self.session.vars:
+            self.session.vars[pool_key] = []
+        if first_join_key not in self.session.vars:
+            self.session.vars[first_join_key] = now
         n_in_pool = len(self.session.vars.get(pool_key, []))
         # Show wait-or-quit only if pool still has < 3 AND this participant has personally waited >= 5 minutes.
         joined_at = self.participant.vars.get(joined_at_key, now)

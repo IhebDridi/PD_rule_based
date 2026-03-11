@@ -380,7 +380,7 @@ class BatchWaitForGroup(WaitPage):
     matching_group_id has arrived; then one request runs run_payoffs_for_matching_group and all
     proceed. Uses session key payoffs_run_matching_group_{gid}_part_{part} so payoffs run only once.
     """
-
+    template_name = 'TG_goal_oriented_delegation_1st/BatchWaitForGroup.html'
     def is_displayed(self):
         """At part boundaries (round 10, 20, 30): show if left lobby for this part and not yet in a formed results group."""
         r = self.round_number

@@ -16,6 +16,17 @@ import time
 BATCH_WAIT_MIN_SECONDS = 2
 
 
+def _has_left_lobby_for_part(participant, part):
+    """
+    Return True for all participants.
+
+    Original version checked lobby flags (has_left_lobby / has_left_lobby_part_X), but with the
+    current design there is no Lobby in the flow, so everyone should be allowed to proceed to
+    instructions and decision pages without a prior lobby gate.
+    """
+    return True
+
+
 def part_vars():
     """Template vars for part labels (part_no_delegation, part_delegation) used across instruction pages."""
     return {
@@ -110,12 +121,10 @@ class ComprehensionTest(Page):
             self.participant.vars["comp_error_message"] = msg
             return msg
 
-        # no attempts left → exclude
+        # no attempts left → exclude and move on to FailedTest (do not require correct answers anymore)
         self.player.is_excluded = True
-        return (
-            "You have failed the comprehension test too many times "
-            "and cannot continue with the experiment."
-        )
+        # no form-level error: allow navigation to FailedTest based on is_excluded
+        return
 
 
 class FailedTest(Page):
@@ -129,8 +138,9 @@ class InstructionsNoDelegation(Page):
     template_name = 'prisoners_dilemma/InstructionsNoDelegation.html'
 
     def is_displayed(self):
-        # Must have left lobby (matching_group_id >= 0) to see any part instructions.
-        if self.round_number in (1, 11) and self.participant.vars.get('matching_group_id', -1) < 0:
+        if self.round_number == 1 and not _has_left_lobby_for_part(self.participant, 1):
+            return False
+        if self.round_number == 11 and not _has_left_lobby_for_part(self.participant, 2):
             return False
         if self.round_number == 1:
             return not Constants.DELEGATION_FIRST
@@ -147,7 +157,9 @@ class InstructionsDelegation(Page):
     template_name = 'prisoners_dilemma/InstructionsDelegation.html'
 
     def is_displayed(self):
-        if self.round_number in (1, 11) and self.participant.vars.get('matching_group_id', -1) < 0:
+        if self.round_number == 1 and not _has_left_lobby_for_part(self.participant, 1):
+            return False
+        if self.round_number == 11 and not _has_left_lobby_for_part(self.participant, 2):
             return False
         if self.round_number == 1:
             return Constants.DELEGATION_FIRST
@@ -164,10 +176,7 @@ class InstructionsOptional(Page):
     template_name = 'prisoners_dilemma/InstructionsOptional.html'
 
     def is_displayed(self):
-        return (
-            self.round_number == 21
-            and self.participant.vars.get('matching_group_id', -1) >= 0
-        )
+        return self.round_number == 21 and _has_left_lobby_for_part(self.participant, 3)
 
     def vars_for_template(self):
         return part_vars()
@@ -230,9 +239,9 @@ class AgentProgramming(Page):
 
     def is_displayed(self):
         r = self.round_number
-        if r in (1, 11, 21) and self.participant.vars.get('matching_group_id', -1) < 0:
-            return False
         current_part = Constants.get_part(r)
+        if r in (1, 11, 21) and not _has_left_lobby_for_part(self.participant, current_part):
+            return False
 
         # Mandatory delegation: Part 1 (round 1) or Part 2 (round 11) depending on DELEGATION_FIRST
         if r == 1 and Constants.DELEGATION_FIRST:
@@ -339,64 +348,76 @@ class BatchWaitForGroup(WaitPage):
     template_name = 'prisoners_dilemma/BatchWaitForGroup.html'
 
     def is_displayed(self):
-        """Only at part boundaries (round 10, 20, 30) and only if participant was released from lobby."""
-        return (
-            self.round_number % Constants.rounds_per_part == 0
-            and self.participant.vars.get('matching_group_id', -1) >= 0
-        )
+        """At part boundaries (round 10, 20, 30): show if left lobby for this part and not yet in a formed results group."""
+        r = self.round_number
+        if r % Constants.rounds_per_part != 0:
+            return False
+        current_part = Constants.get_part(r)
+        if not _has_left_lobby_for_part(self.participant, current_part):
+            return False
+        can_proceed_key = f'can_proceed_to_results_part_{current_part}'
+        return not self.participant.vars.get(can_proceed_key, False)
 
     def get(self):
         context = self.get_context_data()
         current_part = Constants.get_part(self.round_number)
-        arrived_key = f'wait_arrived_part_{current_part}'
-        arrived_at_key = f'wait_arrived_part_{current_part}_at'
-        gid = self.participant.vars.get('matching_group_id', -1)
-        participants = self.session.get_participants()
-        in_my_group = [p for p in participants if p.vars.get('matching_group_id') == gid]
-        n_arrived = sum(1 for p in in_my_group if p.vars.get(arrived_key))
-        group_size = len(in_my_group)
-        applied_key = f'payoffs_run_matching_group_{gid}_part_{current_part}'
-        can_proceed = n_arrived >= group_size
-        if can_proceed and BATCH_WAIT_MIN_SECONDS > 0:
-            first_arrived_at = self.participant.vars.get(arrived_at_key) or time.time()
-            if (time.time() - first_arrived_at) < BATCH_WAIT_MIN_SECONDS:
-                can_proceed = False
-        if can_proceed:
-            if not self.session.vars.get(applied_key):
-                # Claim immediately so only one request runs payoffs (avoid race with concurrent arrivals).
-                self.session.vars[applied_key] = True
-                # Brief delay so in-flight choice writes from other participants can commit.
-                time.sleep(0.5)
-                run_payoffs_for_matching_group(self.subsession, gid)
+        can_proceed_key = f'can_proceed_to_results_part_{current_part}'
+        if self.participant.vars.get(can_proceed_key):
             return self._response_when_ready()
         return self._get_wait_page()
 
     def vars_for_template(self):
         current_part = Constants.get_part(self.round_number)
-        arrived_key = f'wait_arrived_part_{current_part}'
-        arrived_at_key = f'wait_arrived_part_{current_part}_at'
-        if arrived_at_key not in self.participant.vars:
-            self.participant.vars[arrived_at_key] = time.time()
-        self.participant.vars[arrived_key] = True
-        gid = self.participant.vars.get('matching_group_id', -1)
+        pool_key = f'results_pool_part_{current_part}'
+        group_size = getattr(Constants, 'FIXED_GROUP_SIZE', 3)
         participants = self.session.get_participants()
-        in_my_group = [p for p in participants if p.vars.get('matching_group_id') == gid]
-        n_arrived = sum(1 for p in in_my_group if p.vars.get(arrived_key))
+        lock_key = f'_results_pool_lock_part_{current_part}'
+        if pool_key not in self.session.vars:
+            self.session.vars[pool_key] = []
+        pid = self.participant.id_in_session
+        # Under one lock: add self to pool, then if pool >= group_size form a group of exactly group_size
+        if not self.session.vars.get(lock_key):
+            self.session.vars[lock_key] = True
+            try:
+                pool = list(self.session.vars.get(pool_key, []))
+                if pid not in pool:
+                    pool.append(pid)
+                    self.session.vars[pool_key] = pool
+                if len(pool) >= group_size:
+                    first_ids = pool[:group_size]
+                    self.session.vars[pool_key] = pool[group_size:]
+                    next_batch_key = f'results_next_batch_id_part_{current_part}'
+                    batch_id = self.session.vars.get(next_batch_key, 0)
+                    self.session.vars[next_batch_key] = batch_id + 1
+                    part_start_round = (current_part - 1) * Constants.rounds_per_part + 1
+                    round_ss = self.subsession.in_round(part_start_round)
+                    batch_players = [pl for pl in round_ss.get_players() if pl.participant.id_in_session in first_ids]
+                    batch_players = sorted(batch_players, key=lambda pl: first_ids.index(pl.participant.id_in_session))
+                    if len(batch_players) == group_size:
+                        release_lobby_batch(self.subsession, batch_players, batch_id=batch_id, part=current_part)
+                        time.sleep(0.5)
+                        run_payoffs_for_matching_group(self.subsession, batch_id)
+                        for p in participants:
+                            if p.id_in_session in first_ids:
+                                p.vars[f'can_proceed_to_results_part_{current_part}'] = True
+            finally:
+                self.session.vars[lock_key] = False
+        n_in_pool = len(self.session.vars.get(pool_key, []))
         return {
-            'n_arrived': n_arrived,
-            'batch_size': len(in_my_group),
+            'n_arrived': n_in_pool,
+            'batch_size': group_size,
         }
 
     @staticmethod
     def live_method(player, data):
-        """Return current count of participants who have reached this wait page (for x/N display)."""
+        """Return current results-pool size (pair-only-before-Results: pool of 3 forms a group)."""
         if not data or data.get('type') != 'get_count':
             return
         current_part = Constants.get_part(player.round_number)
-        arrived_key = f'wait_arrived_part_{current_part}'
-        participants = player.session.get_participants()
-        n_arrived = sum(1 for p in participants if p.vars.get(arrived_key))
-        payload = {'n_arrived': n_arrived, 'n_total': len(participants)}
+        pool_key = f'results_pool_part_{current_part}'
+        pool = player.session.vars.get(pool_key, [])
+        group_size = getattr(Constants, 'FIXED_GROUP_SIZE', 3)
+        payload = {'n_arrived': len(pool), 'n_total': group_size}
         return {player.id_in_group: payload}
 
 
@@ -447,31 +468,28 @@ class DelegationDecision(Page):
 # =============================================================================
 
 class Results(Page):
-    """Shown at end of each part (rounds 10, 20, 30). Builds rounds_data from get_opponent_in_round; repairs payoffs if 0 but choices exist (late-arriving batch fix)."""
+    """Shown at end of each part (rounds 10, 20, 30) only after participant is in a formed results group (can_proceed_to_results_part_X)."""
     def is_displayed(self):
         r = self.round_number
         current_part = Constants.get_part(r)
 
-        # End of each part only (round 10, 20, 30)
         if r % Constants.rounds_per_part != 0:
             return False
 
-        # Part 1 (rounds 1-10): delegation block when DELEGATION_FIRST else no-del block
+        can_proceed_key = f'can_proceed_to_results_part_{current_part}'
+        if not self.participant.vars.get(can_proceed_key, False):
+            return False
+
         if current_part == 1:
             if Constants.DELEGATION_FIRST:
                 return self.participant.vars.get("agent_programming_done_part1", False)
-            return True  # no-del block, no agent programming
-
-        # Part 2 (rounds 11-20): no-del block when DELEGATION_FIRST else delegation block
+            return True
         if current_part == 2:
             if Constants.DELEGATION_FIRST:
-                return True  # no-del block
+                return True
             return self.participant.vars.get("agent_programming_done_part2", False)
-
-        # Part 3 (round 30): show Results for everyone (delegation and no-delegation) after they finish their 10 rounds
         if current_part == 3:
             return True
-
         return False
 
     def before_next_page(self):
@@ -788,16 +806,13 @@ class Lobby(WaitPage):
         wait_quit_key = f'show_wait_or_quit_part_{part}'
 
         lobby = list(self.session.vars.get(lobby_key, []))
-        if (
-            self.participant.id_in_session not in lobby
-            and self.participant.vars.get('matching_group_id', -1) < 0
-            and not self.participant.vars.get(can_leave_key, False)
-        ):
+        can_leave = self.participant.vars.get(can_leave_key, False)
+        if self.participant.id_in_session not in lobby and not can_leave:
             if len(lobby) == 0:
                 self.session.vars[first_join_key] = time.time()
             lobby.append(self.participant.id_in_session)
             self.session.vars[lobby_key] = lobby
-        if part >= 2 and self.participant.vars.get('matching_group_id', -1) >= 0 and not self.participant.vars.get(can_leave_key, False):
+        if part >= 2 and self.participant.vars.get('matching_group_id', -1) >= 0 and not can_leave:
             self.participant.vars['matching_group_id'] = -1
         n_waiting = len(lobby)
         next_batch_id = self.session.vars.get(next_batch_key, 0)
@@ -812,22 +827,21 @@ class Lobby(WaitPage):
         # First in first out: when N>=3 are in the lobby and min_wait passed, release those N as one group.
         # (oTree alternative: WaitPage with group_by_arrival_time_method returning waiting_players when len >= 3.)
         # Use a session lock so only one request runs release (avoids IntegrityError from concurrent set_group_matrix).
+        # Pair only before Results: release from lobby without forming groups (no release_lobby_batch here).
         if n_waiting >= min_players and elapsed >= min_wait:
             lock_key = f'_lobby_release_lock_part_{part}'
             if not self.session.vars.get(lock_key):
                 self.session.vars[lock_key] = True
                 try:
-                    # Snapshot lobby inside lock so we release exactly who is in it now (avoids batch growing as more join in parallel).
                     batch_ids = list(self.session.vars.get(lobby_key, []))
                     if len(batch_ids) < min_players:
                         batch_ids = []
                     self.session.vars[lobby_key] = []
                     self.session.vars[first_join_key] = None
                     self.session.vars[next_batch_key] = next_batch_id + 1
-                    if batch_ids:
-                        subsession = self.subsession
-                        batch_players = [p for p in subsession.get_players() if p.participant.id_in_session in batch_ids]
-                        release_lobby_batch(subsession, batch_players, batch_id=next_batch_id, part=part)
+                    for p in self.session.get_participants():
+                        if p.id_in_session in batch_ids:
+                            p.vars[can_leave_key] = True
                 finally:
                     self.session.vars[lock_key] = False
         elif elapsed >= timeout_sec and n_waiting < min_players:
@@ -871,9 +885,9 @@ class DecisionNoDelegation(Page):
     form_fields = ["choice"]
 
     def is_displayed(self):
-        if self.round_number in (1, 11, 21) and self.participant.vars.get('matching_group_id', -1) < 0:
-            return False
         part = Constants.get_part(self.round_number)
+        if self.round_number in (1, 11, 21) and not _has_left_lobby_for_part(self.participant, part):
+            return False
         if part == 3:
             if self.player.field_maybe_none("delegate_decision_optional") is True:
                 return False
@@ -943,7 +957,7 @@ page_sequence = [
     MainInstructions,
     ComprehensionTest,
     FailedTest,
-    Lobby,
+    # Lobby,  # temporarily disabled: pairing happens only on BatchWaitForGroup before Results
     InstructionsNoDelegation,
     InstructionsDelegation,
     InstructionsOptional,

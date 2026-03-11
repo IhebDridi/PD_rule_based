@@ -13,16 +13,19 @@
     
     
     <p class="intro-text"><strong>What option do you want to choose: A or B?</strong></p>
-    <form method="post" class="decision-form">
+    <form method="post" class="decision-form" id="decision-form">
         <div class="choice-container">
             <label class="choice-option">
-                <input type="radio" name="choice" value="A" required>
+                <input type="radio" name="choice" value="A">
                 A
             </label>
             <label class="choice-option">
-                <input type="radio" name="choice" value="B" required>
+                <input type="radio" name="choice" value="B">
                 B
             </label>
+        </div>
+        <div id="choice-error" class="choice-error" style="display:none;">
+            Please choose one of the options.
         </div>
         <button type="submit" class="modern-btn">Confirm</button>
         <div class="small-instructions">
@@ -51,9 +54,6 @@
             </form>
         </div>
 
-    
-    </div>
-
     <script>
     (function() {
         var el = document.getElementById('countdown-seconds');
@@ -70,6 +70,24 @@
             remaining -= 1;
             render();
         }, 1000);
+    })();
+
+    // Custom validation so error message is centered and not attached to Option A
+    (function () {
+        var form = document.getElementById('decision-form');
+        if (!form) return;
+        var errorEl = document.getElementById('choice-error');
+        form.addEventListener('submit', function (e) {
+            var checked = form.querySelector('input[name=\"choice\"]:checked');
+            if (!checked) {
+                e.preventDefault();
+                if (errorEl) {
+                    errorEl.style.display = 'block';
+                }
+            } else if (errorEl) {
+                errorEl.style.display = 'none';
+            }
+        });
     })();
     </script>
 
@@ -90,6 +108,13 @@
 
     .choice-option input {
         margin-right: 8px;
+    }
+
+    .choice-error {
+        margin-top: 10px;
+        text-align: center;
+        color: #d9534f;
+        font-weight: bold;
     }
 
     .readonly-choice {

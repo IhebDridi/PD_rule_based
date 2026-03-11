@@ -39,7 +39,7 @@ class Constants(BaseConstants):
     PROLIFIC_SHOWUP_FEE_URL = 'https://app.prolific.com/submissions/complete?cc=C13FZEI3'
 
     # Part order: False = Part 1 No delegation, Part 2 Delegation (rule2nd). True = Part 1 Delegation, Part 2 No delegation.
-    DELEGATION_FIRST = False
+    DELEGATION_FIRST = True
 
     PD_PAYOFFS = {
         ('A', 'A'): (70, 70),

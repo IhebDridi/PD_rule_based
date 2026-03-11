@@ -33,8 +33,10 @@ class Constants(BaseConstants):
     LOBBY_MIN_WAIT_SECONDS = 1   # Minimum wait before forming a group (so first arrivers don’t leave before others join)
     LOBBY_WAIT_SECONDS_PART1 = 120   # Part 1: show wait-or-quit after this many seconds if still < 3 (e.g. 2 min)
     LOBBY_WAIT_SECONDS_PART2_3 = 60  # Parts 2–3: show wait-or-quit after this many seconds if still < 3 (e.g. 1 min)
-    # Prolific return link when participant quits before matching (e.g. $1 compensation)
+    # Prolific return link when participant quits before matching (e.g. $1 compensation from lobby / early stages)
     PROLIFIC_RETURN_URL = 'https://app.prolific.com/submissions/complete?cc=CL4BO4RB'
+    # Prolific show-up fee link when a part cannot be completed because others dropped out mid-experiment (results wait timeout).
+    PROLIFIC_SHOWUP_FEE_URL = 'https://app.prolific.com/submissions/complete?cc=C13FZEI3'
 
     # Part order: False = Part 1 No delegation, Part 2 Delegation (rule2nd). True = Part 1 Delegation, Part 2 No delegation.
     DELEGATION_FIRST = False

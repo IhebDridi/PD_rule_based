@@ -359,9 +359,35 @@ class BatchWaitForGroup(WaitPage):
         return not self.participant.vars.get(can_proceed_key, False)
 
     def get(self):
-        context = self.get_context_data()
+        """
+        Wait after decisions, just before Results. Participants stay here until:
+
+        - A group of exactly FIXED_GROUP_SIZE (3) is formed from the pool → payoffs run → proceed to Results, or
+        - Fewer than 3 are available for RESULTS_WAIT_TIMEOUT_SECONDS → show a choice:
+          * wait 5 more minutes, or
+          * return to Prolific with the show-up fee.
+        """
+        _params = getattr(self.request, "GET", None) or getattr(self.request, "query_params", None)
         current_part = Constants.get_part(self.round_number)
-        can_proceed_key = f'can_proceed_to_results_part_{current_part}'
+        can_proceed_key = f"can_proceed_to_results_part_{current_part}"
+        pool_key = f"results_pool_part_{current_part}"
+        first_join_key = f"results_first_join_part_{current_part}"
+        show_wait_quit_key = f"results_show_wait_or_quit_part_{current_part}"
+
+        # Handle actions from the timeout choice UI.
+        if _params:
+            if _params.get("quit"):
+                # Participant chooses to leave → remove them from pool and redirect to Prolific show-up fee.
+                pool = [sid for sid in self.session.vars.get(pool_key, []) if sid != self.participant.id_in_session]
+                self.session.vars[pool_key] = pool
+                self.session.vars[show_wait_quit_key] = False
+                return RedirectResponse(url=Constants.PROLIFIC_SHOWUP_FEE_URL, status_code=303)
+            if _params.get("wait_more"):
+                # Participant chooses to wait 5 more minutes → reset first_join and hide timeout banner.
+                self.session.vars[first_join_key] = time.time()
+                self.session.vars[show_wait_quit_key] = False
+
+        # If already assigned to a results group, go to Results.
         if self.participant.vars.get(can_proceed_key):
             return self._response_when_ready()
         return self._get_wait_page()
@@ -372,17 +398,28 @@ class BatchWaitForGroup(WaitPage):
         group_size = getattr(Constants, 'FIXED_GROUP_SIZE', 3)
         participants = self.session.get_participants()
         lock_key = f'_results_pool_lock_part_{current_part}'
+        first_join_key = f'results_first_join_part_{current_part}'
+        show_wait_quit_key = f'results_show_wait_or_quit_part_{current_part}'
+        timeout_seconds = 300  # 5 minutes maximum wait for forming a full group of 3 before offering wait-or-quit
         if pool_key not in self.session.vars:
             self.session.vars[pool_key] = []
+        # Track when the first participant for this part reached the results wait page.
+        now = time.time()
+        if first_join_key not in self.session.vars:
+            self.session.vars[first_join_key] = now
         pid = self.participant.id_in_session
-        # Under one lock: add self to pool, then if pool >= group_size form a group of exactly group_size
+        # Under one lock: add self to pool, maybe form a group of exactly group_size,
+        # or, if too few participants for too long, mark that we should show the wait-or-quit choice.
         if not self.session.vars.get(lock_key):
             self.session.vars[lock_key] = True
             try:
                 pool = list(self.session.vars.get(pool_key, []))
+                # Add current participant to pool if not already present.
                 if pid not in pool:
                     pool.append(pid)
                     self.session.vars[pool_key] = pool
+                pool = list(self.session.vars.get(pool_key, []))
+                # If we have at least group_size participants, form a group of exactly that size.
                 if len(pool) >= group_size:
                     first_ids = pool[:group_size]
                     self.session.vars[pool_key] = pool[group_size:]
@@ -400,12 +437,27 @@ class BatchWaitForGroup(WaitPage):
                         for p in participants:
                             if p.id_in_session in first_ids:
                                 p.vars[f'can_proceed_to_results_part_{current_part}'] = True
+                else:
+                    # Not enough participants yet: check for global timeout for this part's results wait.
+                    first_join = self.session.vars.get(first_join_key, now)
+                    if (now - first_join) >= timeout_seconds:
+                        # After 5 minutes with < 3 participants, show the wait-or-quit choice.
+                        self.session.vars[show_wait_quit_key] = True
             finally:
                 self.session.vars[lock_key] = False
         n_in_pool = len(self.session.vars.get(pool_key, []))
+        # Build URLs for "wait more" and "quit to Prolific" actions.
+        path = getattr(self.request, 'path', None) or getattr(self.request, 'path_info', '') or ''
+        build_uri = getattr(self.request, 'build_absolute_uri', None)
+        base_url = (build_uri(path) if build_uri and path else path) or ''
+        wait_more_url = base_url + ('&' if '?' in base_url else '?') + 'wait_more=1'
+        quit_url = base_url + ('&' if '?' in base_url else '?') + 'quit=1'
         return {
             'n_arrived': n_in_pool,
             'batch_size': group_size,
+            'show_wait_or_quit_results': self.session.vars.get(show_wait_quit_key, False),
+            'wait_more_url': wait_more_url,
+            'quit_to_prolific_url': quit_url,
         }
 
     @staticmethod

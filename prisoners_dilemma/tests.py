@@ -27,7 +27,6 @@ from .pages import (
     InstructionsGuessingGame,
     InstructionsNoDelegation,
     InstructionsOptional,
-    Lobby,
     MainInstructions,
     Results,
     ResultsGuess,
@@ -57,48 +56,10 @@ def _is_no_delegation(rnd):
     return _part(rnd) != 3 and not _is_mandatory_delegation(rnd)
 
 
-# --- Runner patch: lobby (release when 3+ after min wait) + catch-up when bot behind ---
-
-class _LobbySubmission:
-    page_class = Lobby
-
-
-def _is_lobby_submission(s):
-    return getattr(getattr(s, 'page_class', None), '__name__', None) == 'Lobby'
-
-
-def _bot_id_in_session(bot):
-    return Participant.objects_get(code=bot.participant_code).id_in_session
-
-
-def _bots_in_same_matching_group(runner_self, bot):
-    try:
-        gid = Participant.objects_get(code=bot.participant_code).vars.get('matching_group_id')
-    except Exception:
-        return []
-    if gid is None or gid < 0:
-        return []
-    out = []
-    for pid, ob in runner_self.bots.items():
-        try:
-            if Participant.objects_get(code=ob.participant_code).vars.get('matching_group_id') == gid:
-                out.append((pid, ob))
-        except Exception:
-            pass
-    return out
-
-
-def _do_lobby_flush(batch, path_parts, lobby_round_int):
-    suffix = ['Lobby', str(lobby_round_int)]
-    for _b, bot, _ in batch:
-        url_b = '/' + '/'.join([path_parts[0], bot.participant_code] + path_parts[2:3] + suffix)
-        bot.response = bot.client.get(url_b, allow_redirects=True)
-    for _b, bot, _ in batch:
-        url_b = '/' + '/'.join([path_parts[0], bot.participant_code] + path_parts[2:3] + suffix)
-        bot.response = bot.client.get(url_b, allow_redirects=True)
-        if getattr(bot.response, 'status_code', 0) in (200, 302, 303):
-            bot.url = getattr(bot.response, 'url', url_b) or url_b
-            bot.path = urlparse(bot.url).path
+# UNUSED (commented out): Lobby runner patch
+#
+# The Lobby page is currently disabled; grouping happens only at BatchWaitForGroup.
+# The special runner patch for Lobby is not needed.
 
 
 def _patch_runner():
@@ -107,9 +68,7 @@ def _patch_runner():
     def _play(self):
         self.open_start_urls()
         loops_without_progress = 0
-        lobby_pending = []
-        lobby_flush_count = 0
-        batches_per_part = max(1, len(self.bots) // Constants.MIN_PLAYERS_TO_START)
+        # Lobby is disabled; no lobby flush / release logic needed.
 
         while True:
             if not self.bots:
@@ -378,30 +337,30 @@ class PlayerBot(Bot):
                 self.participant.vars['agent_programming_part2'] = {i: random.choice(['A', 'B']) for i in range(1, 11)}
                 yield AgentProgramming
 
-        if rnd == 20:
-            yield Results
+        # if rnd == 20:
+        #     yield Results
 
-        if rnd == 21:
-            # Match page_sequence: InstructionsOptional then DelegationDecision. Runner catch-up submits the actual page when bot and participant disagree.
-            yield InstructionsOptional
-            delegate = random.choice([True, False])
-            yield DelegationDecision, {'delegate_decision_optional': delegate}
-            if delegate:
-                self.participant.vars['agent_programming_part3'] = {i: random.choice(['A', 'B']) for i in range(1, 11)}
-                yield AgentProgramming
-            else:
-                yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
+        # if rnd == 21:
+        #     # Match page_sequence: InstructionsOptional then DelegationDecision. Runner catch-up submits the actual page when bot and participant disagree.
+        #     yield InstructionsOptional
+        #     delegate = random.choice([True, False])
+        #     yield DelegationDecision, {'delegate_decision_optional': delegate}
+        #     if delegate:
+        #         self.participant.vars['agent_programming_part3'] = {i: random.choice(['A', 'B']) for i in range(1, 11)}
+        #         yield AgentProgramming
+        #     else:
+        #         yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
 
-        if _part(rnd) == 3 and rnd >= 22:
-            if not self.player.field_maybe_none('delegate_decision_optional'):
-                yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
-            if rnd == 30:
-                yield Results
+        # if _part(rnd) == 3 and rnd >= 22:
+        #     if not self.player.field_maybe_none('delegate_decision_optional'):
+        #         yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
+        #     if rnd == 30:
+        #         yield Results
 
-        if rnd == Constants.num_rounds:
-            yield InstructionsGuessingGame
-            yield GuessDelegation, {f'guess_round_{i}': random.choice(['yes', 'no']) for i in range(1, 11)}
-            yield ResultsGuess
-            yield Debriefing
-            yield ExitQuestionnaire, _exit_form()
-            yield Submission(Thankyou, {}, check_html=False)
+        # if rnd == Constants.num_rounds:
+        #     yield InstructionsGuessingGame
+        #     yield GuessDelegation, {f'guess_round_{i}': random.choice(['yes', 'no']) for i in range(1, 11)}
+        #     yield ResultsGuess
+        #     yield Debriefing
+        #     yield ExitQuestionnaire, _exit_form()
+        #     yield Submission(Thankyou, {}, check_html=False)

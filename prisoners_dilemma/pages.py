@@ -8,7 +8,7 @@ custom wait/release and payoff logic; DelegationDecision is Part 3 only.
 """
 from starlette.responses import RedirectResponse
 from otree.api import *
-from .models import Constants, release_lobby_batch, run_payoffs_for_matching_group, get_opponent_in_round
+from .models import Constants, run_payoffs_for_matching_group, get_opponent_in_round
 import json
 import time
 
@@ -569,27 +569,60 @@ class Results(Page):
         part_end = current_part * Constants.rounds_per_part
 
         player = self.player
-        # Repair: when payoffs ran before all choices were committed (e.g. 30 bots at once), recompute for any round where both choices exist but payoff is 0.
-        for r in range(part_start, part_end + 1):
-            rr = player.in_round(r)
-            other = get_opponent_in_round(player, r)
-            payoff_val = getattr(rr.payoff, 'amount', rr.payoff) if rr.payoff is not None else 0
-            if payoff_val == 0 and rr.field_maybe_none('choice') and other and other.field_maybe_none('choice'):
-                try:
-                    rr.group.set_payoffs()
-                except Exception:
-                    pass
+        # Build rounds_data using only the 3-person batch (fast, independent of session size).
+        gid = self.participant.vars.get("matching_group_id", -1)
+        member_ids = None
+        if gid is not None and gid >= 0:
+            member_ids = self.session.vars.get(f"matching_group_members_part_{current_part}_{gid}")
+        member_ids = list(member_ids) if member_ids else []
+        member_set = set(member_ids)
+        # Precompute round-robin assignments for N=3
+        assignments = None
+        if len(member_ids) >= 3:
+            N = len(member_ids)
+            from .models import compute_round_robin_assignments  # local import to avoid cycles
+            assignments = compute_round_robin_assignments(N, Constants.rounds_per_part)
 
+        def _pick_three_players(round_ss):
+            """Return dict id_in_session -> Player for just the batch members (no full scans downstream)."""
+            out = {}
+            if not member_set:
+                return out
+            for p in round_ss.get_players():
+                sid = p.participant.id_in_session
+                if sid in member_set:
+                    out[sid] = p
+                    if len(out) == len(member_set):
+                        break
+            return out
+
+        my_pos = self.participant.vars.get("matching_group_position", None)
         rounds_data = []
         for r in range(part_start, part_end + 1):
             rr = player.in_round(r)
-            other = get_opponent_in_round(player, r)
+            my_choice = rr.field_maybe_none("choice")
+            other_choice = None
+            payoff_val = rr.payoff
+            if assignments and my_pos and 1 <= my_pos <= len(member_ids):
+                round_in_part = r - part_start
+                opp_idx, _ = assignments[my_pos - 1][round_in_part]
+                opp_sid = member_ids[opp_idx] if opp_idx is not None else None
+                players_map = _pick_three_players(self.subsession.in_round(r))
+                opp = players_map.get(opp_sid) if opp_sid else None
+                other_choice = opp.field_maybe_none("choice") if opp else None
+                # If payoff is missing/0 but both choices exist, compute directly (avoid group.set_payoffs on giant group).
+                raw_pay = getattr(rr.payoff, "amount", rr.payoff) if rr.payoff is not None else 0
+                if raw_pay == 0 and my_choice and other_choice:
+                    pay = Constants.PD_PAYOFFS.get((my_choice, other_choice))
+                    if pay is not None:
+                        rr.payoff = cu(pay[0])
+                        payoff_val = rr.payoff
             rounds_data.append({
-                'round': r - (current_part - 1) * Constants.rounds_per_part,
-                'my_choice': rr.field_maybe_none('choice'),
-                'other_choice': other.field_maybe_none('choice') if other else None,
-                'payoff': rr.payoff,
-                'is_payoff_round': True,
+                "round": r - (current_part - 1) * Constants.rounds_per_part,
+                "my_choice": my_choice,
+                "other_choice": other_choice,
+                "payoff": payoff_val,
+                "is_payoff_round": True,
             })
 
         # Part 1 then Part 2 always: first block = Part 1, second = Part 2, third = Part 3
@@ -622,6 +655,7 @@ class GuessDelegation(Page):
         for i in range(1, 11):
             r = start + i - 1
             me = self.player.in_round(r)
+            # Use fast opponent resolution if available (batch member list), else fallback.
             other = get_opponent_in_round(self.player, r)
             rows.append({
                 "round": i,
@@ -803,140 +837,17 @@ class Thankyou(Page):
 
 
 # =============================================================================
-# Lobby: wait for 3+ participants, release batch (first-in first-out), wait-or-quit on timeout
+# UNUSED (commented out): Lobby
 # =============================================================================
-
-class Lobby(WaitPage):
-    """
-    Lobby: wait 5 min (part 1) or 2 min (parts 2–3). When >= MIN_PLAYERS_TO_START and timeout, release batch
-    with round-robin matching. If timeout and < 3, show wait-or-quit (wait 5 more or return to Prolific for $1).
-    """
-    template_name = 'prisoners_dilemma/Lobby.html'
-
-    def is_displayed(self):
-        rnd = self.round_number
-        if rnd == 1:
-            return not self.participant.vars.get('has_left_lobby', False) and not self.participant.vars.get('quit_to_prolific', False)
-        if rnd == 11:
-            return not self.participant.vars.get('has_left_lobby_part_2', False) and not self.participant.vars.get('quit_to_prolific', False)
-        if rnd == 21:
-            return not self.participant.vars.get('has_left_lobby_part_3', False) and not self.participant.vars.get('quit_to_prolific', False)
-        return False
-
-    def _lobby_part(self):
-        """Return 1, 2, or 3 for the part this Lobby instance belongs to (round 1 → part 1, 11 → 2, 21 → 3)."""
-        if self.round_number == 1:
-            return 1
-        if self.round_number == 11:
-            return 2
-        if self.round_number == 21:
-            return 3
-        return 1
-
-    def get(self):
-        _params = getattr(self.request, 'GET', None) or getattr(self.request, 'query_params', None)
-        if _params and _params.get('quit'):
-            self.participant.vars['quit_to_prolific'] = True
-            return RedirectResponse(url=Constants.PROLIFIC_RETURN_URL, status_code=303)
-        part = self._lobby_part()
-        wait_quit_key = f'show_wait_or_quit_part_{part}'
-        first_join_key = f'lobby_first_join_part_{part}'
-        restart = _params.get('restart') if _params else None
-        if restart and self.session.vars.get(wait_quit_key):
-            self.session.vars[wait_quit_key] = False
-            self.session.vars[first_join_key] = time.time()
-        context = self.get_context_data()
-        if context.get('can_leave_lobby'):
-            if part == 1:
-                self.participant.vars['has_left_lobby'] = True
-            elif part == 2:
-                self.participant.vars['has_left_lobby_part_2'] = True
-            else:
-                self.participant.vars['has_left_lobby_part_3'] = True
-            return self._response_when_ready()
-        return self._get_wait_page()
-
-    def vars_for_template(self):
-        part = self._lobby_part()
-        if part == 1:
-            lobby_key = 'lobby_ids'
-            next_batch_key = 'next_batch_id'
-            can_leave_key = 'can_leave_lobby'
-            timeout_sec = Constants.LOBBY_WAIT_SECONDS_PART1
-        else:
-            lobby_key = f'lobby_ids_part_{part}'
-            next_batch_key = f'next_batch_id_part_{part}'
-            can_leave_key = f'can_leave_lobby_part_{part}'
-            timeout_sec = Constants.LOBBY_WAIT_SECONDS_PART2_3
-        first_join_key = f'lobby_first_join_part_{part}'
-        wait_quit_key = f'show_wait_or_quit_part_{part}'
-
-        lobby = list(self.session.vars.get(lobby_key, []))
-        can_leave = self.participant.vars.get(can_leave_key, False)
-        if self.participant.id_in_session not in lobby and not can_leave:
-            if len(lobby) == 0:
-                self.session.vars[first_join_key] = time.time()
-            lobby.append(self.participant.id_in_session)
-            self.session.vars[lobby_key] = lobby
-        if part >= 2 and self.participant.vars.get('matching_group_id', -1) >= 0 and not can_leave:
-            self.participant.vars['matching_group_id'] = -1
-        n_waiting = len(lobby)
-        next_batch_id = self.session.vars.get(next_batch_key, 0)
-        now = time.time()
-        first_join = self.session.vars.get(first_join_key)
-        if first_join is None:
-            first_join = now
-            self.session.vars[first_join_key] = now
-        elapsed = now - first_join
-        min_players = Constants.MIN_PLAYERS_TO_START
-        min_wait = getattr(Constants, 'LOBBY_MIN_WAIT_SECONDS', 2)
-        # First in first out: when N>=3 are in the lobby and min_wait passed, release those N as one group.
-        # (oTree alternative: WaitPage with group_by_arrival_time_method returning waiting_players when len >= 3.)
-        # Use a session lock so only one request runs release (avoids IntegrityError from concurrent set_group_matrix).
-        # Pair only before Results: release from lobby without forming groups (no release_lobby_batch here).
-        if n_waiting >= min_players and elapsed >= min_wait:
-            lock_key = f'_lobby_release_lock_part_{part}'
-            if not self.session.vars.get(lock_key):
-                self.session.vars[lock_key] = True
-                try:
-                    batch_ids = list(self.session.vars.get(lobby_key, []))
-                    if len(batch_ids) < min_players:
-                        batch_ids = []
-                    self.session.vars[lobby_key] = []
-                    self.session.vars[first_join_key] = None
-                    self.session.vars[next_batch_key] = next_batch_id + 1
-                    for p in self.session.get_participants():
-                        if p.id_in_session in batch_ids:
-                            p.vars[can_leave_key] = True
-                finally:
-                    self.session.vars[lock_key] = False
-        elif elapsed >= timeout_sec and n_waiting < min_players:
-            self.session.vars[wait_quit_key] = True
-        can_leave = self.participant.vars.get(can_leave_key, False)
-        show_wait_or_quit = self.session.vars.get(wait_quit_key, False)
-        path = getattr(self.request, 'path', None) or getattr(self.request, 'path_info', '') or ''
-        build_uri = getattr(self.request, 'build_absolute_uri', None)
-        base_url = (build_uri(path) if build_uri and path else path) or ''
-        restart_url = base_url + ('&' if '?' in base_url else '?') + 'restart=1'
-        quit_to_prolific_url = base_url + ('&' if '?' in base_url else '?') + 'quit=1'
-        return {
-            'can_leave_lobby': can_leave,
-            'lobby_part': part,
-            'show_wait_or_quit': show_wait_or_quit,
-            'prolific_return_url': Constants.PROLIFIC_RETURN_URL,
-            'quit_to_prolific_url': quit_to_prolific_url,
-            'restart_url': restart_url,
-            'refresh_seconds': 2,
-        }
-
-    @staticmethod
-    def live_method(player, data):
-        if not data or data.get('type') != 'get_lobby_count':
-            return
-        rnd = player.round_number
-        lobby_key = 'lobby_ids' if rnd == 1 else f'lobby_ids_part_{2 if rnd == 11 else 3}'
-        lobby = player.session.vars.get(lobby_key, [])
-        return {player.id_in_group: {'n_waiting': len(lobby)}}
+#
+# The current production flow pairs participants ONLY at `BatchWaitForGroup` (right before Results),
+# so the Lobby page is not part of `page_sequence` and is not used.
+#
+# If you later reintroduce a lobby gate, restore this class and add it back to `page_sequence`.
+#
+# class Lobby(WaitPage):
+#     template_name = 'prisoners_dilemma/Lobby.html'
+#     ...
 
 
 

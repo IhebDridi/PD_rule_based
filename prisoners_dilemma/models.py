@@ -126,14 +126,9 @@ def get_opponent_in_round(player, round_number):
         key = f"matching_group_members_part_{part}_{gid}"
         member_ids = player.session.vars.get(key)
         if member_ids and isinstance(member_ids, (list, tuple)) and len(member_ids) >= 3:
-            participants = [p for p in player.session.get_participants() if p.id_in_session in member_ids]
-            players = list(
-                Player.objects.filter(
-                    session=player.session,
-                    round_number=round_number,
-                    participant__in=participants,
-                )
-            )
+            round_ss = player.subsession.in_round(round_number)
+            # Avoid ORM "IN" queries (oTree doesn't use Django's .objects). Filter in memory from this round's players.
+            players = [p for p in round_ss.get_players() if p.participant.id_in_session in member_ids]
             if len(players) >= 3:
                 players = sorted(players, key=lambda p: p.participant.vars.get("matching_group_position", 0))
                 N = len(players)
@@ -178,51 +173,15 @@ def get_opponent_in_round(player, round_number):
     return sorted_players[opp_idx]
 
 
-def set_group_matrix_for_released_batch(subsession, batch_players, part):
-    """
-    Update the group matrix for all rounds in this part so released batches form groups 2, 3, 4, ...
-    and all other players stay in a single "waiting" group (group 1).
-
-    Called from release_lobby_batch after assigning matching_group_id/position to batch_players.
-    Order: [others, batch0, batch1, ...] so "others" always has group_id 1 (stable); new batches
-    get increasing ids. Reduces churn vs putting others last (where its id would change each time).
-    Players in the "others" group get payoff 0 in Group.set_payoffs.
-    """
-    part_start_round = (part - 1) * Constants.rounds_per_part + 1
-    part_end_round = part * Constants.rounds_per_part
-
-    for r in range(part_start_round, part_end_round + 1):
-        round_ss = subsession.in_round(r)
-        all_players = list(round_ss.get_players())
-        by_gid = defaultdict(list)
-        for p in all_players:
-            gid = p.participant.vars.get("matching_group_id", -1)
-            if gid is None:
-                gid = -1
-            by_gid[gid].append(p)
-        others = [p for gid, plist in by_gid.items() if gid < 0 for p in plist]
-        # Others first (stable group 1), then batches in order (group 2, 3, 4, ...).
-        groups = []
-        if others:
-            groups.append([p.id_in_subsession for p in others])
-        for gid in sorted(by_gid.keys()):
-            if gid < 0:
-                continue
-            batch_list = sorted(by_gid[gid], key=lambda p: p.participant.vars.get("matching_group_position", 0))
-            groups.append([p.id_in_subsession for p in batch_list])
-        # oTree requires every player in the round to appear exactly once in the matrix.
-        ids_in_matrix = [sid for g in groups for sid in g]
-        expected_ids = {p.id_in_subsession for p in all_players}
-        if len(ids_in_matrix) != len(expected_ids) or set(ids_in_matrix) != expected_ids:
-            continue
-        try:
-            round_ss.set_group_matrix(groups)
-        except Exception as e:
-            # Ignore FK/IntegrityError from concurrent updates; re-raise others.
-            if "FOREIGN KEY" in str(e) or "IntegrityError" in type(e).__name__:
-                pass
-            else:
-                raise
+# =============================================================================
+# UNUSED (commented out): group matrix rewriting
+# =============================================================================
+#
+# We no longer rewrite oTree's group matrix (too slow in large sessions). Matching is handled by
+# `matching_group_members_part_{part}_{gid}` in session.vars and per-participant vars.
+#
+# def set_group_matrix_for_released_batch(subsession, batch_players, part):
+#     ...
 
 
 # =============================================================================
@@ -742,19 +701,8 @@ def custom_export(players):
 # Lobby release and payoff runner (called from pages.Lobby and BatchWaitForGroup)
 # =============================================================================
 
-def release_lobby_batch(subsession, batch_players, batch_id=0, part=1):
-    """
-    Called from Lobby when 3+ participants are released. Sets matching_group_id and
-    matching_group_position on each batch player, updates the group matrix for this part
-    via set_group_matrix_for_released_batch, and sets can_leave_lobby so they can leave the Lobby page.
-    """
-    for i, p in enumerate(batch_players):
-        p.participant.vars['matching_group_id'] = batch_id
-        p.participant.vars['matching_group_position'] = i + 1
-    set_group_matrix_for_released_batch(subsession, batch_players, part)
-    can_key = 'can_leave_lobby' if part == 1 else f'can_leave_lobby_part_{part}'
-    for p in batch_players:
-        p.participant.vars[can_key] = True
+# def release_lobby_batch(subsession, batch_players, batch_id=0, part=1):
+#     ...
 
 
 def run_payoffs_for_matching_group(subsession, matching_group_id):
@@ -780,29 +728,32 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
     key = f"matching_group_members_part_{current_part}_{matching_group_id}"
     member_ids = subsession.session.vars.get(key)
     if member_ids and isinstance(member_ids, (list, tuple)) and len(member_ids) >= 3:
-        participants = [p for p in subsession.session.get_participants() if p.id_in_session in member_ids]
-        required = 3 * (end - start + 1)
+        # Identify the 3 Player objects once (from the first round of the part).
+        first_round_ss = subsession.in_round(start)
+        players_start = [p for p in first_round_ss.get_players() if p.participant.id_in_session in member_ids]
+        if len(players_start) != 3:
+            return
+        players_start = sorted(players_start, key=lambda p: p.participant.vars.get("matching_group_position", 0))
 
-        def _all_choices_ready():
-            qs = Player.objects.filter(
-                session=subsession.session,
-                round_number__in=range(start, end + 1),
-                participant__in=participants,
-            ).only("round_number", "participant_id", "choice")
-            rows = list(qs)
-            if len(rows) != required:
-                return False
-            return all(getattr(r, "choice", None) is not None for r in rows)
+        def _all_choices_ready_for_three():
+            """Check only the 3 relevant players (avoid scanning 500 players each round)."""
+            for r in range(start, end + 1):
+                for p0 in players_start:
+                    pr = p0.in_round(r)
+                    if pr.field_maybe_none("choice") is None:
+                        return False
+            return True
 
-        # Polling schedule: check at 5s, 10s, then every 2s up to 3 minutes.
-        _time.sleep(5)
-        if not _all_choices_ready():
+        # Polling schedule (low read frequency): check immediately, then at 5s, 10s, then every 2s up to ~3 minutes.
+        if not _all_choices_ready_for_three():
             _time.sleep(5)
-            if not _all_choices_ready():
-                for _ in range(85):
-                    _time.sleep(2)
-                    if _all_choices_ready():
-                        break
+            if not _all_choices_ready_for_three():
+                _time.sleep(5)
+                if not _all_choices_ready_for_three():
+                    for _ in range(85):
+                        _time.sleep(2)
+                        if _all_choices_ready_for_three():
+                            break
 
         # Compute payoffs round-by-round using round-robin within these 3 players.
         N = len(member_ids)
@@ -812,16 +763,8 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
         for r in range(start, end + 1):
             part_start = (current_part - 1) * Constants.rounds_per_part + 1
             round_in_part = r - part_start
-            players_r = list(
-                Player.objects.filter(
-                    session=subsession.session,
-                    round_number=r,
-                    participant__in=participants,
-                )
-            )
-            players_r = sorted(players_r, key=lambda p: p.participant.vars.get("matching_group_position", 0))
-            if len(players_r) != N:
-                continue
+            # Fetch just these 3 players for round r.
+            players_r = [p0.in_round(r) for p0 in players_start]
             for i, p in enumerate(players_r):
                 opp_idx, _ = assignments[i][round_in_part]
                 opp = players_r[opp_idx] if opp_idx is not None else None
@@ -855,31 +798,25 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
     required = 3 * (end - start + 1)  # 3 players × 10 rounds
 
     def _all_choices_ready():
-        """One query to fetch all relevant Player rows; return True iff all have choice set (data validity)."""
-        qs = Player.objects.filter(
-            session=subsession.session,
-            round_number__in=range(start, end + 1),
-            participant__in=participants,
-        ).only('round_number', 'participant_id', 'choice')
-        rows = list(qs)
-        if len(rows) != required:
-            return False
-        return all(getattr(r, 'choice', None) is not None for r in rows)
+        """Readiness check for 3 players only (avoid scanning whole round player lists)."""
+        players_start = sorted(players_in_group, key=lambda p: p.participant.vars.get("matching_group_position", 0))
+        for r in range(start, end + 1):
+            for p0 in players_start:
+                pr = p0.in_round(r)
+                if pr.field_maybe_none("choice") is None:
+                    return False
+        return True
 
-    # Polling: first 5s check once, second 5s check once, then every 2s (data validity priority, fewer reads).
-    _time.sleep(5)
-    if _all_choices_ready():
-        pass  # fall through to payoffs
-    else:
-        _time.sleep(5)  # 10s total
-        if _all_choices_ready():
-            pass
-        else:
-            # After 10s: check every 2s, up to 3 minutes total (170s more → 85 checks)
-            for _ in range(85):
-                _time.sleep(2)
-                if _all_choices_ready():
-                    break
+    # Polling (fewer reads): check immediately, then at 5s, 10s, then every 2s (up to ~3 minutes).
+    if not _all_choices_ready():
+        _time.sleep(5)
+        if not _all_choices_ready():
+            _time.sleep(5)
+            if not _all_choices_ready():
+                for _ in range(85):
+                    _time.sleep(2)
+                    if _all_choices_ready():
+                        break
     for r in range(start, end + 1):
         round_ss = subsession.in_round(r)
         all_players_r = list(round_ss.get_players())

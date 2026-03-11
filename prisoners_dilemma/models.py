@@ -119,6 +119,36 @@ def get_opponent_in_round(player, round_number):
     indices match compute_round_robin_assignments. Returns None for group size 0, 1, or 2.
     """
     me = player.in_round(round_number)
+    # Fast path: when we form groups without set_group_matrix, use session-stored member list.
+    gid = me.participant.vars.get("matching_group_id", -1)
+    if gid is not None and gid >= 0:
+        part = Constants.get_part(round_number)
+        key = f"matching_group_members_part_{part}_{gid}"
+        member_ids = player.session.vars.get(key)
+        if member_ids and isinstance(member_ids, (list, tuple)) and len(member_ids) >= 3:
+            participants = [p for p in player.session.get_participants() if p.id_in_session in member_ids]
+            players = list(
+                Player.objects.filter(
+                    session=player.session,
+                    round_number=round_number,
+                    participant__in=participants,
+                )
+            )
+            if len(players) >= 3:
+                players = sorted(players, key=lambda p: p.participant.vars.get("matching_group_position", 0))
+                N = len(players)
+                my_pos = me.participant.vars.get("matching_group_position", None)
+                if not my_pos or my_pos < 1 or my_pos > N:
+                    return None
+                my_idx = my_pos - 1
+                part_start = (part - 1) * Constants.rounds_per_part + 1
+                round_in_part = round_number - part_start
+                if N not in _ROUND_ROBIN_CACHE:
+                    _ROUND_ROBIN_CACHE[N] = compute_round_robin_assignments(N, Constants.rounds_per_part)
+                opp_idx, _ = _ROUND_ROBIN_CACHE[N][my_idx][round_in_part]
+                if opp_idx is None or opp_idx < 0 or opp_idx >= N:
+                    return None
+                return players[opp_idx]
     group_players = list(me.group.get_players())
     N = len(group_players)
     if N == 0 or N == 1:
@@ -745,6 +775,63 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
     elif current_part == 3:
         start, end = 21, 30
     else:
+        return
+    # Fast path: if we have the 3 member ids stored, compute payoffs directly without rewriting group matrix.
+    key = f"matching_group_members_part_{current_part}_{matching_group_id}"
+    member_ids = subsession.session.vars.get(key)
+    if member_ids and isinstance(member_ids, (list, tuple)) and len(member_ids) >= 3:
+        participants = [p for p in subsession.session.get_participants() if p.id_in_session in member_ids]
+        required = 3 * (end - start + 1)
+
+        def _all_choices_ready():
+            qs = Player.objects.filter(
+                session=subsession.session,
+                round_number__in=range(start, end + 1),
+                participant__in=participants,
+            ).only("round_number", "participant_id", "choice")
+            rows = list(qs)
+            if len(rows) != required:
+                return False
+            return all(getattr(r, "choice", None) is not None for r in rows)
+
+        # Polling schedule: check at 5s, 10s, then every 2s up to 3 minutes.
+        _time.sleep(5)
+        if not _all_choices_ready():
+            _time.sleep(5)
+            if not _all_choices_ready():
+                for _ in range(85):
+                    _time.sleep(2)
+                    if _all_choices_ready():
+                        break
+
+        # Compute payoffs round-by-round using round-robin within these 3 players.
+        N = len(member_ids)
+        if N not in _ROUND_ROBIN_CACHE:
+            _ROUND_ROBIN_CACHE[N] = compute_round_robin_assignments(N, Constants.rounds_per_part)
+        assignments = _ROUND_ROBIN_CACHE[N]
+        for r in range(start, end + 1):
+            part_start = (current_part - 1) * Constants.rounds_per_part + 1
+            round_in_part = r - part_start
+            players_r = list(
+                Player.objects.filter(
+                    session=subsession.session,
+                    round_number=r,
+                    participant__in=participants,
+                )
+            )
+            players_r = sorted(players_r, key=lambda p: p.participant.vars.get("matching_group_position", 0))
+            if len(players_r) != N:
+                continue
+            for i, p in enumerate(players_r):
+                opp_idx, _ = assignments[i][round_in_part]
+                opp = players_r[opp_idx] if opp_idx is not None else None
+                c1 = p.field_maybe_none("choice")
+                c2 = opp.field_maybe_none("choice") if opp else None
+                if c1 is None or c2 is None:
+                    p.payoff = cu(0)
+                else:
+                    pay = Constants.PD_PAYOFFS.get((c1, c2))
+                    p.payoff = cu(pay[0]) if pay is not None else cu(0)
         return
     # Find the group (same 3 players in every round)
     round_ss = subsession.in_round(start)

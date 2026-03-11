@@ -426,7 +426,12 @@ class BatchWaitForGroup(WaitPage):
                     batch_players = [pl for pl in round_ss.get_players() if pl.participant.id_in_session in first_ids]
                     batch_players = sorted(batch_players, key=lambda pl: first_ids.index(pl.participant.id_in_session))
                     if len(batch_players) == group_size:
-                        release_lobby_batch(self.subsession, batch_players, batch_id=batch_id, part=current_part)
+                        # Lightweight grouping: do NOT call set_group_matrix (too slow for big sessions).
+                        # Store the 3 participant IDs for opponent lookup/payoffs, and set matching_group vars.
+                        self.session.vars[f'matching_group_members_part_{current_part}_{batch_id}'] = list(first_ids)
+                        for i, pl in enumerate(batch_players):
+                            pl.participant.vars['matching_group_id'] = batch_id
+                            pl.participant.vars['matching_group_position'] = i + 1
                         time.sleep(0.5)
                         run_payoffs_for_matching_group(self.subsession, batch_id)
                         for p in participants:

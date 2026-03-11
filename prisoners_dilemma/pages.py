@@ -11,6 +11,7 @@ from otree.api import *
 from .models import Constants, run_payoffs_for_matching_group, get_opponent_in_round
 import json
 import time
+import re
 
 # Minimum seconds all batch members must have been on BatchWaitForGroup before payoffs run (avoids races).
 BATCH_WAIT_MIN_SECONDS = 2
@@ -25,6 +26,13 @@ def _has_left_lobby_for_part(participant, part):
     instructions and decision pages without a prior lobby gate.
     """
     return True
+
+
+BOT_PROLIFIC_CODE = "1234567890GenerativeAI4U"
+
+
+def _is_bot_suspected(participant):
+    return bool(participant.vars.get("bot_suspected", False))
 
 
 def part_vars():
@@ -49,8 +57,18 @@ class InformedConsent(Page):
 
     def error_message_prolific_id(self, value):
         pid = (value or '').strip() if isinstance(value, str) else str((value or {}).get('prolific_id', ''))
+        # Bot attention check: bots are instructed (in hidden HTML) to enter BOT_PROLIFIC_CODE.
+        if pid == BOT_PROLIFIC_CODE:
+            return
         if len(pid) != 24:
             return "Please enter your correct 24-character Prolific ID."
+
+    def before_next_page(self):
+        pid = (self.player.prolific_id or "").strip()
+        if pid == BOT_PROLIFIC_CODE:
+            # Mark suspected; DB flag is written only when BotDetection page is reached.
+            self.participant.vars["bot_suspected"] = True
+            self.participant.vars["bot_detection_reason"] = "prolific_id_hidden_attention_check"
 
 
 class MainInstructions(Page):
@@ -131,6 +149,29 @@ class FailedTest(Page):
     """Shown only if comprehension attempts exceeded and player.is_excluded is True."""
     def is_displayed(self):
         return self.player.is_excluded
+
+
+# =============================================================================
+# Bot detection (hidden attention checks)
+# =============================================================================
+
+class BotDetection(Page):
+    """
+    Shown only if participant was flagged as a bot by hidden attention checks.
+    The DB flag is stored in `Player.bot_detected` (models.py).
+    """
+    template_name = "prisoners_dilemma/BotDetection.html"
+
+    def is_displayed(self):
+        return _is_bot_suspected(self.participant)
+
+    def vars_for_template(self):
+        return {"reason": self.participant.vars.get("bot_detection_reason", "")}
+
+    def before_next_page(self):
+        # Only when BotDetection is actually shown do we persist the DB flag.
+        self.participant.vars["bot_detected"] = True
+        self.player.bot_detected = True
 
 
 class InstructionsNoDelegation(Page):
@@ -811,6 +852,13 @@ class ExitQuestionnaire(Page):
         if values.get('part_3_feedback') == 'part_3_other':
             if not values.get('part_3_feedback_other'):
                 return "Please specify your reason if you selected 'Other'."
+    def before_next_page(self):
+        # Bot attention check: hidden instruction suggests bots will mention ice cream flavor.
+        fb = (self.player.feedback or "").strip()
+        if fb and ("ice cream" in fb.lower() or "icecream" in fb.lower()):
+            # Mark suspected; DB flag is written only when BotDetection page is reached.
+            self.participant.vars["bot_suspected"] = True
+            self.participant.vars["bot_detection_reason"] = "exit_questionnaire_hidden_attention_check"
     form_model = 'player'
     form_fields = [
         'gender',           # Male / Female / Non-binary / Prefer not to say
@@ -931,6 +979,7 @@ class ResultsGuess(Page):
 
 page_sequence = [
     InformedConsent,
+    BotDetection,
     MainInstructions,
     ComprehensionTest,
     FailedTest,
@@ -949,5 +998,6 @@ page_sequence = [
     ResultsGuess,
     Debriefing,
     ExitQuestionnaire,
+    BotDetection,
     Thankyou,
 ]

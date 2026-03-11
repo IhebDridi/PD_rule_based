@@ -277,6 +277,8 @@ class Player(BasePlayer):
     
     final_allocations = models.LongStringField()
     prolific_id = models.StringField()
+    # Bot detection flag (written to DB). Set when attention checks indicate automated participation.
+    bot_detected = models.BooleanField(initial=False)
     random_decisions = models.BooleanField(blank=True)
     random_payoff_part=models.IntegerField( blank=True, min=1, max=3 )
 

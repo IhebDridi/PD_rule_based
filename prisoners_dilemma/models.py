@@ -764,20 +764,35 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
         break
     if not players_in_group or not group:
         return
-    # Wait until all 3 players have choice set for every round in the part (avoids None when 30+ bots run at once)
-    for _ in range(360):  # up to 3 minutes (360 × 0.5s)
-        all_ready = True
-        for r in range(start, end + 1):
-            for p in players_in_group:
-                pr = p.in_round(r)
-                if pr.field_maybe_none('choice') is None:
-                    all_ready = False
+    participants = [p.participant for p in players_in_group]
+    required = 3 * (end - start + 1)  # 3 players × 10 rounds
+
+    def _all_choices_ready():
+        """One query to fetch all relevant Player rows; return True iff all have choice set (data validity)."""
+        qs = Player.objects.filter(
+            session=subsession.session,
+            round_number__in=range(start, end + 1),
+            participant__in=participants,
+        ).only('round_number', 'participant_id', 'choice')
+        rows = list(qs)
+        if len(rows) != required:
+            return False
+        return all(getattr(r, 'choice', None) is not None for r in rows)
+
+    # Polling: first 5s check once, second 5s check once, then every 2s (data validity priority, fewer reads).
+    _time.sleep(5)
+    if _all_choices_ready():
+        pass  # fall through to payoffs
+    else:
+        _time.sleep(5)  # 10s total
+        if _all_choices_ready():
+            pass
+        else:
+            # After 10s: check every 2s, up to 3 minutes total (170s more → 85 checks)
+            for _ in range(85):
+                _time.sleep(2)
+                if _all_choices_ready():
                     break
-            if not all_ready:
-                break
-        if all_ready:
-            break
-        _time.sleep(0.5)
     for r in range(start, end + 1):
         round_ss = subsession.in_round(r)
         all_players_r = list(round_ss.get_players())

@@ -6,7 +6,7 @@
 
     <h1 class="main-title">Decision: Round {{ round_number }} of Part {{ current_part }}</h1>
 
-    <div class="countdown-banner">
+    <div class="countdown-banner" align="center">
         Time remaining: <span id="countdown-seconds" data-start="{{ countdown_seconds }}">90</span> seconds
     </div>
 
@@ -26,6 +26,10 @@
         </div>
         <div id="choice-error" class="choice-error" style="display:none;">
             Please choose one of the options.
+        </div>
+        <!-- Hidden oTree error hook so the framework sees that 'choice' errors are rendered -->
+        <div class="otree-hidden-errors" align="center" font-style="italic">
+            {{ formfield_errors 'choice' }}
         </div>
         <button type="submit" class="modern-btn">Confirm</button>
         <div class="small-instructions">
@@ -51,8 +55,8 @@
                     </tr>
                 </tbody>
             </table>
-            </form>
         </div>
+    </form>
 
     <script>
     (function() {
@@ -78,7 +82,7 @@
         if (!form) return;
         var errorEl = document.getElementById('choice-error');
         form.addEventListener('submit', function (e) {
-            var checked = form.querySelector('input[name=\"choice\"]:checked');
+            var checked = form.querySelector('input[name="choice"]:checked');
             if (!checked) {
                 e.preventDefault();
                 if (errorEl) {
@@ -89,6 +93,7 @@
             }
         });
     })();
+
     </script>
 
     <style>
@@ -115,6 +120,12 @@
         text-align: center;
         color: #d9534f;
         font-weight: bold;
+    }
+
+    /* Hide the built-in oTree error list; we show our own centered message instead. */
+    .otree-form-errors,
+    .alert-danger:not(.custom-error) {
+        display: none;
     }
 
     .readonly-choice {

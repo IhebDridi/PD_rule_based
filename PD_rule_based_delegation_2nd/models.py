@@ -679,13 +679,16 @@ def custom_export(players):
                 r = pr.round_number
                 other = _opponent_for_export(pr, r, round_data, rr_cache)
                 row[f"Round{r}Decision"] = fld(pr, "choice") if fld(pr, "choice") is not None else ""
-                # Convert per-round payoff from Ecoins to real dollars (10 Ecoins = 0.01 dollars, i.e. factor 0.001).
                 pay_raw = pr.payoff or 0
                 try:
                     pay_float = float(pay_raw)
                 except (TypeError, ValueError):
                     pay_float = 0.0
-                row[f"Round{r}Ecoins"] = round(pay_float * 0.001, 4)
+                # Export per-round payoff in raw Ecoins (e.g. 30, 70, 100).
+                try:
+                    row[f"Round{r}Ecoins"] = int(pay_float)
+                except (TypeError, ValueError):
+                    row[f"Round{r}Ecoins"] = 0
                 if other:
                     row[f"Round{r}CoplayerDecision"] = fld(other, "choice") if fld(other, "choice") is not None else ""
                     pos = pvars(other, "matching_group_position")

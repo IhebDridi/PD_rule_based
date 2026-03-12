@@ -404,6 +404,7 @@ class BatchWaitForGroup(WaitPage):
         _params = getattr(self.request, "GET", None) or getattr(self.request, "query_params", None)
         current_part = Constants.get_part(self.round_number)
         can_proceed_key = f"can_proceed_to_results_part_{current_part}"
+        ready_at_key = f"results_ready_at_part_{current_part}"
         pool_key = f"results_pool_part_{current_part}"
         joined_at_key = f"results_wait_joined_at_part_{current_part}"
 
@@ -422,8 +423,15 @@ class BatchWaitForGroup(WaitPage):
         # If already assigned to a results group, go to Results.
         # Update the shared results pool and maybe form a group for this part
         self._update_results_pool_and_maybe_group()
-        # If already assigned to a results group, go to Results immediately.
+        # If already assigned to a results group, wait a minimum time before redirecting.
         if self.participant.vars.get(can_proceed_key):
+            now = time.time()
+            ready_at = self.participant.vars.get(ready_at_key)
+            if ready_at is None:
+                self.participant.vars[ready_at_key] = now
+                return self._get_wait_page()
+            if now - float(ready_at) < BATCH_WAIT_MIN_SECONDS:
+                return self._get_wait_page()
             return self._response_when_ready()
         return self._get_wait_page()
 
@@ -436,21 +444,35 @@ class BatchWaitForGroup(WaitPage):
         """
         current_part = Constants.get_part(self.round_number)
         can_proceed_key = f"can_proceed_to_results_part_{current_part}"
+        ready_at_key = f"results_ready_at_part_{current_part}"
         # Pool/group update is idempotent when a group is already formed.
         self._update_results_pool_and_maybe_group()
         if self.participant.vars.get(can_proceed_key):
+            now = time.time()
+            ready_at = self.participant.vars.get(ready_at_key)
+            if ready_at is None:
+                self.participant.vars[ready_at_key] = now
+                return self._get_wait_page()
+            if now - float(ready_at) < BATCH_WAIT_MIN_SECONDS:
+                return self._get_wait_page()
             return self._response_when_ready()
         return self._get_wait_page()
 
     def _update_results_pool_and_maybe_group(self):
         """Side-effect helper: add self to pool and, if pool has 3, form group and run payoffs."""
         current_part = Constants.get_part(self.round_number)
+        can_proceed_key = f"can_proceed_to_results_part_{current_part}"
+        # If this participant is already assigned to a results group for this part,
+        # never re-add them to the pool (prevents re-matching while they are still on the wait page).
+        if self.participant.vars.get(can_proceed_key):
+            return
         pool_key = f'results_pool_part_{current_part}'
         group_size = getattr(Constants, 'FIXED_GROUP_SIZE', 3)
         participants = self.session.get_participants()
         lock_key = f'_results_pool_lock_part_{current_part}'
         first_join_key = f'results_first_join_part_{current_part}'
         joined_at_key = f'results_wait_joined_at_part_{current_part}'
+        ready_at_key = f"results_ready_at_part_{current_part}"
         if pool_key not in self.session.vars:
             self.session.vars[pool_key] = []
         now = time.time()
@@ -468,8 +490,10 @@ class BatchWaitForGroup(WaitPage):
                     self.participant.vars[joined_at_key] = now  # per-participant: when they joined the wait
                 pool = list(self.session.vars.get(pool_key, []))
                 if len(pool) >= group_size:
-                    first_ids = pool[:group_size]
-                    self.session.vars[pool_key] = pool[group_size:]
+                    # Form group by smallest id_in_session so P1,P2,P3 form first, then P4,P5,P6, etc.
+                    pool_sorted = sorted(pool)
+                    first_ids = pool_sorted[:group_size]
+                    self.session.vars[pool_key] = pool_sorted[group_size:]
                     next_batch_key = f'results_next_batch_id_part_{current_part}'
                     batch_id = self.session.vars.get(next_batch_key, 0)
                     self.session.vars[next_batch_key] = batch_id + 1
@@ -489,6 +513,8 @@ class BatchWaitForGroup(WaitPage):
                         for p in participants:
                             if p.id_in_session in first_ids:
                                 p.vars[f'can_proceed_to_results_part_{current_part}'] = True
+                                # start each participant's minimum wait window from the moment the group is formed
+                                p.vars[ready_at_key] = now
             finally:
                 self.session.vars[lock_key] = False
 

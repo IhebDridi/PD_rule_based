@@ -598,7 +598,7 @@ def _opponent_for_export(pr, r, round_data, rr_cache):
     return sorted_players[opp_idx]
 
 
-def custom_export(players):
+def custom_export2(players):
     """
     oTree custom export: yield CSV rows (header first, then one row per participant).
     Builds round_data and rr_cache once, then uses _opponent_for_export for each round.
@@ -637,7 +637,7 @@ def custom_export(players):
         header += [f"Round{r}Decision", f"Round{r}CoplayerID", f"Round{r}CoplayerDecision",
                    f"Round{r}Ecoins", f"Round{r}PlayerAgent", f"Round{r}CoPlayerAgent"]
     for i in range(1, 11):
-        header += [f"Guess{i}", f"TruthGuess{i}", f"EarningsGuess{i}"]
+        header += [f"Guess{i}", f"TruthGuess{i}", f"EarningsGuess{i}Dollars"]
     header += [
         "TotalEarningsPart1Ecoins", "TotalEarningsPart2Ecoins", "TotalEarningsPart3Ecoins",
         "PartChosenBonus", "TotalEarningsParts123Dollars", "TotalEarningsPart4Dollars", "BonusPaymentTotal",
@@ -746,7 +746,13 @@ def custom_export(players):
                 other = _opponent_for_export(pr, 20 + i, round_data, rr_cache)
                 row[f"Guess{i}"] = 1 if fld(pr, "guess_opponent_delegated") == "yes" else 0
                 row[f"TruthGuess{i}"] = 1 if (other and fld(other, "delegate_decision_optional")) else 0
-                row[f"EarningsGuess{i}"] = fld(pr, "guess_payoff") or 0
+                # Guess earnings: store in dollars (e.g. cu=10 → 0.1 dollars).
+                gpay = fld(pr, "guess_payoff") or 0
+                try:
+                    gpay_float = float(gpay)
+                except (TypeError, ValueError):
+                    gpay_float = 0.0
+                row[f"EarningsGuess{i}Dollars"] = round(gpay_float / 100.0, 4)
 
             part_chosen = fld(p_last, "random_payoff_part")
             _float = lambda x: float(x) if x is not None else 0.0
@@ -759,14 +765,19 @@ def custom_export(players):
                 ecoins = _float(part_totals[part_chosen - 1])
                 row["PartChosenBonus"] = part_chosen
                 row["TotalEarningsParts123Dollars"] = round(ecoins * 0.001, 4)
-                part4_ecoins = sum(_float(row.get(f"EarningsGuess{i}")) for i in range(1, 11)) * 0.01
-                row["TotalEarningsPart4Dollars"] = round(part4_ecoins, 4)
+                # Guess earnings already stored in dollars per trial; sum directly.
+                part4_dollars = sum(
+                    _float(row.get(f"EarningsGuess{i}Dollars")) for i in range(1, 11)
+                )
+                row["TotalEarningsPart4Dollars"] = round(part4_dollars, 4)
                 row["BonusPaymentTotal"] = round(row["TotalEarningsParts123Dollars"] + row["TotalEarningsPart4Dollars"], 4)
             else:
                 row["PartChosenBonus"] = part_chosen if part_chosen is not None else ""
                 row["TotalEarningsParts123Dollars"] = 0.0
-                part4_ecoins = sum(_float(row.get(f"EarningsGuess{i}")) for i in range(1, 11)) * 0.01
-                row["TotalEarningsPart4Dollars"] = round(part4_ecoins, 4)
+                part4_dollars = sum(
+                    _float(row.get(f"EarningsGuess{i}Dollars")) for i in range(1, 11)
+                )
+                row["TotalEarningsPart4Dollars"] = round(part4_dollars, 4)
                 row["BonusPaymentTotal"] = round(row["TotalEarningsPart4Dollars"], 4)
 
             for k in ("SupervisedListChoicesDelegation", "SupervisedListChoicesOptional", "GoalListChoicesDelegation",
@@ -779,7 +790,7 @@ def custom_export(players):
             continue
 
 
-def custom_export2(players):
+def custom_export(players):
     """
     Variant of custom_export with:
     - All *Ecoins columns in raw Ecoins (0–100 per round, 0–1000 per part).
@@ -841,7 +852,7 @@ def custom_export2(players):
             f"Round{r}Ecoins",
         ]
     for i in range(1, 11):
-        header += [f"Guess{i}", f"TruthGuess{i}", f"EarningsGuess{i}"]
+        header += [f"Guess{i}", f"TruthGuess{i}", f"EarningsGuess{i}Dollars"]
     # New high-level delegation / agent columns
     header += ["DelegatedPart1", "DelegatedPart2", "DelegatedPart3", "Agent"]
     header += [
@@ -970,7 +981,13 @@ def custom_export2(players):
                 row[f"TruthGuess{i}"] = 1 if (
                     other and fld(other, "delegate_decision_optional")
                 ) else 0
-                row[f"EarningsGuess{i}"] = fld(pr, "guess_payoff") or 0
+                gpay = fld(pr, "guess_payoff") or 0
+                try:
+                    gpay_float = float(gpay)
+                except (TypeError, ValueError):
+                    gpay_float = 0.0
+                # Export guess earnings in dollars (10 → 0.1).
+                row[f"EarningsGuess{i}Dollars"] = round(gpay_float / 100.0, 4)
 
             # High-level delegation per part
             if Constants.DELEGATION_FIRST:
@@ -1002,10 +1019,11 @@ def custom_export2(players):
                 ecoins = _float(part_totals[part_chosen - 1])
                 row["PartChosenBonus"] = part_chosen
                 row["TotalEarningsParts123Dollars"] = round(ecoins * 0.001, 4)
-                part4_ecoins = (
-                    sum(_float(row.get(f"EarningsGuess{i}")) for i in range(1, 11)) * 0.01
+                # Guess earnings already stored in dollars; sum directly.
+                part4_dollars = sum(
+                    _float(row.get(f"EarningsGuess{i}Dollars")) for i in range(1, 11)
                 )
-                row["TotalEarningsPart4Dollars"] = round(part4_ecoins, 4)
+                row["TotalEarningsPart4Dollars"] = round(part4_dollars, 4)
                 row["BonusPaymentTotal"] = round(
                     row["TotalEarningsParts123Dollars"] + row["TotalEarningsPart4Dollars"],
                     4,
@@ -1013,10 +1031,10 @@ def custom_export2(players):
             else:
                 row["PartChosenBonus"] = part_chosen if part_chosen is not None else ""
                 row["TotalEarningsParts123Dollars"] = 0.0
-                part4_ecoins = (
-                    sum(_float(row.get(f"EarningsGuess{i}")) for i in range(1, 11)) * 0.01
+                part4_dollars = sum(
+                    _float(row.get(f"EarningsGuess{i}Dollars")) for i in range(1, 11)
                 )
-                row["TotalEarningsPart4Dollars"] = round(part4_ecoins, 4)
+                row["TotalEarningsPart4Dollars"] = round(part4_dollars, 4)
                 row["BonusPaymentTotal"] = round(row["TotalEarningsPart4Dollars"], 4)
 
             for k in (

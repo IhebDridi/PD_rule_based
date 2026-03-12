@@ -109,6 +109,7 @@ def compute_round_robin_assignments(N_players, N_rounds=10):
 
 # Cache round-robin assignments by group size to avoid recomputing for every player in the same group.
 _ROUND_ROBIN_CACHE = {}
+_BATCH_PLAYERS_CACHE = {}
 
 
 def get_opponent_in_round(player, round_number):
@@ -520,6 +521,54 @@ def _opponent_for_export(pr, r, round_data, rr_cache):
     Uses pre-built round_data[r][group_id] = sorted_players and rr_cache for round-robin;
     no extra DB queries. Returns None if no opponent (group size <= 1 or invalid).
     """
+    part = Constants.get_part(r)
+    part_start = (part - 1) * Constants.rounds_per_part + 1
+    round_in_part = r - part_start
+    if round_in_part < 0 or round_in_part >= Constants.rounds_per_part:
+        return None
+
+    # Fast path: use logical 3-person batch information if available.
+    batch_gid = pr.participant.vars.get("matching_group_id", -1)
+    if batch_gid is not None and batch_gid >= 0:
+        session = pr.session
+        key_members = f"matching_group_members_part_{part}_{batch_gid}"
+        member_ids = session.vars.get(key_members)
+        if member_ids and isinstance(member_ids, (list, tuple)) and len(member_ids) >= 3:
+            cache_key = (session.code, part, batch_gid)
+            players_start = _BATCH_PLAYERS_CACHE.get(cache_key)
+            if not players_start:
+                # Get the 3 Player objects for the first round of this part.
+                first_round_ss = pr.subsession.in_round(part_start)
+                players_start = [
+                    p for p in first_round_ss.get_players()
+                    if p.participant.id_in_session in member_ids
+                ]
+                players_start = sorted(
+                    players_start,
+                    key=lambda p: p.participant.vars.get("matching_group_position", 0),
+                )
+                if len(players_start) != 3:
+                    return None
+                _BATCH_PLAYERS_CACHE[cache_key] = players_start
+
+            N = len(member_ids)
+            if N not in rr_cache:
+                rr_cache[N] = compute_round_robin_assignments(N, Constants.rounds_per_part)
+            assignments = rr_cache[N]
+
+            my_pos = pr.participant.vars.get("matching_group_position", None)
+            if not my_pos or my_pos < 1 or my_pos > N:
+                return None
+            my_idx = my_pos - 1
+            if round_in_part >= len(assignments[my_idx]):
+                return None
+            opp_idx, _ = assignments[my_idx][round_in_part]
+            if opp_idx is None or opp_idx < 0 or opp_idx >= N:
+                return None
+            opp_player_start = players_start[opp_idx]
+            return opp_player_start.in_round(r)
+
+    # Fallback: use oTree's group_id-based grouping if batch info is missing.
     if r not in round_data:
         return None
     gid = getattr(pr, "group_id", None)
@@ -538,11 +587,6 @@ def _opponent_for_export(pr, r, round_data, rr_cache):
         return None
     if N == 2:
         return sorted_players[1 - my_idx]
-    part = Constants.get_part(r)
-    part_start = (part - 1) * Constants.rounds_per_part + 1
-    round_in_part = r - part_start
-    if round_in_part < 0 or round_in_part >= Constants.rounds_per_part:
-        return None
     if N not in rr_cache:
         rr_cache[N] = compute_round_robin_assignments(N, Constants.rounds_per_part)
     assignments = rr_cache[N]
@@ -630,12 +674,18 @@ def custom_export(players):
             row["Part4FeedbackOther"] = fld(p_last, "part_4_feedback_other")
             row["FeedbackFreeText"] = fld(p_last, "feedback")
 
-            part_totals = [0, 0, 0]
+            part_totals = [0.0, 0.0, 0.0]
             for pr in rounds:
                 r = pr.round_number
                 other = _opponent_for_export(pr, r, round_data, rr_cache)
                 row[f"Round{r}Decision"] = fld(pr, "choice") if fld(pr, "choice") is not None else ""
-                row[f"Round{r}Ecoins"] = pr.payoff
+                # Convert per-round payoff from Ecoins to real dollars (10 Ecoins = 0.01 dollars, i.e. factor 0.001).
+                pay_raw = pr.payoff or 0
+                try:
+                    pay_float = float(pay_raw)
+                except (TypeError, ValueError):
+                    pay_float = 0.0
+                row[f"Round{r}Ecoins"] = round(pay_float * 0.001, 4)
                 if other:
                     row[f"Round{r}CoplayerDecision"] = fld(other, "choice") if fld(other, "choice") is not None else ""
                     pos = pvars(other, "matching_group_position")
@@ -646,17 +696,40 @@ def custom_export(players):
                 else:
                     row[f"Round{r}CoplayerDecision"] = ""
                     row[f"Round{r}CoplayerID"] = ""
-                agent = "rule" if r <= 10 or r > 20 else "no-agent"
-                row[f"Round{r}PlayerAgent"] = row[f"Round{r}CoPlayerAgent"] = agent
-                if r <= 10:
-                    part_totals[0] += pr.payoff or 0
-                elif r <= 20:
-                    part_totals[1] += pr.payoff or 0
+                # Label which rounds are delegated vs. human, using the actual treatment and decisions:
+                # - Parts 1–2: Constants.is_mandatory_delegation_round(r) → everyone uses the rule agent in that block.
+                # - Part 3 (optional delegation): use each player's own delegate_decision_optional flag.
+                part = Constants.get_part(r)
+                if part in (1, 2):
+                    agent_self = "rule" if Constants.is_mandatory_delegation_round(r) else "no-agent"
                 else:
-                    part_totals[2] += pr.payoff or 0
+                    delegated_self = fld(pr, "delegate_decision_optional")
+                    agent_self = "rule" if delegated_self else "no-agent"
 
-            for i, part_key in enumerate(["TotalEarningsPart1Ecoins", "TotalEarningsPart2Ecoins", "TotalEarningsPart3Ecoins"], start=1):
-                row[part_key] = part_totals[i - 1]
+                if other:
+                    if part in (1, 2):
+                        agent_other = "rule" if Constants.is_mandatory_delegation_round(r) else "no-agent"
+                    else:
+                        delegated_other = fld(other, "delegate_decision_optional")
+                        agent_other = "rule" if delegated_other else "no-agent"
+                else:
+                    agent_other = ""
+
+                row[f"Round{r}PlayerAgent"] = agent_self
+                row[f"Round{r}CoPlayerAgent"] = agent_other
+                if r <= 10:
+                    part_totals[0] += pay_float
+                elif r <= 20:
+                    part_totals[1] += pay_float
+                else:
+                    part_totals[2] += pay_float
+
+            # Store per-part totals scaled to dollars (same units as TotalEarningsParts123Dollars).
+            for i, part_key in enumerate(
+                ["TotalEarningsPart1Ecoins", "TotalEarningsPart2Ecoins", "TotalEarningsPart3Ecoins"],
+                start=1,
+            ):
+                row[part_key] = round(part_totals[i - 1] * 0.001, 4)
 
             n_rounds = len(rounds)
             for i in range(1, 11):

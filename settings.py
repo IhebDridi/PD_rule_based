@@ -58,6 +58,13 @@ SESSION_CONFIGS = [
         use_browser_bots=False,
     ),
     dict(
+        name='PD_rule_based_delegation_2nd_with_bots',
+        display_name='PD_rule_based_delegation_2nd_with_bots',
+        app_sequence=['PD_rule_based_delegation_2nd'],
+        num_demo_participants=10,
+        use_browser_bots=True,
+    ),
+    dict(
         name='PD_supervised_learning_delegation_1st',
         display_name='PD_supervised_learning_delegation_1st',
         app_sequence=['PD_supervised_learning_delegation_1st'],

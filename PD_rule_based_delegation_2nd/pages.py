@@ -846,7 +846,7 @@ class Debriefing(Page):
 
             results_by_part[part] = {
                 "rounds": part_data,
-                "total_payoff": total,
+                "total_payoff": int(total) if total is not None else 0,
             }
         # ==============================
         # ADDITION: Part 4 results table

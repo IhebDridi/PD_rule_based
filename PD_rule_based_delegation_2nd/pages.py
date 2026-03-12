@@ -692,7 +692,12 @@ class Results(Page):
             rr = player.in_round(r)
             my_choice = rr.field_maybe_none("choice")
             other_choice = None
-            payoff_val = rr.payoff
+            # Start from the underlying numeric payoff so templates can show an integer instead of a Currency string.
+            raw_payoff = getattr(rr.payoff, "amount", rr.payoff) if rr.payoff is not None else 0
+            try:
+                payoff_val = int(raw_payoff)
+            except (TypeError, ValueError):
+                payoff_val = 0
             if assignments and my_pos and 1 <= my_pos <= len(member_ids):
                 round_in_part = r - part_start
                 opp_idx, _ = assignments[my_pos - 1][round_in_part]
@@ -701,12 +706,15 @@ class Results(Page):
                 opp = players_map.get(opp_sid) if opp_sid else None
                 other_choice = opp.field_maybe_none("choice") if opp else None
                 # If payoff is missing/0 but both choices exist, compute directly (avoid group.set_payoffs on giant group).
-                raw_pay = getattr(rr.payoff, "amount", rr.payoff) if rr.payoff is not None else 0
-                if raw_pay == 0 and my_choice and other_choice:
+                if raw_payoff == 0 and my_choice and other_choice:
                     pay = Constants.PD_PAYOFFS.get((my_choice, other_choice))
                     if pay is not None:
                         rr.payoff = cu(pay[0])
-                        payoff_val = rr.payoff
+                        raw_payoff = getattr(rr.payoff, "amount", rr.payoff)
+                        try:
+                            payoff_val = int(raw_payoff)
+                        except (TypeError, ValueError):
+                            payoff_val = 0
             rounds_data.append({
                 "round": r - (current_part - 1) * Constants.rounds_per_part,
                 "my_choice": my_choice,
@@ -818,15 +826,21 @@ class Debriefing(Page):
             ):
                 me = self.player.in_round(r)
                 other = get_opponent_in_round(self.player, r)
+                # Convert Currency payoff to a plain integer number of Ecoins for display in the Debriefing template.
+                raw_payoff = getattr(me.payoff, "amount", me.payoff) if me.payoff is not None else 0
+                try:
+                    display_payoff = int(raw_payoff)
+                except (TypeError, ValueError):
+                    display_payoff = 0
                 part_data.append({
                     "round": r - (part - 1) * Constants.rounds_per_part,
                     "my_choice": me.field_maybe_none("choice"),
                     "other_choice": other.field_maybe_none("choice") if other else None,
                     "other_delegated": bool(other and other.field_maybe_none("delegate_decision_optional")),
-                    "payoff": me.payoff,
+                    "payoff": display_payoff,
                 })
 
-                total += me.payoff or 0
+                total += raw_payoff or 0
 
 
 

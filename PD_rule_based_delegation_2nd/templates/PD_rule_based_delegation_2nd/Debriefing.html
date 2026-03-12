@@ -27,7 +27,7 @@
                     {% for r in pdata.rounds %}
                     <tr>
                         <td>{{ r.round }}</td>
-                        <td><strong>{{ r.payoff|floatformat:0 }}</strong></td>
+                        <td><strong>{{ r.payoff }}</strong></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -35,7 +35,7 @@
 
             <p class="part-total">
                 <strong>Total payoff in Part {{ part }}:</strong>
-                {{ pdata.total_payoff.to_real_world_currency }} Ecoins
+                {{ pdata.total_payoff }} Ecoins
             </p>
         </div>
         {% endfor %}

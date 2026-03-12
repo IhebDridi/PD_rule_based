@@ -727,12 +727,15 @@ def custom_export(players):
                 else:
                     part_totals[2] += pay_float
 
-            # Store per-part totals scaled to dollars (same units as TotalEarningsParts123Dollars).
+            # Store per-part totals in raw Ecoins (0–1000), since the column name is *Ecoins.
             for i, part_key in enumerate(
                 ["TotalEarningsPart1Ecoins", "TotalEarningsPart2Ecoins", "TotalEarningsPart3Ecoins"],
                 start=1,
             ):
-                row[part_key] = round(part_totals[i - 1] * 0.001, 4)
+                try:
+                    row[part_key] = int(part_totals[i - 1])
+                except (TypeError, ValueError):
+                    row[part_key] = 0
 
             n_rounds = len(rounds)
             for i in range(1, 11):

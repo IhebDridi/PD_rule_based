@@ -361,6 +361,10 @@ class AgentProgramming(Page):
         # PART 3 — Optional delegation (rounds 21–30)
         # ==========================================
         elif current_part == 3:
+            # if self.participant.vars.get("matching_group_id", -1) < 0:
+            #     # Participant not matched → skip writing, but allow flow
+            #     self.participant.vars["agent_programming_done_part3"] = True
+            #     return
             decisions = self.participant.vars.get(
                 'agent_programming_part3', {}
             )
@@ -612,10 +616,10 @@ class DelegationDecision(Page):
         # copy decision into ALL Part 3 rounds (21–30)
         start_round = 2 * Constants.rounds_per_part + 1  # 21
         end_round = 3 * Constants.rounds_per_part        # 30
+        self.participant.vars["entered_part3"] = True
 
         for r in range(start_round, end_round + 1):
-            if self.participant.vars.get("matching_group_id", -1) >= 0:
-                self.player.in_round(r).delegate_decision_optional = (
+            self.player.in_round(r).delegate_decision_optional = (
                     self.player.delegate_decision_optional
                 )
 

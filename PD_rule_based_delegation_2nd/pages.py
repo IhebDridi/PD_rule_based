@@ -336,8 +336,7 @@ class AgentProgramming(Page):
             for i in range(1, 11):
                 decision = decisions.get(i) or decisions.get(str(i))
                 if decision in ('A', 'B'):
-                    if self.participant.vars.get("matching_group_id", -1) >= 0:
-                        self.player.in_round(i).choice = decision
+                    self.player.in_round(i).choice = decision
             self.participant.vars["agent_programming_done_part1"] = True
 
         # ==========================================
@@ -355,8 +354,7 @@ class AgentProgramming(Page):
             for i in range(1, 11):
                 decision = decisions.get(i) or decisions.get(str(i))
                 if decision in ('A', 'B'):
-                    if self.participant.vars.get("matching_group_id", -1) >= 0:
-                        self.player.in_round(10 + i).choice = decision
+                    self.player.in_round(10 + i).choice = decision
             self.participant.vars["agent_programming_done_part2"] = True
 
         # ==========================================
@@ -372,8 +370,7 @@ class AgentProgramming(Page):
                 round_number = start_round + i - 1
                 decision = decisions.get(i) or decisions.get(str(i))
                 if decision in ('A', 'B'):
-                    if self.participant.vars.get("matching_group_id", -1) >= 0:
-                        self.player.in_round(round_number).choice = decision
+                    self.player.in_round(round_number).choice = decision
             self.participant.vars["agent_programming_done_part3"] = True
 
 

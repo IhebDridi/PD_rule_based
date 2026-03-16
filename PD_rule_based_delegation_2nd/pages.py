@@ -336,7 +336,8 @@ class AgentProgramming(Page):
             for i in range(1, 11):
                 decision = decisions.get(i) or decisions.get(str(i))
                 if decision in ('A', 'B'):
-                    self.player.in_round(i).choice = decision
+                    if self.participant.vars.get("matching_group_id", -1) >= 0:
+                        self.player.in_round(i).choice = decision
             self.participant.vars["agent_programming_done_part1"] = True
 
         # ==========================================
@@ -354,7 +355,8 @@ class AgentProgramming(Page):
             for i in range(1, 11):
                 decision = decisions.get(i) or decisions.get(str(i))
                 if decision in ('A', 'B'):
-                    self.player.in_round(10 + i).choice = decision
+                    if self.participant.vars.get("matching_group_id", -1) >= 0:
+                        self.player.in_round(10 + i).choice = decision
             self.participant.vars["agent_programming_done_part2"] = True
 
         # ==========================================
@@ -370,7 +372,8 @@ class AgentProgramming(Page):
                 round_number = start_round + i - 1
                 decision = decisions.get(i) or decisions.get(str(i))
                 if decision in ('A', 'B'):
-                    self.player.in_round(round_number).choice = decision
+                    if self.participant.vars.get("matching_group_id", -1) >= 0:
+                        self.player.in_round(round_number).choice = decision
             self.participant.vars["agent_programming_done_part3"] = True
 
 
@@ -609,6 +612,9 @@ class DelegationDecision(Page):
         )
 
     def before_next_page(self):
+        gid = self.participant.vars.get("matching_group_id", -1)
+        if gid < 0:
+            return
         # copy decision into ALL Part 3 rounds (21–30)
         start_round = 2 * Constants.rounds_per_part + 1  # 21
         end_round = 3 * Constants.rounds_per_part        # 30
@@ -768,6 +774,9 @@ class GuessDelegation(Page):
         }
 
     def before_next_page(self):
+        gid = self.participant.vars.get("matching_group_id", -1)
+        if gid < 0:
+            return
         start = 2 * Constants.rounds_per_part + 1  # round 21
 
         for i in range(1, 11):

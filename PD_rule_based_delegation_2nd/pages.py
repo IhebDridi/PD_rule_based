@@ -8,18 +8,7 @@ custom wait/release and payoff logic; DelegationDecision is Part 3 only.
 """
 from starlette.responses import RedirectResponse
 from otree.api import *
-from otree.database import db
-from otree.models import Session
-from .models import (
-    Constants,
-    get_opponent_in_round,
-    run_payoffs_for_matching_group,
-    _member_ids_for_part,
-    _part_group_id_key,
-    _part_group_member_key,
-    _part_group_position_key,
-    _player_map_for_member_ids,
-)
+from .models import Constants, run_payoffs_for_matching_group, get_opponent_in_round
 import json
 import time
 import re
@@ -256,12 +245,7 @@ class AgentProgramming(Page):
         """Receive allocations from liveSend (table A/B choices) and store in participant.vars (agent_programming_part1/2/3)."""
         if not data or 'allocations' not in data:
             return
-        try:
-            raw = json.loads(data['allocations'])
-        except (TypeError, ValueError, json.JSONDecodeError):
-            return
-        if not isinstance(raw, dict):
-            return
+        raw = json.loads(data['allocations'])
         # raw keys may be "agent_decision_mandatory_delegation_round_1" or "1"
         decisions = {}
         for k, v in raw.items():
@@ -485,6 +469,7 @@ class BatchWaitForGroup(WaitPage):
         pool_key = f'results_pool_part_{current_part}'
         group_size = getattr(Constants, 'FIXED_GROUP_SIZE', 3)
         participants = self.session.get_participants()
+        lock_key = f'_results_pool_lock_part_{current_part}'
         first_join_key = f'results_first_join_part_{current_part}'
         joined_at_key = f'results_wait_joined_at_part_{current_part}'
         ready_at_key = f"results_ready_at_part_{current_part}"
@@ -494,45 +479,44 @@ class BatchWaitForGroup(WaitPage):
         if first_join_key not in self.session.vars:
             self.session.vars[first_join_key] = now
         pid = self.participant.id_in_session
-        formed_ids = []
-        batch_id = None
-        db.query(Session).filter_by(id=self.session.id).with_for_update().one()
-        pool = list(self.session.vars.get(pool_key, []))
-        if pid not in pool:
-            pool.append(pid)
-            self.session.vars[pool_key] = pool
-            self.participant.vars[joined_at_key] = now
-        pool = list(self.session.vars.get(pool_key, []))
-        if len(pool) >= group_size:
-            pool_sorted = sorted(pool)
-            formed_ids = pool_sorted[:group_size]
-            self.session.vars[pool_key] = pool_sorted[group_size:]
-            next_batch_key = f'results_next_batch_id_part_{current_part}'
-            batch_id = self.session.vars.get(next_batch_key, 0)
-            self.session.vars[next_batch_key] = batch_id + 1
-            self.session.vars[_part_group_member_key(current_part, batch_id)] = list(formed_ids)
-
-            part_start_round = (current_part - 1) * Constants.rounds_per_part + 1
-            round_ss = self.subsession.in_round(part_start_round)
-            batch_players_map = _player_map_for_member_ids(round_ss, formed_ids)
-            if len(batch_players_map) != group_size:
-                raise RuntimeError(
-                    f"Could not resolve all grouped players for part {current_part}: {formed_ids}"
-                )
-            for position, sid in enumerate(formed_ids, start=1):
-                pl = batch_players_map[sid]
-                pl.participant.vars['matching_group_id'] = batch_id
-                pl.participant.vars['matching_group_position'] = position
-                pl.participant.vars[_part_group_id_key(current_part)] = batch_id
-                pl.participant.vars[_part_group_position_key(current_part)] = position
-
-        if formed_ids and batch_id is not None:
-            run_payoffs_for_matching_group(self.subsession, batch_id)
-            formed_at = time.time()
-            for p in participants:
-                if p.id_in_session in formed_ids:
-                    p.vars[f'can_proceed_to_results_part_{current_part}'] = True
-                    p.vars[ready_at_key] = formed_at
+        # Under one lock: add self to pool (and set this participant's joined-at time), maybe form a group of 3.
+        if not self.session.vars.get(lock_key):
+            self.session.vars[lock_key] = True
+            try:
+                pool = list(self.session.vars.get(pool_key, []))
+                if pid not in pool:
+                    pool.append(pid)
+                    self.session.vars[pool_key] = pool
+                    self.participant.vars[joined_at_key] = now  # per-participant: when they joined the wait
+                pool = list(self.session.vars.get(pool_key, []))
+                if len(pool) >= group_size:
+                    # Form group by smallest id_in_session so P1,P2,P3 form first, then P4,P5,P6, etc.
+                    pool_sorted = sorted(pool)
+                    first_ids = pool_sorted[:group_size]
+                    self.session.vars[pool_key] = pool_sorted[group_size:]
+                    next_batch_key = f'results_next_batch_id_part_{current_part}'
+                    batch_id = self.session.vars.get(next_batch_key, 0)
+                    self.session.vars[next_batch_key] = batch_id + 1
+                    part_start_round = (current_part - 1) * Constants.rounds_per_part + 1
+                    round_ss = self.subsession.in_round(part_start_round)
+                    batch_players = [pl for pl in round_ss.get_players() if pl.participant.id_in_session in first_ids]
+                    batch_players = sorted(batch_players, key=lambda pl: first_ids.index(pl.participant.id_in_session))
+                    if len(batch_players) == group_size:
+                        # Lightweight grouping: do NOT call set_group_matrix (too slow for big sessions).
+                        # Store the 3 participant IDs for opponent lookup/payoffs, and set matching_group vars.
+                        self.session.vars[f'matching_group_members_part_{current_part}_{batch_id}'] = list(first_ids)
+                        for i, pl in enumerate(batch_players):
+                            pl.participant.vars['matching_group_id'] = batch_id
+                            pl.participant.vars['matching_group_position'] = i + 1
+                        time.sleep(0.5)
+                        run_payoffs_for_matching_group(self.subsession, batch_id)
+                        for p in participants:
+                            if p.id_in_session in first_ids:
+                                p.vars[f'can_proceed_to_results_part_{current_part}'] = True
+                                # start each participant's minimum wait window from the moment the group is formed
+                                p.vars[ready_at_key] = now
+            finally:
+                self.session.vars[lock_key] = False
 
     def vars_for_template(self):
         current_part = Constants.get_part(self.round_number)
@@ -668,7 +652,6 @@ class Results(Page):
         # So that Part 2/3 lobbies form new groups: reset matching_group_id when leaving Part 1 or Part 2
         if self.round_number in (10, 20):
             self.participant.vars['matching_group_id'] = -1
-            self.participant.vars['matching_group_position'] = None
 
     def vars_for_template(self):
         current_part = Constants.get_part(self.round_number)
@@ -677,8 +660,12 @@ class Results(Page):
 
         player = self.player
         # Build rounds_data using only the 3-person batch (fast, independent of session size).
-        gid = self.participant.vars.get(_part_group_id_key(current_part), -1)
-        member_ids = _member_ids_for_part(self.session, current_part, gid) or []
+        gid = self.participant.vars.get("matching_group_id", -1)
+        member_ids = None
+        if gid is not None and gid >= 0:
+            member_ids = self.session.vars.get(f"matching_group_members_part_{current_part}_{gid}")
+        member_ids = list(member_ids) if member_ids else []
+        member_set = set(member_ids)
         # Precompute round-robin assignments for N=3
         assignments = None
         if len(member_ids) >= 3:
@@ -686,22 +673,48 @@ class Results(Page):
             from .models import compute_round_robin_assignments  # local import to avoid cycles
             assignments = compute_round_robin_assignments(N, Constants.rounds_per_part)
 
-        my_sid = self.participant.id_in_session
+        def _pick_three_players(round_ss):
+            """Return dict id_in_session -> Player for just the batch members (no full scans downstream)."""
+            out = {}
+            if not member_set:
+                return out
+            for p in round_ss.get_players():
+                sid = p.participant.id_in_session
+                if sid in member_set:
+                    out[sid] = p
+                    if len(out) == len(member_set):
+                        break
+            return out
+
+        my_pos = self.participant.vars.get("matching_group_position", None)
         rounds_data = []
         for r in range(part_start, part_end + 1):
             rr = player.in_round(r)
             my_choice = rr.field_maybe_none("choice")
             other_choice = None
-            raw_payoff = getattr(rr.payoff, "amount", rr.payoff) if rr.payoff is not None else None
-            payoff_val = None if raw_payoff is None else int(raw_payoff)
-            if assignments and my_sid in member_ids:
+            # Start from the underlying numeric payoff so templates can show an integer instead of a Currency string.
+            raw_payoff = getattr(rr.payoff, "amount", rr.payoff) if rr.payoff is not None else 0
+            try:
+                payoff_val = int(raw_payoff)
+            except (TypeError, ValueError):
+                payoff_val = 0
+            if assignments and my_pos and 1 <= my_pos <= len(member_ids):
                 round_in_part = r - part_start
-                my_idx = member_ids.index(my_sid)
-                opp_idx, _ = assignments[my_idx][round_in_part]
+                opp_idx, _ = assignments[my_pos - 1][round_in_part]
                 opp_sid = member_ids[opp_idx] if opp_idx is not None else None
-                players_map = _player_map_for_member_ids(self.subsession.in_round(r), member_ids)
+                players_map = _pick_three_players(self.subsession.in_round(r))
                 opp = players_map.get(opp_sid) if opp_sid else None
                 other_choice = opp.field_maybe_none("choice") if opp else None
+                # If payoff is missing/0 but both choices exist, compute directly (avoid group.set_payoffs on giant group).
+                if raw_payoff == 0 and my_choice and other_choice:
+                    pay = Constants.PD_PAYOFFS.get((my_choice, other_choice))
+                    if pay is not None:
+                        rr.payoff = cu(pay[0])
+                        raw_payoff = getattr(rr.payoff, "amount", rr.payoff)
+                        try:
+                            payoff_val = int(raw_payoff)
+                        except (TypeError, ValueError):
+                            payoff_val = 0
             rounds_data.append({
                 "round": r - (current_part - 1) * Constants.rounds_per_part,
                 "my_choice": my_choice,

@@ -916,8 +916,10 @@ def custom_export(players):
 
             part_totals = [0.0, 0.0, 0.0]
             for pr in rounds:
+                gid = pvars(pr, "matching_group_id", -1)
+                has_real_opponent = gid is not None and gid >= 0
                 r = pr.round_number
-                other = _opponent_for_export(pr, r, round_data, rr_cache)
+                other = _opponent_for_export(pr, r, round_data, rr_cache) if has_real_opponent else None
                 row[f"Round{r}Decision"] = (
                     fld(pr, "choice") if fld(pr, "choice") is not None else ""
                 )

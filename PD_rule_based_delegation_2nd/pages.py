@@ -612,17 +612,15 @@ class DelegationDecision(Page):
         )
 
     def before_next_page(self):
-        gid = self.participant.vars.get("matching_group_id", -1)
-        if gid < 0:
-            return
         # copy decision into ALL Part 3 rounds (21–30)
         start_round = 2 * Constants.rounds_per_part + 1  # 21
         end_round = 3 * Constants.rounds_per_part        # 30
 
         for r in range(start_round, end_round + 1):
-            self.player.in_round(r).delegate_decision_optional = (
-                self.player.delegate_decision_optional
-            )
+            if self.participant.vars.get("matching_group_id", -1) >= 0:
+                self.player.in_round(r).delegate_decision_optional = (
+                    self.player.delegate_decision_optional
+                )
 
 
 # =============================================================================
@@ -774,9 +772,6 @@ class GuessDelegation(Page):
         }
 
     def before_next_page(self):
-        gid = self.participant.vars.get("matching_group_id", -1)
-        if gid < 0:
-            return
         start = 2 * Constants.rounds_per_part + 1  # round 21
 
         for i in range(1, 11):
@@ -787,18 +782,21 @@ class GuessDelegation(Page):
             guess = getattr(self.player, guess_field)
 
             #  1. store the per‑round guess explicitly
-            setattr(future_player, guess_field, guess)
+            if self.participant.vars.get("matching_group_id", -1) >= 0:
+                setattr(future_player, guess_field, guess)
 
             #  2. store unified guess field (used elsewhere)
-            future_player.guess_opponent_delegated = guess
+            if self.participant.vars.get("matching_group_id", -1) >= 0:
+                future_player.guess_opponent_delegated = guess
 
-            #  3. compute and ALWAYS store payoff (10 cents per correct → 10 correct = $1 total)
-            other = get_opponent_in_round(self.player, r)
-            actual = bool(other and other.field_maybe_none("delegate_decision_optional"))
+            #  3. compute and ALWAYS store payoff
+            if self.participant.vars.get("matching_group_id", -1) >= 0:
+                other = get_opponent_in_round(self.player, r)
+                actual = bool(other and other.field_maybe_none("delegate_decision_optional"))
 
-            future_player.guess_payoff = (
-                cu(10) if (guess == 'yes') == actual else cu(0)
-            )
+                future_player.guess_payoff = (
+                    cu(10) if (guess == 'yes') == actual else cu(0)
+                )
 
         self.participant.vars['guess_submitted'] = True
 

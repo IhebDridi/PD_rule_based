@@ -971,16 +971,23 @@ def custom_export(players):
                     row[part_key] = 0
 
             n_rounds = len(rounds)
+            has_real_opponent = pvars(p0, "matching_group_id", -1) >= 0
+
             for i in range(1, 11):
                 idx = 19 + i
                 pr = rounds[idx] if idx < n_rounds else None
                 if pr is None:
                     continue
-                other = _opponent_for_export(pr, 20 + i, round_data, rr_cache)
+
                 row[f"Guess{i}"] = 1 if fld(pr, "guess_opponent_delegated") == "yes" else 0
-                row[f"TruthGuess{i}"] = 1 if (
-                    other and fld(other, "delegate_decision_optional")
-                ) else 0
+
+                if has_real_opponent:
+                    other = _opponent_for_export(pr, 20 + i, round_data, rr_cache)
+                    row[f"TruthGuess{i}"] = 1 if (
+                        other and fld(other, "delegate_decision_optional")
+                    ) else 0
+                else:
+                    row[f"TruthGuess{i}"] = ""
                 gpay = fld(pr, "guess_payoff") or 0
                 try:
                     gpay_float = float(gpay)

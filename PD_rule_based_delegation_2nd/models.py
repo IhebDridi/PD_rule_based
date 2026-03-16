@@ -252,7 +252,7 @@ class Group(BaseGroup):
 
 class Player(BasePlayer):
     """One row per participant per round. choice = A/B for PD; agent/human fields for delegation parts."""
-    app_name = models.StringField(initial='rulebased_del1st')
+    app_name = models.StringField(initial='rulebased_del2nd')
     delegate_decision_optional_final = models.BooleanField()
 
     #NEW

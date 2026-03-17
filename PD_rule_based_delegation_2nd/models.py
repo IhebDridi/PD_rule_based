@@ -680,12 +680,12 @@ def _opponent_for_export(pr, r, round_data, rr_cache):
 #                 pay_raw = pr.payoff or 0
 #                 try:
 #                     pay_float = float(pay_raw)
-#                 except (TypeError, ValueError):
+#                  (TypeError, ValueError):
 #                     pay_float = 0.0
 #                 # Export per-round payoff in raw Ecoins (e.g. 30, 70, 100).
 #                 try:
 #                     row[f"Round{r}Ecoins"] = int(pay_float)
-#                 except (TypeError, ValueError):
+#                  (TypeError, ValueError):
 #                     row[f"Round{r}Ecoins"] = 0
 #                 if other:
 #                     row[f"Round{r}CoplayerDecision"] = fld(other, "choice") if fld(other, "choice") is not None else ""
@@ -732,7 +732,7 @@ def _opponent_for_export(pr, r, round_data, rr_cache):
 #             ):
 #                 try:
 #                     row[part_key] = int(part_totals[i - 1])
-#                 except (TypeError, ValueError):
+#                  (TypeError, ValueError):
 #                     row[part_key] = 0
 
 #             n_rounds = len(rounds)
@@ -748,7 +748,7 @@ def _opponent_for_export(pr, r, round_data, rr_cache):
 #                 gpay = fld(pr, "guess_payoff") or 0
 #                 try:
 #                     gpay_float = float(gpay)
-#                 except (TypeError, ValueError):
+#                  (TypeError, ValueError):
 #                     gpay_float = 0.0
 #                 row[f"EarningsGuess{i}Dollars"] = round(gpay_float / 100.0, 4)
 
@@ -784,7 +784,7 @@ def _opponent_for_export(pr, r, round_data, rr_cache):
 #             row["GameUsed"] = "PD"
 
 #             yield [row[h] for h in header]
-#         except Exception:
+#          ion:
 #             continue
 
 
@@ -926,12 +926,12 @@ def custom_export(players):
                 pay_raw = pr.payoff or 0
                 try:
                     pay_float = float(pay_raw)
-                except (TypeError, ValueError):
+                 (TypeError, ValueError):
                     pay_float = 0.0
                 # Per-round payoff exported as raw Ecoins integer.
                 try:
                     row[f"Round{r}Ecoins"] = int(pay_float)
-                except (TypeError, ValueError):
+                 (TypeError, ValueError):
                     row[f"Round{r}Ecoins"] = 0
 
                 if other:
@@ -967,7 +967,7 @@ def custom_export(players):
             ):
                 try:
                     row[part_key] = int(part_totals[i - 1])
-                except (TypeError, ValueError):
+                 (TypeError, ValueError):
                     row[part_key] = 0
 
             n_rounds = len(rounds)
@@ -991,7 +991,7 @@ def custom_export(players):
                 gpay = fld(pr, "guess_payoff") or 0
                 try:
                     gpay_float = float(gpay)
-                except (TypeError, ValueError):
+                 (TypeError, ValueError):
                     gpay_float = 0.0
                 # Export guess earnings in dollars (10 → 0.1).
                 row[f"EarningsGuess{i}Dollars"] = round(gpay_float / 100.0, 4)
@@ -1057,7 +1057,7 @@ def custom_export(players):
 
             yield [row[h] for h in header]
         except Exception:
-            yield [f"ERROR:"] + [""] * (len(header) - 1)
+            return
 
 # =============================================================================
 # Lobby release and payoff runner (called from pages.Lobby and BatchWaitForGroup)

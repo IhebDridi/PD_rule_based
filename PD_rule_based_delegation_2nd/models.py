@@ -889,175 +889,172 @@ def custom_export(players):
         return "no-agent"
 
     for code, rounds in by_participant.items():
-        try:
-            rounds = sorted(rounds, key=lambda p: p.round_number)
-            p0 = rounds[0]
-            row = dict.fromkeys(header, "")
+        rounds = sorted(rounds, key=lambda p: p.round_number)
+        p0 = rounds[0]
+        row = dict.fromkeys(header, "")
 
-            row["Condition"] = "rule2nd"
-            row["ProlificID"] = (
-                "SIMULATED" if pvars(p0, "is_simulated") else fld(p0, "prolific_id")
+        row["Condition"] = "rule2nd"
+        row["ProlificID"] = (
+            "SIMULATED" if pvars(p0, "is_simulated") else fld(p0, "prolific_id")
+        )
+        row["Session"] = p0.session.code
+        row["Group"] = pvars(p0, "matching_group_id")
+        row["PlayerID"] = pvars(p0, "matching_group_position")
+        row["IsSimulated"] = 1 if pvars(p0, "is_simulated") else 0
+        p_last = rounds[-1] if rounds else p0
+        row["Gender"] = fld(p_last, "gender")
+        row["Age"] = fld(p_last, "age")
+        row["Occupation"] = fld(p_last, "occupation")
+        row["AIuse"] = fld(p_last, "ai_use")
+        row["TaskDifficulty"] = fld(p_last, "task_difficulty")
+        row["Part3Feedback"] = fld(p_last, "part_3_feedback")
+        row["Part3FeedbackOther"] = fld(p_last, "part_3_feedback_other")
+        row["Part4Feedback"] = fld(p_last, "part_4_feedback")
+        row["Part4FeedbackOther"] = fld(p_last, "part_4_feedback_other")
+        row["FeedbackFreeText"] = fld(p_last, "feedback")
+
+        part_totals = [0.0, 0.0, 0.0]
+        for pr in rounds:
+            gid = pvars(pr, "matching_group_id", -1)
+            has_real_opponent = gid is not None and gid >= 0
+            r = pr.round_number
+            other = _opponent_for_export(pr, r, round_data, rr_cache) if has_real_opponent else None
+            row[f"Round{r}Decision"] = (
+                fld(pr, "choice") if fld(pr, "choice") is not None else ""
             )
-            row["Session"] = p0.session.code
-            row["Group"] = pvars(p0, "matching_group_id")
-            row["PlayerID"] = pvars(p0, "matching_group_position")
-            row["IsSimulated"] = 1 if pvars(p0, "is_simulated") else 0
-            p_last = rounds[-1] if rounds else p0
-            row["Gender"] = fld(p_last, "gender")
-            row["Age"] = fld(p_last, "age")
-            row["Occupation"] = fld(p_last, "occupation")
-            row["AIuse"] = fld(p_last, "ai_use")
-            row["TaskDifficulty"] = fld(p_last, "task_difficulty")
-            row["Part3Feedback"] = fld(p_last, "part_3_feedback")
-            row["Part3FeedbackOther"] = fld(p_last, "part_3_feedback_other")
-            row["Part4Feedback"] = fld(p_last, "part_4_feedback")
-            row["Part4FeedbackOther"] = fld(p_last, "part_4_feedback_other")
-            row["FeedbackFreeText"] = fld(p_last, "feedback")
+            pay_raw = pr.payoff or 0
+            try:
+                pay_float = float(pay_raw)
+            except (TypeError, ValueError):
+                pay_float = 0.0
+            # Per-round payoff exported as raw Ecoins integer.
+            try:
+                row[f"Round{r}Ecoins"] = int(pay_float)
+            except (TypeError, ValueError):
+                row[f"Round{r}Ecoins"] = 0
 
-            part_totals = [0.0, 0.0, 0.0]
-            for pr in rounds:
-                gid = pvars(pr, "matching_group_id", -1)
-                has_real_opponent = gid is not None and gid >= 0
-                r = pr.round_number
-                other = _opponent_for_export(pr, r, round_data, rr_cache) if has_real_opponent else None
-                row[f"Round{r}Decision"] = (
-                    fld(pr, "choice") if fld(pr, "choice") is not None else ""
+            if other:
+                row[f"Round{r}CoplayerDecision"] = (
+                    fld(other, "choice") if fld(other, "choice") is not None else ""
                 )
-                pay_raw = pr.payoff or 0
-                try:
-                    pay_float = float(pay_raw)
-                except (TypeError, ValueError):
-                    pay_float = 0.0
-                # Per-round payoff exported as raw Ecoins integer.
-                try:
-                    row[f"Round{r}Ecoins"] = int(pay_float)
-                except (TypeError, ValueError):
-                    row[f"Round{r}Ecoins"] = 0
-
-                if other:
-                    row[f"Round{r}CoplayerDecision"] = (
-                        fld(other, "choice") if fld(other, "choice") is not None else ""
+                pos = pvars(other, "matching_group_position")
+                if pos is not None and pos != "" and pos != -1:
+                    row[f"Round{r}CoplayerID"] = str(pos)
+                else:
+                    row[f"Round{r}CoplayerID"] = str(
+                        getattr(other.participant, "id_in_session", "") or ""
                     )
-                    pos = pvars(other, "matching_group_position")
-                    if pos is not None and pos != "" and pos != -1:
-                        row[f"Round{r}CoplayerID"] = str(pos)
-                    else:
-                        row[f"Round{r}CoplayerID"] = str(
-                            getattr(other.participant, "id_in_session", "") or ""
-                        )
-                else:
-                    row[f"Round{r}CoplayerDecision"] = ""
-                    row[f"Round{r}CoplayerID"] = ""
+            else:
+                row[f"Round{r}CoplayerDecision"] = ""
+                row[f"Round{r}CoplayerID"] = ""
 
-                if r <= 10:
-                    part_totals[0] += pay_float
-                elif r <= 20:
-                    part_totals[1] += pay_float
-                else:
-                    part_totals[2] += pay_float
+            if r <= 10:
+                part_totals[0] += pay_float
+            elif r <= 20:
+                part_totals[1] += pay_float
+            else:
+                part_totals[2] += pay_float
 
             # Store per-part totals in raw Ecoins (0–1000).
-            for i, part_key in enumerate(
-                [
-                    "TotalEarningsPart1Ecoins",
-                    "TotalEarningsPart2Ecoins",
-                    "TotalEarningsPart3Ecoins",
-                ],
-                start=1,
-            ):
-                try:
-                    row[part_key] = int(part_totals[i - 1])
-                except (TypeError, ValueError):
-                    row[part_key] = 0
+        for i, part_key in enumerate(
+            [
+                "TotalEarningsPart1Ecoins",
+                "TotalEarningsPart2Ecoins",
+                "TotalEarningsPart3Ecoins",
+            ],
+            start=1,
+        ):
+            try:
+                row[part_key] = int(part_totals[i - 1])
+            except (TypeError, ValueError):
+                row[part_key] = 0
 
-            n_rounds = len(rounds)
-            has_real_opponent = pvars(p0, "matching_group_id", -1) >= 0
+        n_rounds = len(rounds)
+        has_real_opponent = pvars(p0, "matching_group_id", -1) >= 0
 
-            for i in range(1, 11):
-                idx = 19 + i
-                pr = rounds[idx] if idx < n_rounds else None
-                if pr is None:
-                    continue
+        for i in range(1, 11):
+            idx = 19 + i
+            pr = rounds[idx] if idx < n_rounds else None
+            if pr is None:
+                continue
 
-                row[f"Guess{i}"] = 1 if fld(pr, "guess_opponent_delegated") == "yes" else 0
+            row[f"Guess{i}"] = 1 if fld(pr, "guess_opponent_delegated") == "yes" else 0
 
-                if has_real_opponent:
-                    other = _opponent_for_export(pr, 20 + i, round_data, rr_cache)
-                    row[f"TruthGuess{i}"] = 1 if (
-                        other and fld(other, "delegate_decision_optional")
-                    ) else 0
-                else:
-                    row[f"TruthGuess{i}"] = ""
-                gpay = fld(pr, "guess_payoff") or 0
-                try:
-                    gpay_float = float(gpay)
-                except (TypeError, ValueError):
-                    gpay_float = 0.0
-                # Export guess earnings in dollars (10 → 0.1).
-                row[f"EarningsGuess{i}Dollars"] = round(gpay_float / 100.0, 4)
-
-            # High-level delegation per part
-            if Constants.DELEGATION_FIRST:
-                delegated_part1 = 1
-                delegated_part2 = 0
+            if has_real_opponent:
+                other = _opponent_for_export(pr, 20 + i, round_data, rr_cache)
+                row[f"TruthGuess{i}"] = 1 if (
+                    other and fld(other, "delegate_decision_optional")
+                ) else 0
             else:
-                delegated_part1 = 0
-                delegated_part2 = 1
-            delegated_part3 = 0
-            for pr in rounds:
-                if Constants.get_part(pr.round_number) == 3:
-                    if fld(pr, "delegate_decision_optional"):
-                        delegated_part3 = 1
-                        break
+                row[f"TruthGuess{i}"] = ""
+            gpay = fld(pr, "guess_payoff") or 0
+            try:
+                gpay_float = float(gpay)
+            except (TypeError, ValueError):
+                gpay_float = 0.0
+            # Export guess earnings in dollars (10 → 0.1).
+            row[f"EarningsGuess{i}Dollars"] = round(gpay_float / 100.0, 4)
+            
+        # High-level delegation per part
+        if Constants.DELEGATION_FIRST:
+            delegated_part1 = 1
+            delegated_part2 = 0
+        else:
+            delegated_part1 = 0
+            delegated_part2 = 1
+        delegated_part3 = 0
+        for pr in rounds:
+            if Constants.get_part(pr.round_number) == 3:
+                if fld(pr, "delegate_decision_optional"):
+                    delegated_part3 = 1
+                    break
 
-            row["DelegatedPart1"] = delegated_part1
-            row["DelegatedPart2"] = delegated_part2
-            row["DelegatedPart3"] = delegated_part3
-            row["Agent"] = _agent_label(row["Condition"], fld(p0, "app_name"))
+        row["DelegatedPart1"] = delegated_part1
+        row["DelegatedPart2"] = delegated_part2
+        row["DelegatedPart3"] = delegated_part3
+        row["Agent"] = _agent_label(row["Condition"], fld(p0, "app_name"))
 
-            part_chosen = fld(p_last, "random_payoff_part")
-            _float = lambda x: float(x) if x is not None else 0.0
-            if pvars(p0, "quit_to_prolific"):
-                row["PartChosenBonus"] = "quit"
-                row["TotalEarningsParts123Dollars"] = 0.0
-                row["TotalEarningsPart4Dollars"] = 0.0
-                row["BonusPaymentTotal"] = 1.0
-            elif part_chosen in (1, 2, 3):
-                ecoins = _float(part_totals[part_chosen - 1])
-                row["PartChosenBonus"] = part_chosen
-                row["TotalEarningsParts123Dollars"] = round(ecoins * 0.001, 4)
-                # Guess earnings already stored in dollars; sum directly.
-                part4_dollars = sum(
-                    _float(row.get(f"EarningsGuess{i}Dollars")) for i in range(1, 11)
-                )
-                row["TotalEarningsPart4Dollars"] = round(part4_dollars, 4)
-                row["BonusPaymentTotal"] = round(
-                    row["TotalEarningsParts123Dollars"] + row["TotalEarningsPart4Dollars"],
-                    4,
-                )
-            else:
-                row["PartChosenBonus"] = part_chosen if part_chosen is not None else ""
-                row["TotalEarningsParts123Dollars"] = 0.0
-                part4_dollars = sum(
-                    _float(row.get(f"EarningsGuess{i}Dollars")) for i in range(1, 11)
-                )
-                row["TotalEarningsPart4Dollars"] = round(part4_dollars, 4)
-                row["BonusPaymentTotal"] = round(row["TotalEarningsPart4Dollars"], 4)
+        part_chosen = fld(p_last, "random_payoff_part")
+        _float = lambda x: float(x) if x is not None else 0.0
+        if pvars(p0, "quit_to_prolific"):
+            row["PartChosenBonus"] = "quit"
+            row["TotalEarningsParts123Dollars"] = 0.0
+            row["TotalEarningsPart4Dollars"] = 0.0
+            row["BonusPaymentTotal"] = 1.0
+        elif part_chosen in (1, 2, 3):
+            ecoins = _float(part_totals[part_chosen - 1])
+            row["PartChosenBonus"] = part_chosen
+            row["TotalEarningsParts123Dollars"] = round(ecoins * 0.001, 4)
+            # Guess earnings already stored in dollars; sum directly.
+            part4_dollars = sum(
+                _float(row.get(f"EarningsGuess{i}Dollars")) for i in range(1, 11)
+            )
+            row["TotalEarningsPart4Dollars"] = round(part4_dollars, 4)
+            row["BonusPaymentTotal"] = round(
+                row["TotalEarningsParts123Dollars"] + row["TotalEarningsPart4Dollars"],
+                4,
+            )
+        else:
+            row["PartChosenBonus"] = part_chosen if part_chosen is not None else ""
+            row["TotalEarningsParts123Dollars"] = 0.0
+            part4_dollars = sum(
+                _float(row.get(f"EarningsGuess{i}Dollars")) for i in range(1, 11)
+            )
+            row["TotalEarningsPart4Dollars"] = round(part4_dollars, 4)
+            row["BonusPaymentTotal"] = round(row["TotalEarningsPart4Dollars"], 4)
 
-            for k in (
-                "SupervisedListChoicesDelegation",
-                "SupervisedListChoicesOptional",
-                "GoalListChoicesDelegation",
-                "GoalListChoicesOptional",
-                "LLMchatDelegation",
-                "LLMchatOptional",
-            ):
-                row[k] = ""
-            row["GameUsed"] = "PD"
+        for k in (
+            "SupervisedListChoicesDelegation",
+            "SupervisedListChoicesOptional",
+            "GoalListChoicesDelegation",
+            "GoalListChoicesOptional",
+            "LLMchatDelegation",
+            "LLMchatOptional",
+        ):
+            row[k] = ""
+        row["GameUsed"] = "PD"
 
-            yield [row[h] for h in header]
-        except Exception:
-            return
+        yield [row[h] for h in header]
 
 # =============================================================================
 # Lobby release and payoff runner (called from pages.Lobby and BatchWaitForGroup)

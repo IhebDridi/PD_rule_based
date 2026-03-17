@@ -967,7 +967,7 @@ def custom_export(players):
             ):
                 try:
                     row[part_key] = int(part_totals[i - 1])
-                 (TypeError, ValueError):
+                except (TypeError, ValueError):
                     row[part_key] = 0
 
             n_rounds = len(rounds)
@@ -991,7 +991,7 @@ def custom_export(players):
                 gpay = fld(pr, "guess_payoff") or 0
                 try:
                     gpay_float = float(gpay)
-                 (TypeError, ValueError):
+                except (TypeError, ValueError):
                     gpay_float = 0.0
                 # Export guess earnings in dollars (10 → 0.1).
                 row[f"EarningsGuess{i}Dollars"] = round(gpay_float / 100.0, 4)

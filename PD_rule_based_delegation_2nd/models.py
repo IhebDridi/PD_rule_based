@@ -1057,7 +1057,7 @@ def custom_export(players):
 
             yield [row[h] for h in header]
         except Exception:
-            yield [f"ERROR: {e}"] + [""] * (len(header) - 1)
+            yield [f"ERROR:"] + [""] * (len(header) - 1)
 
 # =============================================================================
 # Lobby release and payoff runner (called from pages.Lobby and BatchWaitForGroup)

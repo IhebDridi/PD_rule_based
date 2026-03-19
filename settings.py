@@ -406,4 +406,6 @@ def _patch_wide_export():
     _exp.get_rows_for_wide_csv_app = _patched_get_rows_for_wide_csv_app
 
 
-_patch_wide_export()
+# Defer patch to avoid circular import (settings -> otree.export -> otree.common -> otree.settings).
+import threading
+threading.Timer(0.5, _patch_wide_export).start()

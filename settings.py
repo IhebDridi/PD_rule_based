@@ -287,3 +287,30 @@ DEMO_PAGE_INTRO_HTML = """ """
 SECRET_KEY = '9871076378040'
 data_path='players_data/'
 
+# Mistral (PD_llm_delegation_2nd): set MISTRAL_API_KEY in env or below; agent ID from your Mistral dashboard
+MISTRAL_API_KEY = environ.get('MISTRAL_API_KEY', 'GRv8D2nDrIUaElftIpAPe2VcYqNfXR12')
+MISTRAL_AGENT_ID = environ.get('MISTRAL_AGENT_ID', 'ag_019d000046b476f9b7937a71687e28a3')
+
+# -----------------------------------------------------------------------------
+# PostgreSQL connection resilience (reduce "SSL error: unexpected eof" on Clever Cloud)
+# When DATABASE_URL is set we configure the DB with:
+# - CONN_MAX_AGE: reuse connections up to 5 min then recycle (avoids server idle timeout).
+# - CONN_HEALTH_CHECKS: ping before reuse so dropped connections are replaced (Django 4.1+).
+# -----------------------------------------------------------------------------
+if environ.get('DATABASE_URL'):
+    try:
+        import dj_database_url
+        _db = dj_database_url.config(conn_max_age=300)
+        if _db:
+            _db['CONN_HEALTH_CHECKS'] = True
+            DATABASES = {'default': _db}
+    except ImportError:
+        pass
+else:
+    try:
+        _db = DATABASES.get('default', {})
+        if _db and 'postgresql' in _db.get('ENGINE', ''):
+            _db['CONN_MAX_AGE'] = 300
+            _db['CONN_HEALTH_CHECKS'] = True
+    except NameError:
+        pass

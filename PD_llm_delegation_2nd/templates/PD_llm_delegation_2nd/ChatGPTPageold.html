@@ -1,0 +1,323 @@
+{% extends "global/Page.html" %}
+{% block content %}
+<!-- Container -->
+<!-- Container -->
+<div class="main-container">
+    <!-- Chat Container -->
+
+    <div class="chat-container">
+            <h1 class="main-title">
+        Part {{ current_part }}: Set up your AI agent
+    </h1>
+        <p class="intro-text">Send your prompt to the chat below to specify how your AI agent should make allocations from your endowment of 100 ECoins to each different human Receiver that it will encounter in each round. Each amount should be between 0 and 100 ECoins.</p>
+      
+        <div id="chat-box" class="chat-box" style="overflow-y: scroll; border: 1px solid #ccc; padding: 10px; width: 700px; box-sizing: border-box;"></div>
+            <div class="input-container">
+                <input type="text" id="user-input" placeholder="Type your message..." class="allocation-input full-width-input" onkeypress="handleKeyPress(event)">
+                <button onclick="sendMessage()" class="modern-btn">Send</button>
+                <form method="post">
+                    <button type="submit" class="modern-btn" id="confirm-btn" style="background-color: #009933; display: none;">Confirm</button>
+                </form>
+            
+            </div>
+
+    
+        <!-- Loading Indicator -->
+            <div id="loading-indicator" style="text-align: center; display: none;">
+                <span class="material-symbols-outlined">hourglass_empty</span> Fetching response...
+            </div>
+   
+        </div>
+
+
+
+    <!-- Results Container -->
+    <div class="results-container">
+        <h3 class="main-title">AI Agent Behavior</h3>
+        <div class="table-container">
+            <table id="allocation-table" class="styled-table">
+                <thead>
+                    <tr>
+                        <th>Round</th>
+                        <th>Allocations</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Pre-fill table with rounds and '-' -->
+                    <script>
+                        document.addEventListener("DOMContentLoaded", function() {
+                            let allocationTable = document.getElementById("allocation-table").getElementsByTagName('tbody')[0];
+                            for (let i = 1; i <= 10; i++) {
+                                let row = allocationTable.insertRow();
+                                let cell1 = row.insertCell(0);
+                                let cell2 = row.insertCell(1);
+                                cell1.textContent = `Round ${i}`;
+                                cell2.textContent = "-";
+                            }
+                        });
+                    </script>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+
+
+
+    function sendMessage() {
+        if (event) event.preventDefault();  // Prevent default form submission
+
+        let inputField = document.getElementById("user-input");
+        let message = inputField.value.trim();
+        if (!message) return;
+
+        let chatBox = document.getElementById("chat-box");
+        let loadingIndicator = document.getElementById("loading-indicator");
+
+        // ✅ Display user message before sending
+        let userMsg = document.createElement("p");
+        userMsg.innerHTML = `<span class="material-symbols-outlined">face</span> <strong>You:</strong> ${message}`;
+        chatBox.appendChild(userMsg);
+
+        // ✅ Clear input field after displaying the message
+        inputField.value = "";
+        loadingIndicator.style.display = "block"; // Show loading indicator
+
+        
+
+        console.log("Sending message:", message);
+        liveSend({'message': message});
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === "Enter") {
+            sendMessage();
+        }
+    }
+
+
+    function liveRecv(data) {
+        console.log("Received response:", data);
+        const pattern = /^(\d{1,3},\s*){9}\d{1,3}$/;
+        const confirmBtn = document.getElementById("confirm-btn");
+
+
+        if (pattern.test(data.response))
+        {
+            if (confirmBtn) {
+            confirmBtn.style.display = "block"; // or "block" if you prefer full-width
+                            }
+
+        }
+
+        else {
+
+            confirmBtn.style.display = "none"
+        }
+
+
+        let chatBox = document.getElementById("chat-box");
+        let allocationTable = document.getElementById("allocation-table").getElementsByTagName('tbody')[0];
+        let loadingIndicator = document.getElementById("loading-indicator");
+
+        loadingIndicator.style.display = "none"; // Hide loading indicator
+
+        if (!chatBox || !allocationTable) {
+            console.error("Chat box or allocation table not found!");
+            return;
+        }
+
+        // ✅ Display ChatGPT response
+        if (data.response) {
+            let botMsg = document.createElement("p");
+            botMsg.innerHTML = `<span class="material-symbols-outlined">robot_2</span> <strong>ChatGPT:</strong> ${data.response}`;
+            chatBox.appendChild(botMsg);
+
+            // ✅ Update table with new allocations
+            let allocations = data.response.split(',').map(val => val.trim());
+            if (allocations.length === 10) {
+                for (let i = 0; i < 10; i++) {
+                    allocationTable.rows[i].cells[1].textContent = allocations[i];
+                }
+            }
+        }
+
+        // ✅ Adjust chat box height to match results container
+        let chatContainer = document.querySelector(".chat-container");
+        let resultsContainer = document.querySelector(".results-container");
+        chatContainer.style.height = `${resultsContainer.offsetHeight}px`;
+    }
+
+</script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
+.intro-text {
+    font-size: 16px;
+    color: #555555;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+
+.timer {
+    font-size: 18px;
+    font-weight: bold;
+    color: red;
+    text-align: center;
+    margin-bottom: 10px;
+}
+.chat-box {
+    width: 100%;
+    box-sizing: border-box;
+    height: 70%;
+}
+
+.main-container {
+    display: flex;
+    justify-content: flex-start;
+    gap: 20px;
+    width: 1200px;
+     /* Added left padding to shift elements left */
+}
+.results-container {
+    flex: 1;
+    background: #ffffff;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+.chat-container {
+    flex: 1;
+    background: #ffffff;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    width: 800px;
+    height: 900px;
+    margin-right: 30px
+}
+
+.input-container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin-top: 10px; /* Added margin to push input field down */
+
+
+}
+
+.full-width-input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-right: 10px;
+}
+
+
+.alert-banner {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: #f44336; /* Bright red background */
+    color: white;
+    padding: 15px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    font-size: 16px;
+    z-index: 1000;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+.modern-decision-container {
+    max-width: 900px;
+    margin: 50px auto;
+    background: #ffffff;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+.main-title {
+    font-size: 28px;
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333333;
+    font-weight: bold;
+    border-bottom: 3px solid #0056b3;
+    padding-bottom: 10px;
+}
+
+.styled-table {
+    border-collapse: collapse;
+    margin: 25px auto;
+    font-size: 16px;
+    font-family: Arial, sans-serif;
+    width: 100%;
+    text-align: center;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.styled-table thead tr {
+    background-color: #0056b3;
+    color: #ffffff;
+    text-align: center;
+    font-weight: bold;
+}
+
+.styled-table th, .styled-table td {
+    border: 1px solid #dddddd;
+    padding: 12px 15px;
+}
+
+.styled-table tbody tr:hover {
+    background-color: #f1f1f1;
+}
+
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 100px;
+    margin: 20px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #003d80;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.modern-btn:hover {
+    background-color: #003d80;
+}
+</style>
+
+{% endblock %}

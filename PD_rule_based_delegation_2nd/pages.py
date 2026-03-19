@@ -8,7 +8,14 @@ custom wait/release and payoff logic; DelegationDecision is Part 3 only.
 """
 from starlette.responses import RedirectResponse
 from otree.api import *
-from .models import Constants, run_payoffs_for_matching_group, get_opponent_in_round
+from .models import (
+    Constants,
+    run_payoffs_for_matching_group,
+    get_opponent_in_round,
+    get_opponent_in_round_cached,
+    get_results_display_from_cache,
+    _log_cache_miss,
+)
 import json
 import time
 import re
@@ -83,13 +90,12 @@ class MainInstructions(Page):
 
 class ComprehensionTest(Page):
     """
-    Round-1 comprehension quiz about the task. Uses q1–q10 fields on Player and
-    tracks attempts via comprehension_attempts / is_excluded. Shows a dynamic
+    Round-1 comprehension quiz about the task. Uses q1, q2, q6–q10 (7 questions).
+    Tracks attempts via comprehension_attempts / is_excluded. Shows a dynamic
     error message via participant.vars['comp_error_message'].
     """
     form_model = 'player'
-    form_fields = ['q1', 'q2', 'q3', 'q4', 'q5',
-                   'q6', 'q7', 'q8', 'q9', 'q10']
+    form_fields = ['q1', 'q2', 'q6', 'q7', 'q8', 'q9', 'q10']
 
     def is_displayed(self):
         return self.round_number == 1 and not self.player.is_excluded
@@ -106,13 +112,10 @@ class ComprehensionTest(Page):
         correct_answers = {
             'q1': 'c',
             'q2': 'b',
-            'q3': 'c',
-            'q4': 'c',
-            'q5': 'a',
-            'q6': 'c',
-            'q7': 'a',
-            'q8': 'b',
-            'q9': 'b',
+            'q6': 'c',   # A&A → 70 Ecoins (C)
+            'q7': 'a',   # A&B → 0 Ecoins (A)
+            'q8': 'd',   # B&A → 100 Ecoins (D)
+            'q9': 'b',   # B&B → 30 Ecoins (B)
             'q10': 'b',
         }
 
@@ -662,24 +665,43 @@ class Results(Page):
         current_part = Constants.get_part(self.round_number)
         part_start = (current_part - 1) * Constants.rounds_per_part + 1
         part_end = current_part * Constants.rounds_per_part
-
         player = self.player
-        # Build rounds_data using only the 3-person batch (fast, independent of session size).
+
+        # Prefer cache (group-of-3 data written at payoff time); fall back to DB with log.
+        cache_part = get_results_display_from_cache(self.participant, current_part)
+        if cache_part is not None and len(cache_part) == Constants.rounds_per_part:
+            rounds_data = [
+                {
+                    "round": entry["round"],
+                    "my_choice": entry.get("my_choice"),
+                    "other_choice": entry.get("other_choice"),
+                    "payoff": entry.get("payoff", 0),
+                    "is_payoff_round": True,
+                }
+                for entry in cache_part
+            ]
+            return dict(
+                current_part=current_part,
+                display_part=current_part,
+                rounds_data=rounds_data,
+            )
+
+        _log_cache_miss("Results", getattr(self.participant, "id", None), "cache_miss_or_invalid")
+
+        # Fallback: build rounds_data using 3-person batch (DB reads per round).
         gid = self.participant.vars.get("matching_group_id", -1)
         member_ids = None
         if gid is not None and gid >= 0:
             member_ids = self.session.vars.get(f"matching_group_members_part_{current_part}_{gid}")
         member_ids = list(member_ids) if member_ids else []
         member_set = set(member_ids)
-        # Precompute round-robin assignments for N=3
         assignments = None
         if len(member_ids) >= 3:
             N = len(member_ids)
-            from .models import compute_round_robin_assignments  # local import to avoid cycles
+            from .models import compute_round_robin_assignments
             assignments = compute_round_robin_assignments(N, Constants.rounds_per_part)
 
         def _pick_three_players(round_ss):
-            """Return dict id_in_session -> Player for just the batch members (no full scans downstream)."""
             out = {}
             if not member_set:
                 return out
@@ -697,7 +719,6 @@ class Results(Page):
             rr = player.in_round(r)
             my_choice = rr.field_maybe_none("choice")
             other_choice = None
-            # Start from the underlying numeric payoff so templates can show an integer instead of a Currency string.
             raw_payoff = getattr(rr.payoff, "amount", rr.payoff) if rr.payoff is not None else 0
             try:
                 payoff_val = int(raw_payoff)
@@ -710,7 +731,6 @@ class Results(Page):
                 players_map = _pick_three_players(self.subsession.in_round(r))
                 opp = players_map.get(opp_sid) if opp_sid else None
                 other_choice = opp.field_maybe_none("choice") if opp else None
-                # If payoff is missing/0 but both choices exist, compute directly (avoid group.set_payoffs on giant group).
                 if raw_payoff == 0 and my_choice and other_choice:
                     pay = Constants.PD_PAYOFFS.get((my_choice, other_choice))
                     if pay is not None:
@@ -728,12 +748,9 @@ class Results(Page):
                 "is_payoff_round": True,
             })
 
-        # Part 1 then Part 2 always: first block = Part 1, second = Part 2, third = Part 3
-        display_part = current_part
-
         return dict(
             current_part=current_part,
-            display_part=display_part,
+            display_part=current_part,
             rounds_data=rounds_data,
         )
 
@@ -752,54 +769,62 @@ class GuessDelegation(Page):
         return [f"guess_round_{i}" for i in range(1, 11)]
 
     def vars_for_template(self):
-        rows = []
+        cache_3 = get_results_display_from_cache(self.participant, 3)
         start = 2 * Constants.rounds_per_part + 1  # round 21
+        rows = []
 
-        for i in range(1, 11):
-            r = start + i - 1
-            me = self.player.in_round(r)
-            # Use fast opponent resolution if available (batch member list), else fallback.
-            other = get_opponent_in_round(self.player, r)
-            rows.append({
-                "round": i,
-                "my_choice": me.field_maybe_none("choice"),
-                "other_choice": other.field_maybe_none("choice") if other else None,
-                "field_name": f"guess_round_{i}",
-            })
+        if cache_3 is not None and len(cache_3) == Constants.rounds_per_part:
+            for i in range(1, 11):
+                entry = cache_3[i - 1]
+                me = self.player.in_round(start + i - 1)
+                rows.append({
+                    "round": i,
+                    "my_choice": entry.get("my_choice") or me.field_maybe_none("choice"),
+                    "other_choice": entry.get("other_choice"),
+                    "field_name": f"guess_round_{i}",
+                })
+        else:
+            _log_cache_miss("GuessDelegation", getattr(self.participant, "id", None), "cache_miss_or_invalid")
+            for i in range(1, 11):
+                r = start + i - 1
+                me = self.player.in_round(r)
+                other = get_opponent_in_round(self.player, r)
+                rows.append({
+                    "round": i,
+                    "my_choice": me.field_maybe_none("choice"),
+                    "other_choice": other.field_maybe_none("choice") if other else None,
+                    "field_name": f"guess_round_{i}",
+                })
 
-        return {
-            "rows": rows,
-            "countdown_seconds": 90,
-        }
+        return {"rows": rows, "countdown_seconds": 90}
 
     def before_next_page(self):
         start = 2 * Constants.rounds_per_part + 1  # round 21
+        cache_3 = get_results_display_from_cache(self.participant, 3)
+        use_cache = cache_3 is not None and len(cache_3) == Constants.rounds_per_part
+
+        if not use_cache:
+            _log_cache_miss("GuessDelegation.before_next_page", getattr(self.participant, "id", None), "cache_miss_or_invalid")
 
         for i in range(1, 11):
             r = start + i - 1
             future_player = self.player.in_round(r)
-
             guess_field = f"guess_round_{i}"
             guess = getattr(self.player, guess_field)
 
-            #  1. store the per‑round guess explicitly
             if self.participant.vars.get("matching_group_id", -1) >= 0:
                 setattr(future_player, guess_field, guess)
-
-            #  2. store unified guess field (used elsewhere)
-            if self.participant.vars.get("matching_group_id", -1) >= 0:
                 future_player.guess_opponent_delegated = guess
 
-            #  3. compute and ALWAYS store payoff
             if self.participant.vars.get("matching_group_id", -1) >= 0:
-                other = get_opponent_in_round(self.player, r)
-                actual = bool(other and other.field_maybe_none("delegate_decision_optional"))
+                if use_cache:
+                    actual = bool(cache_3[i - 1].get("other_delegated", False))
+                else:
+                    other = get_opponent_in_round(self.player, r)
+                    actual = bool(other and other.field_maybe_none("delegate_decision_optional"))
+                future_player.guess_payoff = cu(10) if (guess == "yes") == actual else cu(0)
 
-                future_player.guess_payoff = (
-                    cu(10) if (guess == 'yes') == actual else cu(0)
-                )
-
-        self.participant.vars['guess_submitted'] = True
+        self.participant.vars["guess_submitted"] = True
 
 
 # =============================================================================
@@ -815,8 +840,6 @@ class Debriefing(Page):
     def vars_for_template(self):
         import random
 
-        results_by_part = {}
-
         existing = self.player.field_maybe_none("random_payoff_part")
         if existing is None:
             payoff_part = random.randint(1, 3)
@@ -824,56 +847,95 @@ class Debriefing(Page):
         else:
             payoff_part = existing
 
-        for part in range(1, 4):
-            part_data = []
-            total = 0
+        # Prefer cache for all three parts; fall back to DB with log.
+        cache_1 = get_results_display_from_cache(self.participant, 1)
+        cache_2 = get_results_display_from_cache(self.participant, 2)
+        cache_3 = get_results_display_from_cache(self.participant, 3)
+        use_cache = (
+            cache_1 is not None and len(cache_1) == Constants.rounds_per_part
+            and cache_2 is not None and len(cache_2) == Constants.rounds_per_part
+            and cache_3 is not None and len(cache_3) == Constants.rounds_per_part
+        )
 
+        if use_cache:
+            results_by_part = {}
+            for part, cache_part in [(1, cache_1), (2, cache_2), (3, cache_3)]:
+                part_data = []
+                total = 0
+                for entry in cache_part:
+                    part_data.append({
+                        "round": entry["round"],
+                        "my_choice": entry.get("my_choice"),
+                        "other_choice": entry.get("other_choice"),
+                        "other_delegated": entry.get("other_delegated", False),
+                        "payoff": entry.get("payoff", 0),
+                    })
+                    total += entry.get("payoff", 0) or 0
+                results_by_part[part] = {"rounds": part_data, "total_payoff": int(total)}
+
+            guess_rounds_data = []
+            for idx, entry in enumerate(cache_3):
+                me = self.player.in_round(2 * Constants.rounds_per_part + 1 + idx)
+                guess_rounds_data.append({
+                    "round": idx + 1,
+                    "my_choice": entry.get("my_choice"),
+                    "other_choice": entry.get("other_choice"),
+                    "other_delegated": entry.get("other_delegated", False),
+                    "payoff": me.field_maybe_none("guess_payoff"),
+                })
+        else:
+            _log_cache_miss("Debriefing", getattr(self.participant, "id", None), "cache_miss_or_invalid")
+
+            round_players_cache = {}
+            for r in range(1, Constants.num_rounds + 1):
+                round_players_cache[r] = list(
+                    self.player.subsession.in_round(r).get_players()
+                )
+            results_by_part = {}
+            for part in range(1, 4):
+                part_data = []
+                total = 0
+                for r in range(
+                    (part - 1) * Constants.rounds_per_part + 1,
+                    part * Constants.rounds_per_part + 1
+                ):
+                    me = self.player.in_round(r)
+                    other = get_opponent_in_round_cached(
+                        self.player, r, round_players_cache
+                    )
+                    raw_payoff = getattr(me.payoff, "amount", me.payoff) if me.payoff is not None else 0
+                    try:
+                        display_payoff = int(raw_payoff)
+                    except (TypeError, ValueError):
+                        display_payoff = 0
+                    part_data.append({
+                        "round": r - (part - 1) * Constants.rounds_per_part,
+                        "my_choice": me.field_maybe_none("choice"),
+                        "other_choice": other.field_maybe_none("choice") if other else None,
+                        "other_delegated": bool(other and other.field_maybe_none("delegate_decision_optional")),
+                        "payoff": display_payoff,
+                    })
+                    total += raw_payoff or 0
+                results_by_part[part] = {
+                    "rounds": part_data,
+                    "total_payoff": int(total) if total is not None else 0,
+                }
+            guess_rounds_data = []
             for r in range(
-                (part - 1) * Constants.rounds_per_part + 1,
-                part * Constants.rounds_per_part + 1
+                2 * Constants.rounds_per_part + 1,
+                3 * Constants.rounds_per_part + 1
             ):
                 me = self.player.in_round(r)
-                other = get_opponent_in_round(self.player, r)
-                # Convert Currency payoff to a plain integer number of Ecoins for display in the Debriefing template.
-                raw_payoff = getattr(me.payoff, "amount", me.payoff) if me.payoff is not None else 0
-                try:
-                    display_payoff = int(raw_payoff)
-                except (TypeError, ValueError):
-                    display_payoff = 0
-                part_data.append({
-                    "round": r - (part - 1) * Constants.rounds_per_part,
+                other = get_opponent_in_round_cached(
+                    self.player, r, round_players_cache
+                )
+                guess_rounds_data.append({
+                    "round": r - 2 * Constants.rounds_per_part,
                     "my_choice": me.field_maybe_none("choice"),
                     "other_choice": other.field_maybe_none("choice") if other else None,
                     "other_delegated": bool(other and other.field_maybe_none("delegate_decision_optional")),
-                    "payoff": display_payoff,
+                    "payoff": me.field_maybe_none("guess_payoff"),
                 })
-
-                total += raw_payoff or 0
-
-
-
-            results_by_part[part] = {
-                "rounds": part_data,
-                "total_payoff": int(total) if total is not None else 0,
-            }
-        # ==============================
-        # ADDITION: Part 4 results table
-        # ==============================
-        guess_rounds_data = []
-
-        for r in range(
-            2 * Constants.rounds_per_part + 1,
-            3 * Constants.rounds_per_part + 1
-        ):
-            me = self.player.in_round(r)
-            other = get_opponent_in_round(self.player, r)
-            guess_rounds_data.append({
-                "round": r - 2 * Constants.rounds_per_part,
-                "my_choice": me.field_maybe_none("choice"),
-                "other_choice": other.field_maybe_none("choice") if other else None,
-                "other_delegated": bool(other and other.field_maybe_none("delegate_decision_optional")),
-                "payoff": me.field_maybe_none("guess_payoff"),
-            })
 
 
         
@@ -1010,36 +1072,48 @@ class ResultsGuess(Page):
         )
 
     def vars_for_template(self):
+        cache_3 = get_results_display_from_cache(self.participant, 3)
         rows = []
+        start = 2 * Constants.rounds_per_part + 1
 
-        for r in range(
-            2 * Constants.rounds_per_part + 1,
-            3 * Constants.rounds_per_part + 1
-        ):
-            me = self.player.in_round(r)
-            other = get_opponent_in_round(self.player, r)
-
-            guess = me.field_maybe_none("guess_opponent_delegated")
-
-            if guess is None:
-                my_decision = "No guess"
-            elif guess == 'yes':
-                my_decision = "Yes"
-            else:
-                my_decision = "No"
-
-            earnings_str = "0.1" if (me.guess_payoff or 0) else "0"
-
-            rows.append({
-                "round": r - 2 * Constants.rounds_per_part,
-                "my_decision": my_decision,
-                "other_decision": (
-                    "Yes" if other and other.field_maybe_none("delegate_decision_optional")
-                    else ("No" if other else "—")
-                ),
-                # 0.1 dollars for correct, 0 for incorrect
-                "earnings": earnings_str,
-            })
+        if cache_3 is not None and len(cache_3) == Constants.rounds_per_part:
+            for i in range(1, 11):
+                me = self.player.in_round(start + i - 1)
+                guess = me.field_maybe_none("guess_opponent_delegated")
+                if guess is None:
+                    my_decision = "No guess"
+                elif guess == "yes":
+                    my_decision = "Yes"
+                else:
+                    my_decision = "No"
+                other_delegated = cache_3[i - 1].get("other_delegated", False)
+                rows.append({
+                    "round": i,
+                    "my_decision": my_decision,
+                    "other_decision": "Yes" if other_delegated else "No",
+                    "earnings": "0.1" if (me.guess_payoff or 0) else "0",
+                })
+        else:
+            _log_cache_miss("ResultsGuess", getattr(self.participant, "id", None), "cache_miss_or_invalid")
+            for r in range(start, 3 * Constants.rounds_per_part + 1):
+                me = self.player.in_round(r)
+                other = get_opponent_in_round(self.player, r)
+                guess = me.field_maybe_none("guess_opponent_delegated")
+                if guess is None:
+                    my_decision = "No guess"
+                elif guess == "yes":
+                    my_decision = "Yes"
+                else:
+                    my_decision = "No"
+                rows.append({
+                    "round": r - 2 * Constants.rounds_per_part,
+                    "my_decision": my_decision,
+                    "other_decision": (
+                        "Yes" if other and other.field_maybe_none("delegate_decision_optional")
+                        else ("No" if other else "—")
+                    ),
+                    "earnings": "0.1" if (me.guess_payoff or 0) else "0",
+                })
 
         return {"rows": rows}
 # -------------------------

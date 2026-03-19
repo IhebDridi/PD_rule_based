@@ -2,7 +2,7 @@
 Prisoners' dilemma app pages: consent, instructions, lobby, decisions, wait pages, results, debriefing.
 
 Flow: InformedConsent → MainInstructions → Lobby (per part) → part-specific instructions →
-DecisionNoDelegation / AgentProgramming → BatchWaitForGroup → Results → (Part 4) GuessDelegation →
+DecisionNoDelegation / ChatGPTPage → BatchWaitForGroup → Results → (Part 4) GuessDelegation →
 ResultsGuess → Debriefing → ExitQuestionnaire → Thankyou. Lobby and BatchWaitForGroup implement
 custom wait/release and payoff logic; DelegationDecision is Part 3 only.
 """
@@ -228,150 +228,150 @@ class InstructionsGuessingGame(Page):
 
 
 # =============================================================================
-# Agent programming (delegation: set A/B per round via table; live_method + before_next_page sync to choice)
+# ChatGPTPage (LLM delegation: one page per part; agent outputs 10 A/B or error only)
 # =============================================================================
 
-class AgentProgramming(Page):
-    """
-    Page where participants set agent decisions (A or B) for each round of the delegation block.
-    live_method receives JSON from the front end and stores in participant.vars; before_next_page
-    copies those (or form fields for mandatory blocks) into player.in_round(r).choice.
-    """
+# Only accept a line that is exactly 10 A or B comma-separated (no extra text)
+_STRICT_TEN_AB_RE = re.compile(r"^\s*[AB]\s*(,\s*[AB]\s*){9}\s*$", re.IGNORECASE)
 
+
+def _parse_strict_ten_ab(text):
+    """
+    If the message contains a line that is exactly 10 A/B comma-separated,
+    return a list of 10 'A'/'B'. Otherwise return None.
+    Used so we only accept the agent's intended choice line, not explanatory text.
+    """
+    if not text or not isinstance(text, str):
+        return None
+    for line in text.strip().splitlines():
+        line = line.strip()
+        if _STRICT_TEN_AB_RE.match(line):
+            parts = [p.strip().upper() for p in line.split(",")]
+            if len(parts) == 10 and all(p in ("A", "B") for p in parts):
+                return parts
+    return None
+
+
+class ChatGPTPage(Page):
+    """
+    Page where participants interact with the LLM to set A/B decisions for the delegation block.
+    Shown once at round 11 (Part 2) or 21 (Part 3 optional). LLM output is parsed as 10 A/B and saved to choice.
+    """
     form_model = 'player'
-
-    @staticmethod
-    def live_method(player, data):
-        """Receive allocations from liveSend (table A/B choices) and store in participant.vars (agent_programming_part1/2/3)."""
-        if not data or 'allocations' not in data:
-            return
-        raw = json.loads(data['allocations'])
-        # raw keys may be "agent_decision_mandatory_delegation_round_1" or "1"
-        decisions = {}
-        for k, v in raw.items():
-            if v not in ('A', 'B'):
-                continue
-            if isinstance(k, int):
-                decisions[k] = v
-            elif isinstance(k, str) and k.isdigit():
-                decisions[int(k)] = v
-            elif '_round_' in str(k):
-                try:
-                    rn = int(str(k).split('_')[-1])
-                    if 1 <= rn <= 10:
-                        decisions[rn] = v
-                except (ValueError, IndexError):
-                    pass
-        if not decisions:
-            return
-        r = player.round_number
-        if r == 1:
-            player.participant.vars['agent_programming_part1'] = decisions
-        elif r == 11:
-            player.participant.vars['agent_programming_part2'] = decisions
-        elif r == 21:
-            player.participant.vars['agent_programming_part3'] = decisions
+    form_fields = []
+    template_name = 'PD_llm_delegation_2nd/ChatGPTPage.html'
 
     def is_displayed(self):
         r = self.round_number
         current_part = Constants.get_part(r)
         if r in (1, 11, 21) and not _has_left_lobby_for_part(self.participant, current_part):
             return False
-
-        # Mandatory delegation: Part 1 (round 1) or Part 2 (round 11) depending on DELEGATION_FIRST
         if r == 1 and Constants.DELEGATION_FIRST:
             return not self.participant.vars.get("agent_programming_done_part1", False)
         if r == 11 and not Constants.DELEGATION_FIRST:
             return not self.participant.vars.get("agent_programming_done_part2", False)
-
         if current_part == 3:
             return (
                 self.player.field_maybe_none("delegate_decision_optional") is True
                 and not self.participant.vars.get("agent_programming_done_part3", False)
             )
-
         return False
 
-    def get_form_fields(self):
-        r = self.round_number
-        current_part = Constants.get_part(r)
-        # Mandatory delegation block (round 1 or 11): form saves to player
-        if r in (1, 11):
-            return [
-                f"agent_decision_mandatory_delegation_round_{i}"
-                for i in range(1, 11)
-            ]
-        # Part 3 uses participant.vars from live
-        if current_part == 3:
-            return []
-        return []
-
     def vars_for_template(self):
-        current_part = Constants.get_part(self.round_number)
         return {
-            "current_part": current_part,
-            "delegate_decision": self.player.field_maybe_none(
-                "delegate_decision_optional"
-            ),
+            "current_part": Constants.get_part(self.round_number),
+            "delegate_decision": self.player.field_maybe_none("delegate_decision_optional"),
             "countdown_seconds": 90,
             **part_vars(),
         }
 
-    def before_next_page(self):
+    def get_final_assistant_response(self):
+        """
+        Parse conversation_history for the last assistant message that contains
+        a single line of exactly 10 comma-separated A/B. Returns {1: 'A', ..., 10: 'B'} or {}.
+        """
+        raw = self.player.field_maybe_none("conversation_history") or "[]"
+        try:
+            conversation = json.loads(raw)
+        except (TypeError, ValueError):
+            return {}
+        for msg in reversed(conversation):
+            if msg.get("role") != "assistant":
+                continue
+            content = (msg.get("content") or "").strip()
+            choices = _parse_strict_ten_ab(content)
+            if choices:
+                return {i: ch for i, ch in enumerate(choices, start=1)}
+        return {}
+
+    def save_choices_to_rounds(self, mapping):
+        """
+        Save A/B decisions from mapping {round_in_part: 'A'/'B'} to player.in_round(r).choice
+        for this part. Saves and marks part done only when all 10 rounds have A or B.
+        """
+        if not mapping:
+            return
+        for r in range(1, 11):
+            if mapping.get(r) not in ("A", "B"):
+                return
         r = self.round_number
         current_part = Constants.get_part(r)
-
-        # ==========================================
-        # Mandatory delegation Part 1 (rounds 1–10) — when DELEGATION_FIRST
-        # ==========================================
         if r == 1 and Constants.DELEGATION_FIRST:
-            decisions = self.participant.vars.get('agent_programming_part1', {})
-            if not decisions:
-                for i in range(1, 11):
-                    decision = self.player.field_maybe_none(
-                        f"agent_decision_mandatory_delegation_round_{i}"
-                    )
-                    if decision:
-                        decisions[i] = decision
-            for i in range(1, 11):
-                decision = decisions.get(i) or decisions.get(str(i))
-                if decision in ('A', 'B'):
-                    self.player.in_round(i).choice = decision
+            base = 1
+            for rel_round in range(1, 11):
+                ch = mapping.get(rel_round)
+                if ch in ("A", "B"):
+                    self.player.in_round(base + rel_round - 1).choice = ch
             self.participant.vars["agent_programming_done_part1"] = True
-
-        # ==========================================
-        # Mandatory delegation Part 2 (rounds 11–20) — when not DELEGATION_FIRST
-        # ==========================================
         elif r == 11 and not Constants.DELEGATION_FIRST:
-            decisions = self.participant.vars.get('agent_programming_part2', {})
-            if not decisions:
-                for i in range(1, 11):
-                    decision = self.player.field_maybe_none(
-                        f"agent_decision_mandatory_delegation_round_{i}"
-                    )
-                    if decision:
-                        decisions[i] = decision
-            for i in range(1, 11):
-                decision = decisions.get(i) or decisions.get(str(i))
-                if decision in ('A', 'B'):
-                    self.player.in_round(10 + i).choice = decision
+            base = 11
+            for rel_round in range(1, 11):
+                ch = mapping.get(rel_round)
+                if ch in ("A", "B"):
+                    self.player.in_round(base + rel_round - 1).choice = ch
             self.participant.vars["agent_programming_done_part2"] = True
-
-        # ==========================================
-        # PART 3 — Optional delegation (rounds 21–30)
-        # ==========================================
-        elif current_part == 3:
-            decisions = self.participant.vars.get(
-                'agent_programming_part3', {}
-            )
-            start_round = 2 * Constants.rounds_per_part + 1  # 21
-
-            for i in range(1, 11):
-                round_number = start_round + i - 1
-                decision = decisions.get(i) or decisions.get(str(i))
-                if decision in ('A', 'B'):
-                    self.player.in_round(round_number).choice = decision
+        elif current_part == 3 and r == 21:
+            base = 21
+            for rel_round in range(1, 11):
+                ch = mapping.get(rel_round)
+                if ch in ("A", "B"):
+                    self.player.in_round(base + rel_round - 1).choice = ch
             self.participant.vars["agent_programming_done_part3"] = True
+
+    def before_next_page(self):
+        decisions = self.get_final_assistant_response()
+        self.save_choices_to_rounds(decisions)
+
+    @staticmethod
+    def live_method(player, data):
+        """Handle chat: send user message to Mistral agent, return response, store in conversation_history."""
+        if not data or 'message' not in data:
+            return
+        from .mistralassistant import MistralAssistant
+        current_part = Constants.get_part(player.round_number)
+        conv_key = f'mistral_conversation_id_part_{current_part}'
+        conversation_id = player.participant.vars.get(conv_key)
+        try:
+            assistant = MistralAssistant()
+        except Exception as e:
+            return {player.id_in_group: {"response": "Error initializing assistant: " + str(e)}}
+        user_message = data['message']
+        try:
+            response_text, new_cid = assistant.send_message(user_message, conversation_id=conversation_id)
+        except Exception as e:
+            response_text = str(e) if str(e) else "Error getting response."
+            new_cid = conversation_id
+        if new_cid:
+            player.participant.vars[conv_key] = new_cid
+        raw = player.field_maybe_none("conversation_history") or "[]"
+        try:
+            conversation = json.loads(raw)
+        except (TypeError, ValueError):
+            conversation = []
+        conversation.append({"role": "user", "content": user_message})
+        conversation.append({"role": "assistant", "content": response_text})
+        player.conversation_history = json.dumps(conversation)
+        return {player.id_in_group: {"response": response_text}}
 
 
 class BatchWaitForGroup(WaitPage):
@@ -380,7 +380,7 @@ class BatchWaitForGroup(WaitPage):
     matching_group_id has arrived; then one request runs run_payoffs_for_matching_group and all
     proceed. Uses session key payoffs_run_matching_group_{gid}_part_{part} so payoffs run only once.
     """
-    template_name = 'PD_llm_delegation_2nd/BatchWaitForGroup.html'
+    template_name = 'PD_rule_based_delegation_2nd/BatchWaitForGroup.html'
     def is_displayed(self):
         """At part boundaries (round 10, 20, 30): show if left lobby for this part and not yet in a formed results group."""
         r = self.round_number
@@ -404,6 +404,7 @@ class BatchWaitForGroup(WaitPage):
         _params = getattr(self.request, "GET", None) or getattr(self.request, "query_params", None)
         current_part = Constants.get_part(self.round_number)
         can_proceed_key = f"can_proceed_to_results_part_{current_part}"
+        ready_at_key = f"results_ready_at_part_{current_part}"
         pool_key = f"results_pool_part_{current_part}"
         joined_at_key = f"results_wait_joined_at_part_{current_part}"
 
@@ -420,19 +421,58 @@ class BatchWaitForGroup(WaitPage):
                 self.participant.vars[joined_at_key] = time.time()
 
         # If already assigned to a results group, go to Results.
+        # Update the shared results pool and maybe form a group for this part
+        self._update_results_pool_and_maybe_group()
+        # If already assigned to a results group, wait a minimum time before redirecting.
         if self.participant.vars.get(can_proceed_key):
+            now = time.time()
+            ready_at = self.participant.vars.get(ready_at_key)
+            if ready_at is None:
+                self.participant.vars[ready_at_key] = now
+                return self._get_wait_page()
+            if now - float(ready_at) < BATCH_WAIT_MIN_SECONDS:
+                return self._get_wait_page()
             return self._response_when_ready()
         return self._get_wait_page()
 
-    def vars_for_template(self):
+    def post(self):
+        """
+        Handle auto-refresh POSTs from oTree's wait page JS.
+        We mirror the GET logic so that participants who already have
+        can_proceed_to_results_part_X set are redirected without needing
+        a full manual refresh.
+        """
         current_part = Constants.get_part(self.round_number)
+        can_proceed_key = f"can_proceed_to_results_part_{current_part}"
+        ready_at_key = f"results_ready_at_part_{current_part}"
+        # Pool/group update is idempotent when a group is already formed.
+        self._update_results_pool_and_maybe_group()
+        if self.participant.vars.get(can_proceed_key):
+            now = time.time()
+            ready_at = self.participant.vars.get(ready_at_key)
+            if ready_at is None:
+                self.participant.vars[ready_at_key] = now
+                return self._get_wait_page()
+            if now - float(ready_at) < BATCH_WAIT_MIN_SECONDS:
+                return self._get_wait_page()
+            return self._response_when_ready()
+        return self._get_wait_page()
+
+    def _update_results_pool_and_maybe_group(self):
+        """Side-effect helper: add self to pool and, if pool has 3, form group and run payoffs."""
+        current_part = Constants.get_part(self.round_number)
+        can_proceed_key = f"can_proceed_to_results_part_{current_part}"
+        # If this participant is already assigned to a results group for this part,
+        # never re-add them to the pool (prevents re-matching while they are still on the wait page).
+        if self.participant.vars.get(can_proceed_key):
+            return
         pool_key = f'results_pool_part_{current_part}'
         group_size = getattr(Constants, 'FIXED_GROUP_SIZE', 3)
         participants = self.session.get_participants()
         lock_key = f'_results_pool_lock_part_{current_part}'
         first_join_key = f'results_first_join_part_{current_part}'
         joined_at_key = f'results_wait_joined_at_part_{current_part}'
-        timeout_seconds = 300  # 5 minutes: show wait-or-quit only after this participant has waited this long
+        ready_at_key = f"results_ready_at_part_{current_part}"
         if pool_key not in self.session.vars:
             self.session.vars[pool_key] = []
         now = time.time()
@@ -450,8 +490,10 @@ class BatchWaitForGroup(WaitPage):
                     self.participant.vars[joined_at_key] = now  # per-participant: when they joined the wait
                 pool = list(self.session.vars.get(pool_key, []))
                 if len(pool) >= group_size:
-                    first_ids = pool[:group_size]
-                    self.session.vars[pool_key] = pool[group_size:]
+                    # Form group by smallest id_in_session so P1,P2,P3 form first, then P4,P5,P6, etc.
+                    pool_sorted = sorted(pool)
+                    first_ids = pool_sorted[:group_size]
+                    self.session.vars[pool_key] = pool_sorted[group_size:]
                     next_batch_key = f'results_next_batch_id_part_{current_part}'
                     batch_id = self.session.vars.get(next_batch_key, 0)
                     self.session.vars[next_batch_key] = batch_id + 1
@@ -471,8 +513,23 @@ class BatchWaitForGroup(WaitPage):
                         for p in participants:
                             if p.id_in_session in first_ids:
                                 p.vars[f'can_proceed_to_results_part_{current_part}'] = True
+                                # start each participant's minimum wait window from the moment the group is formed
+                                p.vars[ready_at_key] = now
             finally:
                 self.session.vars[lock_key] = False
+
+    def vars_for_template(self):
+        current_part = Constants.get_part(self.round_number)
+        pool_key = f'results_pool_part_{current_part}'
+        group_size = getattr(Constants, 'FIXED_GROUP_SIZE', 3)
+        first_join_key = f'results_first_join_part_{current_part}'
+        joined_at_key = f'results_wait_joined_at_part_{current_part}'
+        timeout_seconds = 300  # 5 minutes: show wait-or-quit only after this participant has waited this long
+        now = time.time()
+        if pool_key not in self.session.vars:
+            self.session.vars[pool_key] = []
+        if first_join_key not in self.session.vars:
+            self.session.vars[first_join_key] = now
         n_in_pool = len(self.session.vars.get(pool_key, []))
         # Show wait-or-quit only if pool still has < 3 AND this participant has personally waited >= 5 minutes.
         joined_at = self.participant.vars.get(joined_at_key, now)
@@ -555,11 +612,12 @@ class DelegationDecision(Page):
         # copy decision into ALL Part 3 rounds (21–30)
         start_round = 2 * Constants.rounds_per_part + 1  # 21
         end_round = 3 * Constants.rounds_per_part        # 30
+        self.participant.vars["entered_part3"] = True
 
         for r in range(start_round, end_round + 1):
             self.player.in_round(r).delegate_decision_optional = (
-                self.player.delegate_decision_optional
-            )
+                    self.player.delegate_decision_optional
+                )
 
 
 # =============================================================================
@@ -635,7 +693,12 @@ class Results(Page):
             rr = player.in_round(r)
             my_choice = rr.field_maybe_none("choice")
             other_choice = None
-            payoff_val = rr.payoff
+            # Start from the underlying numeric payoff so templates can show an integer instead of a Currency string.
+            raw_payoff = getattr(rr.payoff, "amount", rr.payoff) if rr.payoff is not None else 0
+            try:
+                payoff_val = int(raw_payoff)
+            except (TypeError, ValueError):
+                payoff_val = 0
             if assignments and my_pos and 1 <= my_pos <= len(member_ids):
                 round_in_part = r - part_start
                 opp_idx, _ = assignments[my_pos - 1][round_in_part]
@@ -644,12 +707,15 @@ class Results(Page):
                 opp = players_map.get(opp_sid) if opp_sid else None
                 other_choice = opp.field_maybe_none("choice") if opp else None
                 # If payoff is missing/0 but both choices exist, compute directly (avoid group.set_payoffs on giant group).
-                raw_pay = getattr(rr.payoff, "amount", rr.payoff) if rr.payoff is not None else 0
-                if raw_pay == 0 and my_choice and other_choice:
+                if raw_payoff == 0 and my_choice and other_choice:
                     pay = Constants.PD_PAYOFFS.get((my_choice, other_choice))
                     if pay is not None:
                         rr.payoff = cu(pay[0])
-                        payoff_val = rr.payoff
+                        raw_payoff = getattr(rr.payoff, "amount", rr.payoff)
+                        try:
+                            payoff_val = int(raw_payoff)
+                        except (TypeError, ValueError):
+                            payoff_val = 0
             rounds_data.append({
                 "round": r - (current_part - 1) * Constants.rounds_per_part,
                 "my_choice": my_choice,
@@ -713,18 +779,21 @@ class GuessDelegation(Page):
             guess = getattr(self.player, guess_field)
 
             #  1. store the per‑round guess explicitly
-            setattr(future_player, guess_field, guess)
+            if self.participant.vars.get("matching_group_id", -1) >= 0:
+                setattr(future_player, guess_field, guess)
 
             #  2. store unified guess field (used elsewhere)
-            future_player.guess_opponent_delegated = guess
+            if self.participant.vars.get("matching_group_id", -1) >= 0:
+                future_player.guess_opponent_delegated = guess
 
-            #  3. compute and ALWAYS store payoff (10 cents per correct → 10 correct = $1 total)
-            other = get_opponent_in_round(self.player, r)
-            actual = bool(other and other.field_maybe_none("delegate_decision_optional"))
+            #  3. compute and ALWAYS store payoff
+            if self.participant.vars.get("matching_group_id", -1) >= 0:
+                other = get_opponent_in_round(self.player, r)
+                actual = bool(other and other.field_maybe_none("delegate_decision_optional"))
 
-            future_player.guess_payoff = (
-                cu(10) if (guess == 'yes') == actual else cu(0)
-            )
+                future_player.guess_payoff = (
+                    cu(10) if (guess == 'yes') == actual else cu(0)
+                )
 
         self.participant.vars['guess_submitted'] = True
 
@@ -761,21 +830,27 @@ class Debriefing(Page):
             ):
                 me = self.player.in_round(r)
                 other = get_opponent_in_round(self.player, r)
+                # Convert Currency payoff to a plain integer number of Ecoins for display in the Debriefing template.
+                raw_payoff = getattr(me.payoff, "amount", me.payoff) if me.payoff is not None else 0
+                try:
+                    display_payoff = int(raw_payoff)
+                except (TypeError, ValueError):
+                    display_payoff = 0
                 part_data.append({
                     "round": r - (part - 1) * Constants.rounds_per_part,
                     "my_choice": me.field_maybe_none("choice"),
                     "other_choice": other.field_maybe_none("choice") if other else None,
                     "other_delegated": bool(other and other.field_maybe_none("delegate_decision_optional")),
-                    "payoff": me.payoff,
+                    "payoff": display_payoff,
                 })
 
-                total += me.payoff or 0
+                total += raw_payoff or 0
 
 
 
             results_by_part[part] = {
                 "rounds": part_data,
-                "total_payoff": total,
+                "total_payoff": int(total) if total is not None else 0,
             }
         # ==============================
         # ADDITION: Part 4 results table
@@ -973,13 +1048,13 @@ page_sequence = [
     MainInstructions,
     ComprehensionTest,
     FailedTest,
-    # Lobby,  # temporarily disabled: pairing happens only on BatchWaitForGroup before Results
+    # # Lobby,  # temporarily disabled: pairing happens only on BatchWaitForGroup before Results
     InstructionsNoDelegation,
     InstructionsDelegation,
     InstructionsOptional,
     DelegationDecision,
     DecisionNoDelegation,
-    AgentProgramming,
+    ChatGPTPage,
     BatchWaitForGroup,
     TimeOutquit,
     Results,

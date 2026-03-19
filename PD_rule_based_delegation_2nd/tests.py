@@ -35,8 +35,8 @@ from .pages import (
 
 # Correct answers for comprehension test (bots pass so they are not excluded)
 COMPREHENSION_ANSWERS = {
-    'q1': 'c', 'q2': 'b', 'q3': 'c', 'q4': 'c', 'q5': 'a',
-    'q6': 'c', 'q7': 'a', 'q8': 'b', 'q9': 'b', 'q10': 'b',
+    'q1': 'c', 'q2': 'b',
+    'q6': 'c', 'q7': 'a', 'q8': 'd', 'q9': 'b', 'q10': 'b',
 }
 
 os.environ.setdefault('OTREE_SKIP_CSRF', '1')

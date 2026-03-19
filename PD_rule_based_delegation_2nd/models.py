@@ -12,7 +12,11 @@ Prisoners' dilemma app models: constants, round-robin matching, grouping, payoff
 """
 from otree.api import *
 import random
+import sys
 from collections import defaultdict
+
+# Prefix for cache-miss / fallback logs (visible in terminal; use DEBUG or run with otree runserver).
+RESULTS_DISPLAY_CACHE_LOG_PREFIX = "[results_display_cache]"
 
 
 # =============================================================================
@@ -172,6 +176,44 @@ def get_opponent_in_round(player, round_number):
     if opp_idx is None or opp_idx < 0 or opp_idx >= N:
         return None
     return sorted_players[opp_idx]
+
+
+def get_opponent_in_round_cached(player, round_number, round_players_cache):
+    """
+    Same as get_opponent_in_round but uses round_players_cache[round_number] instead of
+    calling subsession.get_players() for that round. Use this when looking up opponents
+    for many rounds in one request (e.g. Debriefing) to avoid N DB hits.
+    round_players_cache: dict int -> list of Player (full list for that round from get_players()).
+    """
+    me = player.in_round(round_number)
+    gid = me.participant.vars.get("matching_group_id", -1)
+    if gid is not None and gid >= 0:
+        part = Constants.get_part(round_number)
+        key = f"matching_group_members_part_{part}_{gid}"
+        member_ids = player.session.vars.get(key)
+        if member_ids and isinstance(member_ids, (list, tuple)) and len(member_ids) >= 3:
+            all_players_r = round_players_cache.get(round_number)
+            if all_players_r is not None:
+                players = [p for p in all_players_r if p.participant.id_in_session in member_ids]
+                if len(players) >= 3:
+                    players = sorted(
+                        players,
+                        key=lambda p: p.participant.vars.get("matching_group_position", 0),
+                    )
+                    N = len(players)
+                    my_pos = me.participant.vars.get("matching_group_position", None)
+                    if my_pos and 1 <= my_pos <= N:
+                        my_idx = my_pos - 1
+                        part_start = (part - 1) * Constants.rounds_per_part + 1
+                        round_in_part = round_number - part_start
+                        if N not in _ROUND_ROBIN_CACHE:
+                            _ROUND_ROBIN_CACHE[N] = compute_round_robin_assignments(
+                                N, Constants.rounds_per_part
+                            )
+                        opp_idx, _ = _ROUND_ROBIN_CACHE[N][my_idx][round_in_part]
+                        if opp_idx is not None and 0 <= opp_idx < N:
+                            return players[opp_idx]
+    return get_opponent_in_round(player, round_number)
 
 
 # =============================================================================
@@ -387,38 +429,23 @@ class Player(BasePlayer):
         choices=['a', 'b', 'c', 'd'],
         blank=True
     )
-    q3 = models.StringField(
-        label="In reference to the interactive tasks, in which part(s) will you make all decisions yourself?",
-        choices=['a', 'b', 'c', 'd'],
-        blank=True
-    )
-    q4 = models.StringField(
-        label="In reference to the interactive tasks, in which part(s) will you delegate all decisions to an artificial delegate?",
-        choices=['a', 'b', 'c', 'd'],
-        blank=True
-    )
-    q5 = models.StringField(
-        label="In Part 3, when do you decide whether to delegate or make decisions yourself?",
-        choices=['a', 'b', 'c', 'd'],
-        blank=True
-    )
     q6 = models.StringField(
-        label="If Player 1 chooses Option A and Player 2 chooses Option A, what are the earnings for both players?",
+        label="If you choose Option A and the other player chooses Option A, what are your earnings in that round?",
         choices=['a', 'b', 'c', 'd'],
         blank=True
     )
     q7 = models.StringField(
-        label="If Player 1 chooses Option A and Player 2 chooses Option B, what are the earnings for both players?",
+        label="If you choose Option A and the other player chooses Option B, what are your earnings in that round?",
         choices=['a', 'b', 'c', 'd'],
         blank=True
     )
     q8 = models.StringField(
-        label="If Player 1 chooses Option B and Player 2 chooses Option A, what are the earnings for both players?",
+        label="If you choose Option B and the other player chooses Option A, what are your earnings in that round?",
         choices=['a', 'b', 'c', 'd'],
         blank=True
     )
     q9 = models.StringField(
-        label="If Player 1 chooses Option B and Player 2 chooses Option B, what are the earnings for both players?",
+        label="If you choose Option B and the other player chooses Option B, what are your earnings in that round?",
         choices=['a', 'b', 'c', 'd'],
         blank=True
     )
@@ -1067,6 +1094,64 @@ def custom_export(players):
 #     ...
 
 
+def _log_cache_miss(context, participant_id, reason, debug_extra=None):
+    """Signal in terminal / debug that the results-display cache was not used (fallback to DB)."""
+    msg = f"{RESULTS_DISPLAY_CACHE_LOG_PREFIX} FAILED context={context} participant_id={participant_id} reason={reason}"
+    if debug_extra:
+        msg += f" debug={debug_extra}"
+    print(msg, file=sys.stderr, flush=True)
+
+
+def get_results_display_from_cache(participant, part):
+    """
+    Return list of round dicts for the given part from participant.vars['results_display_cache'].
+    Each dict has: round (1-based), my_choice, other_choice, payoff; part 3 also has other_delegated.
+    Returns None if cache missing, wrong part, or invalid (length != 10).
+    """
+    try:
+        cache = participant.vars.get("results_display_cache")
+        if not cache or not isinstance(cache, dict):
+            return None
+        part_data = cache.get(f"part_{part}")
+        if not part_data or not isinstance(part_data, list) or len(part_data) != Constants.rounds_per_part:
+            return None
+        return part_data
+    except Exception:
+        return None
+
+
+def _build_results_display_cache_for_part(players_start, assignments, current_part, start, end):
+    """
+    Build per-player display cache for the current part (10 rounds).
+    players_start: list of 3 Player objects (first round of part), sorted by matching_group_position.
+    assignments: round-robin assignments for N=3.
+    Returns list of 3 lists; each inner list has 10 dicts: round, my_choice, other_choice, payoff[, other_delegated].
+    """
+    part_start = (current_part - 1) * Constants.rounds_per_part + 1
+    cache_by_player = [[] for _ in range(3)]
+    for r in range(start, end + 1):
+        round_in_part = r - part_start
+        players_r = [p0.in_round(r) for p0 in players_start]
+        for i, p in enumerate(players_r):
+            opp_idx, _ = assignments[i][round_in_part]
+            opp = players_r[opp_idx] if opp_idx is not None else None
+            raw_payoff = getattr(p.payoff, "amount", p.payoff) if p.payoff is not None else 0
+            try:
+                payoff_int = int(raw_payoff)
+            except (TypeError, ValueError):
+                payoff_int = 0
+            entry = {
+                "round": round_in_part + 1,
+                "my_choice": p.field_maybe_none("choice"),
+                "other_choice": opp.field_maybe_none("choice") if opp else None,
+                "payoff": payoff_int,
+            }
+            if current_part == 3:
+                entry["other_delegated"] = bool(opp and opp.field_maybe_none("delegate_decision_optional"))
+            cache_by_player[i].append(entry)
+    return cache_by_player
+
+
 def run_payoffs_for_matching_group(subsession, matching_group_id):
     """
     Run Group.set_payoffs for every round in the current part, but only for the group whose
@@ -1123,8 +1208,8 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
             _ROUND_ROBIN_CACHE[N] = compute_round_robin_assignments(N, Constants.rounds_per_part)
         assignments = _ROUND_ROBIN_CACHE[N]
         for r in range(start, end + 1):
-            part_start = (current_part - 1) * Constants.rounds_per_part + 1
-            round_in_part = r - part_start
+            part_start_round = (current_part - 1) * Constants.rounds_per_part + 1
+            round_in_part = r - part_start_round
             # Fetch just these 3 players for round r.
             players_r = [p0.in_round(r) for p0 in players_start]
             for i, p in enumerate(players_r):
@@ -1137,6 +1222,20 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                 else:
                     pay = Constants.PD_PAYOFFS.get((c1, c2))
                     p.payoff = cu(pay[0]) if pay is not None else cu(0)
+
+        # Write results-display cache for the group of 3 (so Results/Debriefing read from cache, not DB).
+        try:
+            cache_by_player = _build_results_display_cache_for_part(
+                players_start, assignments, current_part, start, end
+            )
+            for i, p in enumerate(players_start):
+                existing = p.participant.vars.get("results_display_cache") or {}
+                if not isinstance(existing, dict):
+                    existing = {}
+                existing[f"part_{current_part}"] = cache_by_player[i]
+                p.participant.vars["results_display_cache"] = existing
+        except Exception as e:
+            _log_cache_miss("run_payoffs_write", getattr(players_start[0].participant, "id", None), str(e), debug_extra=str(e))
         return
     # Find the group (same 3 players in every round)
     round_ss = subsession.in_round(start)

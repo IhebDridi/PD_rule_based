@@ -1,0 +1,1036 @@
+2026-03-18T07:03:30.467Z (CRON) STARTUP (1.7.2)
+2026-03-18T07:03:30.467Z (CRON) INFO (RANDOM_DELAY will be scaled with factor 65% if used.)
+2026-03-18T07:03:30.467Z (CRON) INFO (running with inotify support)
+2026-03-18T07:03:33.503Z Received response from supernova
+2026-03-18T07:03:34.446Z Configuring /etc/rsyslog-pulsar.conf to crawl logs...
+2026-03-18T07:03:34.446Z Starting rsyslog-pulsar.service...
+2026-03-18T07:03:34.906Z rsyslog-pulsar.service started
+2026-03-18T07:03:36.226Z Preparing application environment…
+2026-03-18T07:03:36.954Z Inject POSTGRESQL_ADDON_USER
+2026-03-18T07:03:36.954Z Inject INSTANCE_NUMBER
+2026-03-18T07:03:36.954Z Inject CC_DEPLOYMENT_ID
+2026-03-18T07:03:36.954Z Inject POSTGRESQL_ADDON_HOST
+2026-03-18T07:03:36.954Z Inject POSTGRESQL_ADDON_DB
+2026-03-18T07:03:36.954Z Inject CC_OWNER_ID
+2026-03-18T07:03:36.956Z Inject POSTGRESQL_ADDON_URI
+2026-03-18T07:03:36.956Z Inject CC_ENVIRON_UPDATE_TOKEN
+2026-03-18T07:03:36.956Z Inject POSTGRESQL_ADDON_DIRECT_HOST
+2026-03-18T07:03:36.956Z Inject CC_PYTHON_VERSION
+2026-03-18T07:03:36.956Z Inject OTREE_ADMIN_PASSWORD
+2026-03-18T07:03:36.956Z Inject OTREE_PRODUCTION
+2026-03-18T07:03:36.956Z Inject POSTGRESQL_ADDON_PASSWORD
+2026-03-18T07:03:36.956Z Inject CC_REVERSE_PROXY_IPS
+2026-03-18T07:03:36.956Z Inject POSTGRESQL_ADDON_DIRECT_PORT
+2026-03-18T07:03:36.957Z Inject CC_APP_NAME
+2026-03-18T07:03:36.957Z Inject OTREE_AUTH_LEVEL
+2026-03-18T07:03:36.957Z Inject CC_ENVIRON_UPDATE_URL
+2026-03-18T07:03:36.957Z Inject CC_RUN_COMMAND
+2026-03-18T07:03:36.957Z Inject POSTGRESQL_ADDON_DIRECT_URI
+2026-03-18T07:03:36.957Z Inject POSTGRESQL_ADDON_VERSION
+2026-03-18T07:03:36.957Z Inject POSTGRESQL_ADDON_PORT
+2026-03-18T07:03:36.957Z Inject INSTANCE_TYPE
+2026-03-18T07:03:36.957Z Inject CC_PRETTY_INSTANCE_NAME
+2026-03-18T07:03:36.957Z Inject PORT
+2026-03-18T07:03:36.957Z Inject INSTANCE_ID
+2026-03-18T07:03:36.957Z Inject CC_INSTANCE_ID
+2026-03-18T07:03:36.957Z Inject COMMIT_ID
+2026-03-18T07:03:36.957Z Inject CC_COMMIT_ID
+2026-03-18T07:03:36.957Z Inject APP_ID
+2026-03-18T07:03:36.957Z Inject CC_APP_ID
+2026-03-18T07:03:36.957Z Inject APP_HOME
+2026-03-18T07:03:36.957Z Added sourceable file /home/bas/applicationrc
+2026-03-18T07:03:36.966Z Checking cache data: GET /api/builds/app_493f373c-e260-4d20-8e7e-03fe9f9a5bad/b7fbfff0cee57a74cf8c221a2d041ad9ae9c1e4b/python-20260225
+2026-03-18T07:03:36.988Z No build cache archive has been detected, performing a new build…
+2026-03-18T07:03:37.014Z Cloning into '/home/bas/app_493f373c-e260-4d20-8e7e-03fe9f9a5bad'...
+2026-03-18T07:03:37.848Z Note: switching to 'b7fbfff0cee57a74cf8c221a2d041ad9ae9c1e4b'.
+2026-03-18T07:03:37.850Z You are in 'detached HEAD' state. You can look around, make experimental
+2026-03-18T07:03:37.850Z changes and commit them, and you can discard any commits you make in this
+2026-03-18T07:03:37.850Z state without impacting any branches by switching back to a branch.
+2026-03-18T07:03:37.850Z If you want to create a new branch to retain commits you create, you may
+2026-03-18T07:03:37.850Z do so (now or later) by using -c with the switch command. Example:
+2026-03-18T07:03:37.850Z   git switch -c <new-branch-name>
+2026-03-18T07:03:37.850Z Or undo this operation with:
+2026-03-18T07:03:37.850Z   git switch -
+2026-03-18T07:03:37.850Z Turn off this advice by setting config variable advice.detachedHead to false
+2026-03-18T07:03:37.850Z HEAD is now at b7fbfff Merge branch 'main' of https://github.com/IhebDridi/PD_rule_based
+2026-03-18T07:03:37.858Z Generating public/private ed25519 key pair.
+2026-03-18T07:03:37.858Z Your identification has been saved in /home/bas/.ssh/id_ed25519
+2026-03-18T07:03:37.858Z Your public key has been saved in /home/bas/.ssh/id_ed25519.pub
+2026-03-18T07:03:37.858Z The key fingerprint is:
+2026-03-18T07:03:37.858Z SHA256:fdLifoXbSvlUxL6/Aq0n3Mkey0y2KHuK/URGxSxcG6o bas@24f5fed7-6872-4556-9d3a-5a18a96de327
+2026-03-18T07:03:37.858Z The key's randomart image is:
+2026-03-18T07:03:37.858Z +--[ED25519 256]--+
+2026-03-18T07:03:37.858Z |          . ++   |
+2026-03-18T07:03:37.858Z |           oooo. |
+2026-03-18T07:03:37.858Z |           o..  o|
+2026-03-18T07:03:37.858Z |         .o.   o |
+2026-03-18T07:03:37.858Z |        SE+o+.  o|
+2026-03-18T07:03:37.858Z |         .o=.o...|
+2026-03-18T07:03:37.858Z |          o.BBo. |
+2026-03-18T07:03:37.858Z |        oo.*OO= .|
+2026-03-18T07:03:37.858Z |       . +B+=Bo.o|
+2026-03-18T07:03:37.858Z +----[SHA256]-----+
+2026-03-18T07:03:38.520Z No Clever Cloud specific configuration file detected. Continuing…
+2026-03-18T07:03:38.577Z Using Gradle version 8
+2026-03-18T07:03:38.621Z Using Hugo version 0.149
+2026-03-18T07:03:38.937Z Using Yarn 1.x as system Yarn version
+2026-03-18T07:03:38.988Z Using Python version 3
+2026-03-18T07:03:39.198Z Changing current directory to /home/bas/app_493f373c-e260-4d20-8e7e-03fe9f9a5bad…
+2026-03-18T07:03:39.198Z We are now in /home/bas/app_493f373c-e260-4d20-8e7e-03fe9f9a5bad, let's build and run the app.
+2026-03-18T07:03:39.198Z Deploying commit ID b7fbfff0cee57a74cf8c221a2d041ad9ae9c1e4b
+2026-03-18T07:03:46.855Z requirements.txt found, using pip...
+2026-03-18T07:03:47.973Z Collecting otree==5.11.1 (from -r requirements.txt (line 1))
+2026-03-18T07:03:47.994Z   Downloading otree-5.11.1.tar.gz (469 kB)
+2026-03-18T07:03:48.136Z   Installing build dependencies: started
+2026-03-18T07:03:49.631Z   Installing build dependencies: finished with status 'done'
+2026-03-18T07:03:49.632Z   Getting requirements to build wheel: started
+2026-03-18T07:03:50.457Z   Getting requirements to build wheel: finished with status 'done'
+2026-03-18T07:03:50.459Z   Preparing metadata (pyproject.toml): started
+2026-03-18T07:03:51.093Z   Preparing metadata (pyproject.toml): finished with status 'done'
+2026-03-18T07:03:51.166Z Collecting psycopg2>=2.8.4 (from -r requirements.txt (line 2))
+2026-03-18T07:03:51.171Z   Downloading psycopg2-2.9.11.tar.gz (379 kB)
+2026-03-18T07:03:51.258Z   Installing build dependencies: started
+2026-03-18T07:03:52.567Z   Installing build dependencies: finished with status 'done'
+2026-03-18T07:03:52.568Z   Getting requirements to build wheel: started
+2026-03-18T07:03:53.448Z   Getting requirements to build wheel: finished with status 'done'
+2026-03-18T07:03:53.449Z   Preparing metadata (pyproject.toml): started
+2026-03-18T07:03:54.147Z   Preparing metadata (pyproject.toml): finished with status 'done'
+2026-03-18T07:03:54.342Z Collecting pandas (from -r requirements.txt (line 3))
+2026-03-18T07:03:54.347Z   Downloading pandas-3.0.1-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (79 kB)
+2026-03-18T07:03:54.433Z Collecting aiofiles==0.6.0 (from otree==5.11.1->-r requirements.txt (line 1))
+2026-03-18T07:03:54.441Z   Downloading aiofiles-0.6.0-py3-none-any.whl.metadata (5.3 kB)
+2026-03-18T07:03:54.471Z Collecting itsdangerous==1.1.0 (from otree==5.11.1->-r requirements.txt (line 1))
+2026-03-18T07:03:54.476Z   Downloading itsdangerous-1.1.0-py2.py3-none-any.whl.metadata (3.1 kB)
+2026-03-18T07:03:54.564Z Collecting markupsafe==1.1.1 (from otree==5.11.1->-r requirements.txt (line 1))
+2026-03-18T07:03:54.569Z   Downloading MarkupSafe-1.1.1.tar.gz (19 kB)
+2026-03-18T07:03:54.589Z   Installing build dependencies: started
+2026-03-18T07:03:56.055Z   Installing build dependencies: finished with status 'done'
+2026-03-18T07:03:56.056Z   Getting requirements to build wheel: started
+2026-03-18T07:03:56.984Z   Getting requirements to build wheel: finished with status 'done'
+2026-03-18T07:03:56.985Z   Preparing metadata (pyproject.toml): started
+2026-03-18T07:03:57.639Z   Preparing metadata (pyproject.toml): finished with status 'done'
+2026-03-18T07:03:57.655Z Collecting python-multipart==0.0.5 (from otree==5.11.1->-r requirements.txt (line 1))
+2026-03-18T07:03:57.659Z   Downloading python-multipart-0.0.5.tar.gz (32 kB)
+2026-03-18T07:03:57.686Z   Installing build dependencies: started
+2026-03-18T07:03:59.136Z   Installing build dependencies: finished with status 'done'
+2026-03-18T07:03:59.137Z   Getting requirements to build wheel: started
+2026-03-18T07:04:00.743Z   Getting requirements to build wheel: finished with status 'done'
+2026-03-18T07:04:00.748Z   Preparing metadata (pyproject.toml): started
+2026-03-18T07:04:01.689Z   Preparing metadata (pyproject.toml): finished with status 'done'
+2026-03-18T07:04:02.144Z Collecting sqlalchemy==1.3.22 (from otree==5.11.1->-r requirements.txt (line 1))
+2026-03-18T07:04:02.150Z   Downloading SQLAlchemy-1.3.22.tar.gz (6.3 MB)
+2026-03-18T07:04:02.202Z      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.3/6.3 MB 129.5 MB/s  0:00:00
+2026-03-18T07:04:03.012Z   Installing build dependencies: started
+2026-03-18T07:04:04.482Z   Installing build dependencies: finished with status 'done'
+2026-03-18T07:04:04.484Z   Getting requirements to build wheel: started
+2026-03-18T07:04:05.592Z   Getting requirements to build wheel: finished with status 'done'
+2026-03-18T07:04:05.594Z   Preparing metadata (pyproject.toml): started
+2026-03-18T07:04:06.433Z   Preparing metadata (pyproject.toml): finished with status 'done'
+2026-03-18T07:04:06.489Z Collecting starlette==0.14.1 (from otree==5.11.1->-r requirements.txt (line 1))
+2026-03-18T07:04:06.495Z   Downloading starlette-0.14.1-py3-none-any.whl.metadata (6.5 kB)
+2026-03-18T07:04:06.546Z Collecting uvicorn==0.13.4 (from otree==5.11.1->-r requirements.txt (line 1))
+2026-03-18T07:04:06.550Z   Downloading uvicorn-0.13.4-py3-none-any.whl.metadata (4.6 kB)
+2026-03-18T07:04:06.694Z Collecting websockets==10.1 (from otree==5.11.1->-r requirements.txt (line 1))
+2026-03-18T07:04:06.697Z   Downloading websockets-10.1.tar.gz (83 kB)
+2026-03-18T07:04:06.728Z   Installing build dependencies: started
+2026-03-18T07:04:08.204Z   Installing build dependencies: finished with status 'done'
+2026-03-18T07:04:08.206Z   Getting requirements to build wheel: started
+2026-03-18T07:04:09.245Z   Getting requirements to build wheel: finished with status 'done'
+2026-03-18T07:04:09.246Z   Preparing metadata (pyproject.toml): started
+2026-03-18T07:04:09.978Z   Preparing metadata (pyproject.toml): finished with status 'done'
+2026-03-18T07:04:09.998Z Collecting wtforms==2.3.3 (from otree==5.11.1->-r requirements.txt (line 1))
+2026-03-18T07:04:10.003Z   Downloading WTForms-2.3.3-py2.py3-none-any.whl.metadata (3.7 kB)
+2026-03-18T07:04:10.112Z Collecting WTForms-SQLAlchemy==0.2 (from otree==5.11.1->-r requirements.txt (line 1))
+2026-03-18T07:04:10.116Z   Downloading WTForms_SQLAlchemy-0.2-py3-none-any.whl.metadata (2.4 kB)
+2026-03-18T07:04:10.159Z Collecting six>=1.4.0 (from python-multipart==0.0.5->otree==5.11.1->-r requirements.txt (line 1))
+2026-03-18T07:04:10.163Z   Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+2026-03-18T07:04:10.215Z Collecting click==7.* (from uvicorn==0.13.4->otree==5.11.1->-r requirements.txt (line 1))
+2026-03-18T07:04:10.220Z   Downloading click-7.1.2-py2.py3-none-any.whl.metadata (2.9 kB)
+2026-03-18T07:04:10.251Z Collecting h11>=0.8 (from uvicorn==0.13.4->otree==5.11.1->-r requirements.txt (line 1))
+2026-03-18T07:04:10.255Z   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+2026-03-18T07:04:10.561Z Collecting numpy>=1.26.0 (from pandas->-r requirements.txt (line 3))
+2026-03-18T07:04:10.567Z   Downloading numpy-2.4.3-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+2026-03-18T07:04:10.594Z Collecting python-dateutil>=2.8.2 (from pandas->-r requirements.txt (line 3))
+2026-03-18T07:04:10.598Z   Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+2026-03-18T07:04:10.627Z Downloading aiofiles-0.6.0-py3-none-any.whl (11 kB)
+2026-03-18T07:04:10.640Z Downloading itsdangerous-1.1.0-py2.py3-none-any.whl (16 kB)
+2026-03-18T07:04:10.651Z Downloading starlette-0.14.1-py3-none-any.whl (60 kB)
+2026-03-18T07:04:10.665Z Downloading uvicorn-0.13.4-py3-none-any.whl (46 kB)
+2026-03-18T07:04:10.678Z Downloading WTForms-2.3.3-py2.py3-none-any.whl (169 kB)
+2026-03-18T07:04:10.692Z Downloading WTForms_SQLAlchemy-0.2-py3-none-any.whl (8.8 kB)
+2026-03-18T07:04:10.706Z Downloading click-7.1.2-py2.py3-none-any.whl (82 kB)
+2026-03-18T07:04:10.724Z Downloading pandas-3.0.1-cp313-cp313-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (10.9 MB)
+2026-03-18T07:04:10.897Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 10.9/10.9 MB 65.3 MB/s  0:00:00
+2026-03-18T07:04:10.902Z Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+2026-03-18T07:04:10.920Z Downloading numpy-2.4.3-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.6 MB)
+2026-03-18T07:04:11.048Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.6/16.6 MB 134.2 MB/s  0:00:00
+2026-03-18T07:04:11.052Z Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+2026-03-18T07:04:11.065Z Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+2026-03-18T07:04:11.134Z Building wheels for collected packages: otree, markupsafe, python-multipart, sqlalchemy, websockets, psycopg2
+2026-03-18T07:04:11.136Z   Building wheel for otree (pyproject.toml): started
+2026-03-18T07:04:12.215Z   Building wheel for otree (pyproject.toml): finished with status 'done'
+2026-03-18T07:04:12.217Z   Created wheel for otree: filename=otree-5.11.1-py3-none-any.whl size=576296 sha256=c17944b44acfc92d6d7baf68f7fd5ace7d7c543b5b03dc7919372839445fdaf2
+2026-03-18T07:04:12.217Z   Stored in directory: /home/bas/.cache/pip/wheels/75/f5/67/894d33536e4dd9e1e9c545070d448da32e20574eb833a5b5fc
+2026-03-18T07:04:12.224Z   Building wheel for markupsafe (pyproject.toml): started
+2026-03-18T07:04:13.443Z   Building wheel for markupsafe (pyproject.toml): finished with status 'done'
+2026-03-18T07:04:13.445Z   Created wheel for markupsafe: filename=markupsafe-1.1.1-cp313-cp313-linux_x86_64.whl size=18160 sha256=7bc66ca93d60f50a2a97f303bf63676e89f996b60a6d9fdc42dcf2f05cf3d109
+2026-03-18T07:04:13.445Z   Stored in directory: /home/bas/.cache/pip/wheels/50/9d/09/bccf8f0a705401cbb7831ea050f14912fe0ad749459d2d1d40
+2026-03-18T07:04:13.449Z   Building wheel for python-multipart (pyproject.toml): started
+2026-03-18T07:04:14.168Z   Building wheel for python-multipart (pyproject.toml): finished with status 'done'
+2026-03-18T07:04:14.169Z   Created wheel for python-multipart: filename=python_multipart-0.0.5-py3-none-any.whl size=31737 sha256=c7fdc24a9432479ed83ca5103b0f396f6dcd857cec6913f50ef98fd2e60f4d37
+2026-03-18T07:04:14.169Z   Stored in directory: /home/bas/.cache/pip/wheels/b5/2d/66/d2594aaa5dd65f5f5abf479b67f828d040ad7bbbb9a9afba96
+2026-03-18T07:04:14.173Z   Building wheel for sqlalchemy (pyproject.toml): started
+2026-03-18T07:04:15.842Z   Building wheel for sqlalchemy (pyproject.toml): finished with status 'done'
+2026-03-18T07:04:15.844Z   Created wheel for sqlalchemy: filename=sqlalchemy-1.3.22-cp313-cp313-linux_x86_64.whl size=1215969 sha256=36d8960a8a0f7ee0f7224eb55aad7ad9efcfde631b58946370c1b68d10ec414b
+2026-03-18T07:04:15.852Z   Stored in directory: /home/bas/.cache/pip/wheels/ec/58/fb/56c7e1f7491c92e9a59517227e0e3fd345ba8557e224eabfc6
+2026-03-18T07:04:15.852Z   Building wheel for websockets (pyproject.toml): started
+2026-03-18T07:04:16.871Z   Building wheel for websockets (pyproject.toml): finished with status 'done'
+2026-03-18T07:04:16.876Z   Created wheel for websockets: filename=websockets-10.1-cp313-cp313-linux_x86_64.whl size=97448 sha256=f1d9911fb1bc2a7f768855a1ca4cd078bebfc98407a1c6499d38452f3882f32d
+2026-03-18T07:04:16.876Z   Stored in directory: /home/bas/.cache/pip/wheels/4d/30/d2/0c470c0f040d4b0bf2b2255d03b86783af916276165c335e18
+2026-03-18T07:04:16.878Z   Building wheel for psycopg2 (pyproject.toml): started
+2026-03-18T07:04:23.259Z   Building wheel for psycopg2 (pyproject.toml): finished with status 'done'
+2026-03-18T07:04:23.261Z   Created wheel for psycopg2: filename=psycopg2-2.9.11-cp313-cp313-linux_x86_64.whl size=170126 sha256=6f0bfb17d0ceba7928a76b472f8aa9ae5063f12f7b8ffeede89acf82bb418889
+2026-03-18T07:04:23.261Z   Stored in directory: /home/bas/.cache/pip/wheels/63/ed/1a/7f7f58e98cbe6623951e4308d81a93c8087d1ac9804513a056
+2026-03-18T07:04:23.264Z Successfully built otree markupsafe python-multipart sqlalchemy websockets psycopg2
+2026-03-18T07:04:23.326Z Installing collected packages: aiofiles, websockets, starlette, sqlalchemy, six, psycopg2, numpy, markupsafe, itsdangerous, h11, click, wtforms, uvicorn, python-multipart, python-dateutil, WTForms-SQLAlchemy, pandas, otree
+2026-03-18T07:04:35.199Z Successfully installed WTForms-SQLAlchemy-0.2 aiofiles-0.6.0 click-7.1.2 h11-0.16.0 itsdangerous-1.1.0 markupsafe-1.1.1 numpy-2.4.3 otree-5.11.1 pandas-3.0.1 psycopg2-2.9.11 python-dateutil-2.9.0.post0 python-multipart-0.0.5 six-1.17.0 sqlalchemy-1.3.22 starlette-0.14.1 uvicorn-0.13.4 websockets-10.1 wtforms-2.3.3
+2026-03-18T07:04:35.304Z [notice] A new release of pip is available: 25.3 -> 26.0.1
+2026-03-18T07:04:35.304Z [notice] To update, run: pip install --upgrade pip
+2026-03-18T07:04:35.806Z Creating build cache archive…
+2026-03-18T07:04:36.788Z build cache archive successfully created
+2026-03-18T07:04:36.791Z Nginx will listen on port 8080, forward to port 9000
+2026-03-18T07:04:38.531Z Running `bash run.sh` instead of WSGI
+2026-03-18T07:04:42.525Z Running prodserver
+2026-03-18T07:04:42.525Z INFO:     10.2.216.99:47530 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:04:42.531Z Application start successful
+2026-03-18T07:04:42.537Z No cron to setup
+2026-03-18T07:04:43.720Z Successfully deployed in 1 minute and 9 seconds
+2026-03-18T07:04:43.750Z Uploading application build cache archive… file is 177M before compression.
+2026-03-18T07:04:47.134Z 2026-03-18T07:04:47.134565Z  INFO multipart_upload_lib::uploader: Uploaded part=1
+2026-03-18T07:04:47.236Z 2026-03-18T07:04:47.232039Z  INFO multipart_upload_lib::uploader: Completed the multipart upload
+2026-03-18T07:04:47.247Z Done uploading build cache archive
+2026-03-18T07:05:36.857Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:06:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:07:36.863Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:08:36.871Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:09:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:10:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:11:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:12:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:13:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:14:36.845Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:15:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:16:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:17:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:18:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:19:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:20:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:21:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:22:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:23:36.859Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:24:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:25:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:26:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:27:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:28:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:29:36.845Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:30:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:31:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:32:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:33:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:34:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:35:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:36:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:37:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:38:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:39:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:40:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:41:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:42:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:43:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:44:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:45:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:46:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:47:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:48:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:49:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:50:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:51:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:52:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:53:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:54:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:55:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:56:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:57:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:58:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T07:59:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:00:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:00:53.564Z timeoutworker is listening for messages through DB
+2026-03-18T08:00:53.566Z Traceback (most recent call last):
+2026-03-18T08:00:53.567Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1276, in _execute_context
+2026-03-18T08:00:53.567Z     self.dialect.do_execute(
+2026-03-18T08:00:53.567Z     ~~~~~~~~~~~~~~~~~~~~~~~^
+2026-03-18T08:00:53.567Z         cursor, statement, parameters, context
+2026-03-18T08:00:53.567Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T08:00:53.567Z     )
+2026-03-18T08:00:53.567Z     ^
+2026-03-18T08:00:53.567Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 609, in do_execute
+2026-03-18T08:00:53.567Z     cursor.execute(statement, parameters)
+2026-03-18T08:00:53.567Z     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T08:00:53.568Z psycopg2.OperationalError: SSL error: unexpected eof while reading
+2026-03-18T08:00:53.568Z The above exception was the direct cause of the following exception:
+2026-03-18T08:00:53.568Z Traceback (most recent call last):
+2026-03-18T08:00:53.571Z   File "/home/bas/venv/bin/otree", line 7, in <module>
+2026-03-18T08:00:53.571Z     sys.exit(execute_from_command_line())
+2026-03-18T08:00:53.571Z              ~~~~~~~~~~~~~~~~~~~~~~~~~^^
+2026-03-18T08:00:53.571Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/main.py", line 112, in execute_from_command_line
+2026-03-18T08:00:53.571Z     call_command(cmd, *argv[2:])
+2026-03-18T08:00:53.571Z     ~~~~~~~~~~~~^^^^^^^^^^^^^^^^
+2026-03-18T08:00:53.571Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/cli/base.py", line 32, in call_command
+2026-03-18T08:00:53.571Z     module.Command().outer_handle(args)
+2026-03-18T08:00:53.571Z     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+2026-03-18T08:00:53.571Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/cli/base.py", line 10, in outer_handle
+2026-03-18T08:00:53.571Z     return self.handle(**vars(options))
+2026-03-18T08:00:53.571Z            ~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+2026-03-18T08:00:53.571Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/cli/timeoutsubprocess.py", line 12, in handle
+2026-03-18T08:00:53.571Z     Worker(port).listen()
+2026-03-18T08:00:53.571Z     ~~~~~~~~~~~~~~~~~~~^^
+2026-03-18T08:00:53.571Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/tasks.py", line 53, in listen
+2026-03-18T08:00:53.571Z     for task in TaskQueueMessage.objects_filter(
+2026-03-18T08:00:53.571Z                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2026-03-18T08:00:53.571Z         TaskQueueMessage.epoch_time <= time.time()
+2026-03-18T08:00:53.571Z         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+2026-03-18T08:00:53.571Z     ).order_by('epoch_time'):
+2026-03-18T08:00:53.571Z     ~~~~~~~~~~^^^^^^^^^^^^^^
+2026-03-18T08:00:53.571Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/orm/query.py", line 3535, in __iter__
+2026-03-18T08:00:53.571Z     return self._execute_and_instances(context)
+2026-03-18T08:00:53.571Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+2026-03-18T08:00:53.571Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/orm/query.py", line 3560, in _execute_and_instances
+2026-03-18T08:00:53.571Z     result = conn.execute(querycontext.statement, self._params)
+2026-03-18T08:00:53.571Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1011, in execute
+2026-03-18T08:00:53.571Z     return meth(self, multiparams, params)
+2026-03-18T08:00:53.571Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/sql/elements.py", line 298, in _execute_on_connection
+2026-03-18T08:00:53.571Z     return connection._execute_clauseelement(self, multiparams, params)
+2026-03-18T08:00:53.571Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T08:00:53.572Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1124, in _execute_clauseelement
+2026-03-18T08:00:53.572Z     ret = self._execute_context(
+2026-03-18T08:00:53.572Z         dialect,
+2026-03-18T08:00:53.572Z     ...<4 lines>...
+2026-03-18T08:00:53.572Z         distilled_params,
+2026-03-18T08:00:53.572Z     )
+2026-03-18T08:00:53.572Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1316, in _execute_context
+2026-03-18T08:00:53.572Z     self._handle_dbapi_exception(
+2026-03-18T08:00:53.572Z     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-03-18T08:00:53.572Z         e, statement, parameters, cursor, context
+2026-03-18T08:00:53.572Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T08:00:53.572Z     )
+2026-03-18T08:00:53.572Z     ^
+2026-03-18T08:00:53.572Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1510, in _handle_dbapi_exception
+2026-03-18T08:00:53.572Z     util.raise_(
+2026-03-18T08:00:53.572Z     ~~~~~~~~~~~^
+2026-03-18T08:00:53.572Z         sqlalchemy_exception, with_traceback=exc_info[2], from_=e
+2026-03-18T08:00:53.572Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T08:00:53.572Z     )
+2026-03-18T08:00:53.572Z     ^
+2026-03-18T08:00:53.572Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/util/compat.py", line 182, in raise_
+2026-03-18T08:00:53.572Z     raise exception
+2026-03-18T08:00:53.576Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1276, in _execute_context
+2026-03-18T08:00:53.576Z     self.dialect.do_execute(
+2026-03-18T08:00:53.576Z     ~~~~~~~~~~~~~~~~~~~~~~~^
+2026-03-18T08:00:53.576Z         cursor, statement, parameters, context
+2026-03-18T08:00:53.576Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T08:00:53.576Z     )
+2026-03-18T08:00:53.576Z     ^
+2026-03-18T08:00:53.576Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 609, in do_execute
+2026-03-18T08:00:53.576Z     cursor.execute(statement, parameters)
+2026-03-18T08:00:53.576Z     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T08:00:53.576Z sqlalchemy.exc.OperationalError: (psycopg2.OperationalError) SSL error: unexpected eof while reading
+2026-03-18T08:00:53.576Z [SQL: SELECT otree_taskqueuemessage.id AS otree_taskqueuemessage_id, otree_taskqueuemessage.method AS otree_taskqueuemessage_method, otree_taskqueuemessage.kwargs_json AS otree_taskqueuemessage_kwargs_json, otree_taskqueuemessage.epoch_time AS otree_taskqueuemessage_epoch_time
+2026-03-18T08:00:53.576Z FROM otree_taskqueuemessage
+2026-03-18T08:00:53.576Z WHERE otree_taskqueuemessage.epoch_time <= %(epoch_time_1)s ORDER BY otree_taskqueuemessage.epoch_time]
+2026-03-18T08:00:53.576Z [parameters: {'epoch_time_1': 1773820853.5582335}]
+2026-03-18T08:00:53.576Z (Background on this error at: http://sqlalche.me/e/13/e3q8)
+2026-03-18T08:01:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:02:36.860Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:03:36.859Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:04:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:05:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:06:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:07:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:08:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:09:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:10:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:11:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:12:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:13:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:14:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:15:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:16:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:17:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:18:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:19:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:20:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:21:36.855Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:22:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:23:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:24:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:25:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:26:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:27:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:28:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:29:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:30:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:31:36.857Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:32:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:33:36.856Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:34:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:35:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:36:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:37:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:38:36.857Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:39:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:40:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:41:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:42:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:43:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:44:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:45:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:46:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:47:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:48:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:49:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:50:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:51:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:52:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:53:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:54:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:55:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:56:36.845Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:57:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:58:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T08:59:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:00:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:01:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:02:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:03:36.860Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:04:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:05:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:06:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:07:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:08:36.855Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:09:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:10:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:11:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:12:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:13:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:14:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:15:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:16:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:17:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:18:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:19:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:20:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:21:36.855Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:22:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:23:36.856Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:24:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:25:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:26:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:27:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:28:36.842Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:29:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:30:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:31:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:32:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:33:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:34:36.858Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:35:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:36:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:37:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:38:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:39:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:40:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:41:36.855Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:42:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:43:36.855Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:44:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:45:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:46:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:47:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:48:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:49:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:50:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:51:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:52:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:53:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:54:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:55:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:56:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:57:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:58:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T09:59:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:00:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:01:36.855Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:02:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:03:36.864Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:04:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:05:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:06:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:07:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:08:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:09:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:10:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:11:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:12:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:13:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:14:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:15:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:16:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:17:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:18:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:19:36.856Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:20:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:21:36.855Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:22:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:23:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:24:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:25:36.855Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:26:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:27:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:28:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:29:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:30:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:31:36.855Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:32:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:33:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:34:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:35:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:36:36.856Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:37:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:38:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:39:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:40:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:41:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:42:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:43:36.855Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:44:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:45:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:46:36.856Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:47:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:48:36.858Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:49:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:50:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:51:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:52:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:53:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:54:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:55:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:56:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:57:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:58:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T10:59:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:00:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:01:36.859Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:02:36.856Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:03:36.855Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:04:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:05:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:06:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:07:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:08:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:09:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:10:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:11:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:12:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:13:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:14:36.858Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:15:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:16:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:17:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:18:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:19:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:20:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:21:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:22:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:23:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:24:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:25:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:26:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:27:36.858Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:28:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:29:36.856Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:30:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:31:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:32:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:33:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:34:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:35:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:36:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:37:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:38:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:39:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:40:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:41:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:42:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:43:36.856Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:44:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:45:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:46:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:47:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:48:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:49:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:50:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:51:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:52:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:53:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:54:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:55:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:56:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:57:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:58:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T11:59:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:00:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:01:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:02:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:03:36.858Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:04:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:05:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:06:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:07:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:08:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:09:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:10:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:11:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:12:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:13:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:14:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:15:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:16:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:17:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:18:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:19:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:20:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:21:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:22:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:23:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:24:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:25:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:26:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:27:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:28:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:29:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:30:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:31:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:32:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:33:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:34:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:35:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:36:36.845Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:37:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:38:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:39:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:40:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:41:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:42:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:43:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:43:51.854Z INFO:     91.208.207.141:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:43:51.972Z INFO:     91.208.207.141:0 - "GET /demo HTTP/1.1" 200 OK
+2026-03-18T12:43:52.060Z INFO:     91.208.207.141:0 - "GET /static/bootstrap5/css/bootstrap.min.css HTTP/1.1" 200 OK
+2026-03-18T12:43:52.064Z INFO:     91.208.207.141:0 - "GET /static/otree/css/theme.css HTTP/1.1" 200 OK
+2026-03-18T12:43:52.068Z INFO:     91.208.207.141:0 - "GET /static/otree/js/jquery-3.2.1.min.js HTTP/1.1" 200 OK
+2026-03-18T12:43:52.074Z INFO:     91.208.207.141:0 - "GET /static/otree/css/table.css HTTP/1.1" 200 OK
+2026-03-18T12:43:52.079Z INFO:     91.208.207.141:0 - "GET /static/bootstrap5/js/bootstrap.bundle.min.js HTTP/1.1" 200 OK
+2026-03-18T12:43:52.086Z INFO:     91.208.207.141:0 - "GET /static/otree/js/internet-explorer.js HTTP/1.1" 200 OK
+2026-03-18T12:43:52.092Z INFO:     91.208.207.141:0 - "GET /static/otree/js/common.js HTTP/1.1" 200 OK
+2026-03-18T12:43:52.098Z INFO:     91.208.207.141:0 - "GET /static/otree/js/reconnecting-websocket-iife.min.js HTTP/1.1" 200 OK
+2026-03-18T12:43:52.103Z INFO:     91.208.207.141:0 - "GET /static/otree/js/jquery.color-2.1.2.min.js HTTP/1.1" 200 OK
+2026-03-18T12:43:52.108Z INFO:     91.208.207.141:0 - "GET /static/otree/js/jquery.timeago.js HTTP/1.1" 200 OK
+2026-03-18T12:43:52.114Z INFO:     91.208.207.141:0 - "GET /static/otree/js/jquery.timeago.en-short.js HTTP/1.1" 200 OK
+2026-03-18T12:43:52.119Z INFO:     91.208.207.141:0 - "GET /static/otree/js/table-utils.js HTTP/1.1" 200 OK
+2026-03-18T12:43:54.052Z INFO:     91.208.207.141:0 - "GET /export HTTP/1.1" 500 Internal Server Error
+2026-03-18T12:43:54.068Z Exception in ASGI application
+2026-03-18T12:43:54.068Z Traceback (most recent call last):
+2026-03-18T12:43:54.068Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1276, in _execute_context
+2026-03-18T12:43:54.068Z     self.dialect.do_execute(
+2026-03-18T12:43:54.068Z     ~~~~~~~~~~~~~~~~~~~~~~~^
+2026-03-18T12:43:54.068Z         cursor, statement, parameters, context
+2026-03-18T12:43:54.068Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.068Z     )
+2026-03-18T12:43:54.068Z     ^
+2026-03-18T12:43:54.068Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 609, in do_execute
+2026-03-18T12:43:54.068Z     cursor.execute(statement, parameters)
+2026-03-18T12:43:54.068Z     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.068Z psycopg2.OperationalError: SSL error: unexpected eof while reading
+2026-03-18T12:43:54.068Z The above exception was the direct cause of the following exception:
+2026-03-18T12:43:54.068Z Traceback (most recent call last):
+2026-03-18T12:43:54.068Z   File "/home/bas/venv/lib/python3.13/site-packages/uvicorn/protocols/http/h11_impl.py", line 396, in run_asgi
+2026-03-18T12:43:54.068Z     result = await app(self.scope, self.receive, self.send)
+2026-03-18T12:43:54.068Z              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.068Z   File "/home/bas/venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 45, in __call__
+2026-03-18T12:43:54.068Z     return await self.app(scope, receive, send)
+2026-03-18T12:43:54.068Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.068Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/applications.py", line 112, in __call__
+2026-03-18T12:43:54.068Z     await self.middleware_stack(scope, receive, send)
+2026-03-18T12:43:54.068Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 26, in __call__
+2026-03-18T12:43:54.068Z     await response(scope, receive, send)
+2026-03-18T12:43:54.068Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/responses.py", line 224, in __call__
+2026-03-18T12:43:54.068Z     await run_until_first_complete(
+2026-03-18T12:43:54.068Z     ...<2 lines>...
+2026-03-18T12:43:54.068Z     )
+2026-03-18T12:43:54.068Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/concurrency.py", line 24, in run_until_first_complete
+2026-03-18T12:43:54.068Z     [task.result() for task in done]
+2026-03-18T12:43:54.068Z      ~~~~~~~~~~~^^
+2026-03-18T12:43:54.068Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/responses.py", line 216, in stream_response
+2026-03-18T12:43:54.068Z     async for chunk in self.body_iterator:
+2026-03-18T12:43:54.068Z     ...<2 lines>...
+2026-03-18T12:43:54.068Z         await send({"type": "http.response.body", "body": chunk, "more_body": True})
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 56, in body_stream
+2026-03-18T12:43:54.069Z     task.result()
+2026-03-18T12:43:54.069Z     ~~~~~~~~~~~^^
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 38, in coro
+2026-03-18T12:43:54.069Z     await self.app(scope, receive, send)
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/errorpage.py", line 247, in __call__
+2026-03-18T12:43:54.069Z     raise exc  # from None
+2026-03-18T12:43:54.069Z     ^^^^^^^^^
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/errorpage.py", line 227, in __call__
+2026-03-18T12:43:54.069Z     await self.app(scope, receive, _send)
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 25, in __call__
+2026-03-18T12:43:54.069Z     response = await self.dispatch_func(request, self.call_next)
+2026-03-18T12:43:54.069Z                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/middleware.py", line 42, in dispatch
+2026-03-18T12:43:54.069Z     response = await call_next(request)
+2026-03-18T12:43:54.069Z                ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 45, in call_next
+2026-03-18T12:43:54.069Z     task.result()
+2026-03-18T12:43:54.069Z     ~~~~~~~~~~~^^
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 38, in coro
+2026-03-18T12:43:54.069Z     await self.app(scope, receive, send)
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/sessions.py", line 75, in __call__
+2026-03-18T12:43:54.069Z     await self.app(scope, receive, send_wrapper)
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/patch.py", line 41, in __call__
+2026-03-18T12:43:54.069Z     raise exc  # from None
+2026-03-18T12:43:54.069Z     ^^^^^^^^^
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/patch.py", line 29, in __call__
+2026-03-18T12:43:54.069Z     await self.app(scope, receive, sender)
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/routing.py", line 582, in __call__
+2026-03-18T12:43:54.069Z     await route.handle(scope, receive, send)
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/routing.py", line 243, in handle
+2026-03-18T12:43:54.069Z     await self.app(scope, receive, send)
+2026-03-18T12:43:54.069Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/views/cbv.py", line 45, in dispatch
+2026-03-18T12:43:54.070Z     response = await run_in_threadpool(self.inner_dispatch, request)
+2026-03-18T12:43:54.070Z                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/concurrency.py", line 40, in run_in_threadpool
+2026-03-18T12:43:54.070Z     return await loop.run_in_executor(None, func, *args)
+2026-03-18T12:43:54.070Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.070Z   File "/usr/host/lib/python3.13/concurrent/futures/thread.py", line 59, in run
+2026-03-18T12:43:54.070Z     result = self.fn(*self.args, **self.kwargs)
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/views/cbv.py", line 66, in inner_dispatch
+2026-03-18T12:43:54.070Z     return self.get(request, **request.path_params)
+2026-03-18T12:43:54.070Z            ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/views/cbv.py", line 76, in get
+2026-03-18T12:43:54.070Z     context = self.get_context_data(**context)
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/views/cbv.py", line 114, in get_context_data
+2026-03-18T12:43:54.070Z     kwargs.update(self.vars_for_template())
+2026-03-18T12:43:54.070Z                   ~~~~~~~~~~~~~~~~~~~~~~^^
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/views/export.py", line 26, in vars_for_template
+2026-03-18T12:43:54.070Z     app_names_with_data = get_installed_apps_with_data()
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/export.py", line 161, in get_installed_apps_with_data
+2026-03-18T12:43:54.070Z     for session in dbq(Session):
+2026-03-18T12:43:54.070Z                    ~~~^^^^^^^^^
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/orm/query.py", line 3535, in __iter__
+2026-03-18T12:43:54.070Z     return self._execute_and_instances(context)
+2026-03-18T12:43:54.070Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/orm/query.py", line 3560, in _execute_and_instances
+2026-03-18T12:43:54.070Z     result = conn.execute(querycontext.statement, self._params)
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1011, in execute
+2026-03-18T12:43:54.070Z     return meth(self, multiparams, params)
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/sql/elements.py", line 298, in _execute_on_connection
+2026-03-18T12:43:54.070Z     return connection._execute_clauseelement(self, multiparams, params)
+2026-03-18T12:43:54.070Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1124, in _execute_clauseelement
+2026-03-18T12:43:54.070Z     ret = self._execute_context(
+2026-03-18T12:43:54.070Z         dialect,
+2026-03-18T12:43:54.070Z     ...<4 lines>...
+2026-03-18T12:43:54.070Z         distilled_params,
+2026-03-18T12:43:54.070Z     )
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1316, in _execute_context
+2026-03-18T12:43:54.070Z     self._handle_dbapi_exception(
+2026-03-18T12:43:54.070Z     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-03-18T12:43:54.070Z         e, statement, parameters, cursor, context
+2026-03-18T12:43:54.070Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.070Z     )
+2026-03-18T12:43:54.070Z     ^
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1510, in _handle_dbapi_exception
+2026-03-18T12:43:54.070Z     util.raise_(
+2026-03-18T12:43:54.070Z     ~~~~~~~~~~~^
+2026-03-18T12:43:54.070Z         sqlalchemy_exception, with_traceback=exc_info[2], from_=e
+2026-03-18T12:43:54.070Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.070Z     )
+2026-03-18T12:43:54.070Z     ^
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/util/compat.py", line 182, in raise_
+2026-03-18T12:43:54.070Z     raise exception
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1276, in _execute_context
+2026-03-18T12:43:54.070Z     self.dialect.do_execute(
+2026-03-18T12:43:54.070Z     ~~~~~~~~~~~~~~~~~~~~~~~^
+2026-03-18T12:43:54.070Z         cursor, statement, parameters, context
+2026-03-18T12:43:54.070Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.070Z     )
+2026-03-18T12:43:54.070Z     ^
+2026-03-18T12:43:54.070Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 609, in do_execute
+2026-03-18T12:43:54.070Z     cursor.execute(statement, parameters)
+2026-03-18T12:43:54.070Z     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T12:43:54.070Z sqlalchemy.exc.OperationalError: (psycopg2.OperationalError) SSL error: unexpected eof while reading
+2026-03-18T12:43:54.071Z [SQL: SELECT otree_session.id AS otree_session_id, otree_session._vars AS otree_session__vars, otree_session.config AS otree_session_config, otree_session.label AS otree_session_label, otree_session.code AS otree_session_code, otree_session."mturk_HITId" AS "otree_session_mturk_HITId", otree_session."mturk_HITGroupId" AS "otree_session_mturk_HITGroupId", otree_session.is_mturk AS otree_session_is_mturk, otree_session.mturk_use_sandbox AS otree_session_mturk_use_sandbox, otree_session.mturk_expiration AS otree_session_mturk_expiration, otree_session.mturk_qual_id AS otree_session_mturk_qual_id, otree_session.archived AS otree_session_archived, otree_session.comment AS otree_session_comment, otree_session._anonymous_code AS otree_session__anonymous_code, otree_session.is_demo AS otree_session_is_demo, otree_session._admin_report_app_names AS otree_session__admin_report_app_names, otree_session._admin_report_num_rounds AS otree_session__admin_report_num_rounds, otree_session.num_participants AS otree_session_num_participants, otree_session._created AS otree_session__created
+2026-03-18T12:43:54.071Z FROM otree_session]
+2026-03-18T12:43:54.071Z (Background on this error at: http://sqlalche.me/e/13/e3q8)
+2026-03-18T12:43:55.849Z INFO:     91.208.207.141:0 - "GET /export HTTP/1.1" 200 OK
+2026-03-18T12:43:55.910Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/download-alt.png HTTP/1.1" 200 OK
+2026-03-18T12:44:03.312Z INFO:     91.208.207.141:0 - "GET /sessions HTTP/1.1" 200 OK
+2026-03-18T12:44:03.449Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/folder-closed.png HTTP/1.1" 200 OK
+2026-03-18T12:44:03.452Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/delete.png HTTP/1.1" 200 OK
+2026-03-18T12:44:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:45:02.499Z INFO:     91.208.207.141:0 - "GET /export HTTP/1.1" 200 OK
+2026-03-18T12:45:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:46:36.861Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:47:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:48:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:49:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:50:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:51:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:52:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:53:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:54:36.857Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:55:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:56:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:57:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:58:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T12:59:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:00:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:01:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:02:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:03:36.853Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:04:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:05:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:06:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:07:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:08:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:09:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:10:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:11:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:12:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:13:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:14:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:15:36.845Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:16:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:17:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:18:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:19:36.846Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:20:36.847Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:21:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:21:54.608Z INFO:     91.208.207.141:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:21:54.704Z INFO:     91.208.207.141:0 - "GET /demo HTTP/1.1" 200 OK
+2026-03-18T13:21:54.762Z INFO:     91.208.207.141:0 - "GET /static/bootstrap5/css/bootstrap.min.css HTTP/1.1" 200 OK
+2026-03-18T13:21:54.766Z INFO:     91.208.207.141:0 - "GET /static/bootstrap5/js/bootstrap.bundle.min.js HTTP/1.1" 200 OK
+2026-03-18T13:21:54.773Z INFO:     91.208.207.141:0 - "GET /static/otree/js/common.js HTTP/1.1" 200 OK
+2026-03-18T13:21:54.781Z INFO:     91.208.207.141:0 - "GET /static/otree/js/jquery.color-2.1.2.min.js HTTP/1.1" 200 OK
+2026-03-18T13:21:54.788Z INFO:     91.208.207.141:0 - "GET /static/otree/js/jquery.timeago.js HTTP/1.1" 200 OK
+2026-03-18T13:21:54.795Z INFO:     91.208.207.141:0 - "GET /static/otree/js/jquery.timeago.en-short.js HTTP/1.1" 200 OK
+2026-03-18T13:21:54.800Z INFO:     91.208.207.141:0 - "GET /static/otree/js/table-utils.js HTTP/1.1" 200 OK
+2026-03-18T13:21:54.806Z INFO:     91.208.207.141:0 - "GET /static/otree/css/theme.css HTTP/1.1" 200 OK
+2026-03-18T13:21:54.813Z INFO:     91.208.207.141:0 - "GET /static/otree/css/table.css HTTP/1.1" 200 OK
+2026-03-18T13:21:54.818Z INFO:     91.208.207.141:0 - "GET /static/otree/js/jquery-3.2.1.min.js HTTP/1.1" 200 OK
+2026-03-18T13:21:54.821Z INFO:     91.208.207.141:0 - "GET /static/otree/js/internet-explorer.js HTTP/1.1" 200 OK
+2026-03-18T13:21:54.827Z INFO:     91.208.207.141:0 - "GET /static/otree/js/reconnecting-websocket-iife.min.js HTTP/1.1" 200 OK
+2026-03-18T13:21:57.500Z INFO:     91.208.207.141:0 - "GET /sessions HTTP/1.1" 500 Internal Server Error
+2026-03-18T13:21:57.507Z Exception in ASGI application
+2026-03-18T13:21:57.507Z Traceback (most recent call last):
+2026-03-18T13:21:57.507Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1276, in _execute_context
+2026-03-18T13:21:57.507Z     self.dialect.do_execute(
+2026-03-18T13:21:57.507Z     ~~~~~~~~~~~~~~~~~~~~~~~^
+2026-03-18T13:21:57.507Z         cursor, statement, parameters, context
+2026-03-18T13:21:57.507Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.507Z     )
+2026-03-18T13:21:57.507Z     ^
+2026-03-18T13:21:57.507Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 609, in do_execute
+2026-03-18T13:21:57.507Z     cursor.execute(statement, parameters)
+2026-03-18T13:21:57.507Z     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.507Z psycopg2.OperationalError: SSL error: unexpected eof while reading
+2026-03-18T13:21:57.507Z The above exception was the direct cause of the following exception:
+2026-03-18T13:21:57.507Z Traceback (most recent call last):
+2026-03-18T13:21:57.507Z   File "/home/bas/venv/lib/python3.13/site-packages/uvicorn/protocols/http/h11_impl.py", line 396, in run_asgi
+2026-03-18T13:21:57.507Z     result = await app(self.scope, self.receive, self.send)
+2026-03-18T13:21:57.507Z              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.507Z   File "/home/bas/venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 45, in __call__
+2026-03-18T13:21:57.507Z     return await self.app(scope, receive, send)
+2026-03-18T13:21:57.507Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.507Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/applications.py", line 112, in __call__
+2026-03-18T13:21:57.507Z     await self.middleware_stack(scope, receive, send)
+2026-03-18T13:21:57.507Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 26, in __call__
+2026-03-18T13:21:57.507Z     await response(scope, receive, send)
+2026-03-18T13:21:57.507Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/responses.py", line 224, in __call__
+2026-03-18T13:21:57.507Z     await run_until_first_complete(
+2026-03-18T13:21:57.507Z     ...<2 lines>...
+2026-03-18T13:21:57.507Z     )
+2026-03-18T13:21:57.507Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/concurrency.py", line 24, in run_until_first_complete
+2026-03-18T13:21:57.507Z     [task.result() for task in done]
+2026-03-18T13:21:57.507Z      ~~~~~~~~~~~^^
+2026-03-18T13:21:57.507Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/responses.py", line 216, in stream_response
+2026-03-18T13:21:57.507Z     async for chunk in self.body_iterator:
+2026-03-18T13:21:57.507Z     ...<2 lines>...
+2026-03-18T13:21:57.507Z         await send({"type": "http.response.body", "body": chunk, "more_body": True})
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 56, in body_stream
+2026-03-18T13:21:57.508Z     task.result()
+2026-03-18T13:21:57.508Z     ~~~~~~~~~~~^^
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 38, in coro
+2026-03-18T13:21:57.508Z     await self.app(scope, receive, send)
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/errorpage.py", line 247, in __call__
+2026-03-18T13:21:57.508Z     raise exc  # from None
+2026-03-18T13:21:57.508Z     ^^^^^^^^^
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/errorpage.py", line 227, in __call__
+2026-03-18T13:21:57.508Z     await self.app(scope, receive, _send)
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 25, in __call__
+2026-03-18T13:21:57.508Z     response = await self.dispatch_func(request, self.call_next)
+2026-03-18T13:21:57.508Z                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/middleware.py", line 42, in dispatch
+2026-03-18T13:21:57.508Z     response = await call_next(request)
+2026-03-18T13:21:57.508Z                ^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 45, in call_next
+2026-03-18T13:21:57.508Z     task.result()
+2026-03-18T13:21:57.508Z     ~~~~~~~~~~~^^
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 38, in coro
+2026-03-18T13:21:57.508Z     await self.app(scope, receive, send)
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/middleware/sessions.py", line 75, in __call__
+2026-03-18T13:21:57.508Z     await self.app(scope, receive, send_wrapper)
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/patch.py", line 41, in __call__
+2026-03-18T13:21:57.508Z     raise exc  # from None
+2026-03-18T13:21:57.508Z     ^^^^^^^^^
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/patch.py", line 29, in __call__
+2026-03-18T13:21:57.508Z     await self.app(scope, receive, sender)
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/routing.py", line 582, in __call__
+2026-03-18T13:21:57.508Z     await route.handle(scope, receive, send)
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/routing.py", line 243, in handle
+2026-03-18T13:21:57.508Z     await self.app(scope, receive, send)
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/views/cbv.py", line 45, in dispatch
+2026-03-18T13:21:57.508Z     response = await run_in_threadpool(self.inner_dispatch, request)
+2026-03-18T13:21:57.508Z                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/starlette/concurrency.py", line 40, in run_in_threadpool
+2026-03-18T13:21:57.508Z     return await loop.run_in_executor(None, func, *args)
+2026-03-18T13:21:57.508Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.508Z   File "/usr/host/lib/python3.13/concurrent/futures/thread.py", line 59, in run
+2026-03-18T13:21:57.508Z     result = self.fn(*self.args, **self.kwargs)
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/views/cbv.py", line 66, in inner_dispatch
+2026-03-18T13:21:57.508Z     return self.get(request, **request.path_params)
+2026-03-18T13:21:57.508Z            ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/views/cbv.py", line 76, in get
+2026-03-18T13:21:57.508Z     context = self.get_context_data(**context)
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/views/cbv.py", line 114, in get_context_data
+2026-03-18T13:21:57.508Z     kwargs.update(self.vars_for_template())
+2026-03-18T13:21:57.508Z                   ~~~~~~~~~~~~~~~~~~~~~~^^
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/otree/views/admin.py", line 488, in vars_for_template
+2026-03-18T13:21:57.508Z     .all()
+2026-03-18T13:21:57.508Z      ~~~^^
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/orm/query.py", line 3373, in all
+2026-03-18T13:21:57.508Z     return list(self)
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/orm/query.py", line 3535, in __iter__
+2026-03-18T13:21:57.508Z     return self._execute_and_instances(context)
+2026-03-18T13:21:57.508Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/orm/query.py", line 3560, in _execute_and_instances
+2026-03-18T13:21:57.508Z     result = conn.execute(querycontext.statement, self._params)
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1011, in execute
+2026-03-18T13:21:57.508Z     return meth(self, multiparams, params)
+2026-03-18T13:21:57.508Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/sql/elements.py", line 298, in _execute_on_connection
+2026-03-18T13:21:57.508Z     return connection._execute_clauseelement(self, multiparams, params)
+2026-03-18T13:21:57.508Z            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.509Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1124, in _execute_clauseelement
+2026-03-18T13:21:57.509Z     ret = self._execute_context(
+2026-03-18T13:21:57.509Z         dialect,
+2026-03-18T13:21:57.509Z     ...<4 lines>...
+2026-03-18T13:21:57.509Z         distilled_params,
+2026-03-18T13:21:57.509Z     )
+2026-03-18T13:21:57.509Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1316, in _execute_context
+2026-03-18T13:21:57.509Z     self._handle_dbapi_exception(
+2026-03-18T13:21:57.509Z     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+2026-03-18T13:21:57.509Z         e, statement, parameters, cursor, context
+2026-03-18T13:21:57.509Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.509Z     )
+2026-03-18T13:21:57.509Z     ^
+2026-03-18T13:21:57.509Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1510, in _handle_dbapi_exception
+2026-03-18T13:21:57.509Z     util.raise_(
+2026-03-18T13:21:57.509Z     ~~~~~~~~~~~^
+2026-03-18T13:21:57.509Z         sqlalchemy_exception, with_traceback=exc_info[2], from_=e
+2026-03-18T13:21:57.509Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.509Z     )
+2026-03-18T13:21:57.509Z     ^
+2026-03-18T13:21:57.509Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/util/compat.py", line 182, in raise_
+2026-03-18T13:21:57.509Z     raise exception
+2026-03-18T13:21:57.509Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1276, in _execute_context
+2026-03-18T13:21:57.509Z     self.dialect.do_execute(
+2026-03-18T13:21:57.509Z     ~~~~~~~~~~~~~~~~~~~~~~~^
+2026-03-18T13:21:57.509Z         cursor, statement, parameters, context
+2026-03-18T13:21:57.509Z         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.509Z     )
+2026-03-18T13:21:57.509Z     ^
+2026-03-18T13:21:57.509Z   File "/home/bas/venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 609, in do_execute
+2026-03-18T13:21:57.509Z     cursor.execute(statement, parameters)
+2026-03-18T13:21:57.509Z     ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+2026-03-18T13:21:57.509Z sqlalchemy.exc.OperationalError: (psycopg2.OperationalError) SSL error: unexpected eof while reading
+2026-03-18T13:21:57.509Z [SQL: SELECT otree_session.id AS otree_session_id, otree_session._vars AS otree_session__vars, otree_session.config AS otree_session_config, otree_session.label AS otree_session_label, otree_session.code AS otree_session_code, otree_session."mturk_HITId" AS "otree_session_mturk_HITId", otree_session."mturk_HITGroupId" AS "otree_session_mturk_HITGroupId", otree_session.is_mturk AS otree_session_is_mturk, otree_session.mturk_use_sandbox AS otree_session_mturk_use_sandbox, otree_session.mturk_expiration AS otree_session_mturk_expiration, otree_session.mturk_qual_id AS otree_session_mturk_qual_id, otree_session.archived AS otree_session_archived, otree_session.comment AS otree_session_comment, otree_session._anonymous_code AS otree_session__anonymous_code, otree_session.is_demo AS otree_session_is_demo, otree_session._admin_report_app_names AS otree_session__admin_report_app_names, otree_session._admin_report_num_rounds AS otree_session__admin_report_num_rounds, otree_session.num_participants AS otree_session_num_participants, otree_session._created AS otree_session__created
+2026-03-18T13:21:57.509Z FROM otree_session
+2026-03-18T13:21:57.509Z WHERE otree_session.is_demo = false AND otree_session.archived = false ORDER BY otree_session.id DESC]
+2026-03-18T13:21:57.509Z (Background on this error at: http://sqlalche.me/e/13/e3q8)
+2026-03-18T13:21:59.974Z INFO:     91.208.207.141:0 - "GET /sessions HTTP/1.1" 200 OK
+2026-03-18T13:22:00.038Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/folder-closed.png HTTP/1.1" 200 OK
+2026-03-18T13:22:00.041Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/delete.png HTTP/1.1" 200 OK
+2026-03-18T13:22:03.572Z INFO:     91.208.207.141:0 - "GET /SessionStartLinks/tb0dm5ch HTTP/1.1" 200 OK
+2026-03-18T13:22:03.627Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/pencil.png HTTP/1.1" 200 OK
+2026-03-18T13:22:03.634Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/link.png HTTP/1.1" 200 OK
+2026-03-18T13:22:03.640Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/eye-open.png HTTP/1.1" 200 OK
+2026-03-18T13:22:03.644Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/list-alt.png HTTP/1.1" 200 OK
+2026-03-18T13:22:03.649Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/usd.png HTTP/1.1" 200 OK
+2026-03-18T13:22:03.654Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/pushpin.png HTTP/1.1" 200 OK
+2026-03-18T13:22:05.580Z INFO:     91.208.207.141:0 - "GET /SessionMonitor/tb0dm5ch HTTP/1.1" 200 OK
+2026-03-18T13:22:05.638Z INFO:     91.208.207.141:0 - "GET /static/otree/js/monitor2.js HTTP/1.1" 200 OK
+2026-03-18T13:22:11.377Z INFO:     91.208.207.141:0 - "GET /SessionData/tb0dm5ch HTTP/1.1" 200 OK
+2026-03-18T13:22:12.654Z INFO:     91.208.207.141:0 - "GET /session_data/tb0dm5ch HTTP/1.1" 200 OK
+2026-03-18T13:22:24.510Z INFO:     91.208.207.141:0 - "GET /export HTTP/1.1" 200 OK
+2026-03-18T13:22:24.565Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/download-alt.png HTTP/1.1" 200 OK
+2026-03-18T13:22:36.856Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:23:36.859Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:23:40.638Z INFO:     91.208.207.141:0 - "GET /export HTTP/1.1" 200 OK
+2026-03-18T13:23:42.637Z INFO:     91.208.207.141:0 - "GET /sessions HTTP/1.1" 200 OK
+2026-03-18T13:23:44.008Z INFO:     91.208.207.141:0 - "GET /SessionStartLinks/tb0dm5ch HTTP/1.1" 200 OK
+2026-03-18T13:23:45.481Z INFO:     91.208.207.141:0 - "GET /SessionData/tb0dm5ch HTTP/1.1" 200 OK
+2026-03-18T13:23:46.599Z INFO:     91.208.207.141:0 - "GET /session_data/tb0dm5ch HTTP/1.1" 200 OK
+2026-03-18T13:23:54.949Z INFO:     91.208.207.141:0 - "GET /ExportSessionWide/tb0dm5ch?token=d97d9f88 HTTP/1.1" 200 OK
+2026-03-18T13:23:59.364Z INFO:     91.208.207.141:0 - "GET /ExportSessionWide/tb0dm5ch?token=d97d9f88 HTTP/1.1" 200 OK
+2026-03-18T13:24:24.831Z INFO:     91.208.207.141:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:24:24.918Z INFO:     91.208.207.141:0 - "GET /demo HTTP/1.1" 200 OK
+2026-03-18T13:24:24.996Z INFO:     91.208.207.141:0 - "GET /static/otree/js/jquery-3.2.1.min.js HTTP/1.1" 304 Not Modified
+2026-03-18T13:24:24.998Z INFO:     91.208.207.141:0 - "GET /static/otree/js/internet-explorer.js HTTP/1.1" 304 Not Modified
+2026-03-18T13:24:25.000Z INFO:     91.208.207.141:0 - "GET /static/otree/js/reconnecting-websocket-iife.min.js HTTP/1.1" 304 Not Modified
+2026-03-18T13:24:25.002Z INFO:     91.208.207.141:0 - "GET /static/bootstrap5/js/bootstrap.bundle.min.js HTTP/1.1" 304 Not Modified
+2026-03-18T13:24:25.004Z INFO:     91.208.207.141:0 - "GET /static/bootstrap5/css/bootstrap.min.css HTTP/1.1" 304 Not Modified
+2026-03-18T13:24:25.006Z INFO:     91.208.207.141:0 - "GET /static/otree/css/theme.css HTTP/1.1" 304 Not Modified
+2026-03-18T13:24:25.008Z INFO:     91.208.207.141:0 - "GET /static/otree/js/common.js HTTP/1.1" 304 Not Modified
+2026-03-18T13:24:25.010Z INFO:     91.208.207.141:0 - "GET /static/otree/js/jquery.timeago.js HTTP/1.1" 304 Not Modified
+2026-03-18T13:24:25.012Z INFO:     91.208.207.141:0 - "GET /static/otree/js/jquery.timeago.en-short.js HTTP/1.1" 304 Not Modified
+2026-03-18T13:24:25.014Z INFO:     91.208.207.141:0 - "GET /static/otree/js/jquery.color-2.1.2.min.js HTTP/1.1" 304 Not Modified
+2026-03-18T13:24:25.016Z INFO:     91.208.207.141:0 - "GET /static/otree/css/table.css HTTP/1.1" 304 Not Modified
+2026-03-18T13:24:25.018Z INFO:     91.208.207.141:0 - "GET /static/otree/js/table-utils.js HTTP/1.1" 304 Not Modified
+2026-03-18T13:24:26.434Z INFO:     91.208.207.141:0 - "GET /export HTTP/1.1" 200 OK
+2026-03-18T13:24:26.498Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/download-alt.png HTTP/1.1" 304 Not Modified
+2026-03-18T13:24:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:25:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:26:12.939Z INFO:     91.208.207.141:0 - "GET /sessions HTTP/1.1" 200 OK
+2026-03-18T13:26:13.010Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/folder-closed.png HTTP/1.1" 304 Not Modified
+2026-03-18T13:26:13.013Z INFO:     91.208.207.141:0 - "GET /static/glyphicons/delete.png HTTP/1.1" 304 Not Modified
+2026-03-18T13:26:36.849Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:27:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:28:36.852Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:29:36.848Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:30:36.850Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:31:29.763Z INFO:     91.208.207.141:0 - "GET /SessionStartLinks/tb0dm5ch HTTP/1.1" 200 OK
+2026-03-18T13:31:31.903Z INFO:     91.208.207.141:0 - "GET /SessionMonitor/tb0dm5ch HTTP/1.1" 200 OK
+2026-03-18T13:31:36.855Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:32:36.854Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect
+2026-03-18T13:33:36.851Z INFO:     127.0.0.1:0 - "GET / HTTP/1.1" 307 Temporary Redirect

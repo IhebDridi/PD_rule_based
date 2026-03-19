@@ -361,6 +361,10 @@ class AgentProgramming(Page):
         # PART 3 — Optional delegation (rounds 21–30)
         # ==========================================
         elif current_part == 3:
+            # if self.participant.vars.get("matching_group_id", -1) < 0:
+            #     # Participant not matched → skip writing, but allow flow
+            #     self.participant.vars["agent_programming_done_part3"] = True
+            #     return
             decisions = self.participant.vars.get(
                 'agent_programming_part3', {}
             )
@@ -380,7 +384,7 @@ class BatchWaitForGroup(WaitPage):
     matching_group_id has arrived; then one request runs run_payoffs_for_matching_group and all
     proceed. Uses session key payoffs_run_matching_group_{gid}_part_{part} so payoffs run only once.
     """
-    template_name = 'PD_rule_based_delegation_1st/BatchWaitForGroup.html'
+    template_name = 'PD_rule_based_delegation_2nd/BatchWaitForGroup.html'
     def is_displayed(self):
         """At part boundaries (round 10, 20, 30): show if left lobby for this part and not yet in a formed results group."""
         r = self.round_number
@@ -404,6 +408,7 @@ class BatchWaitForGroup(WaitPage):
         _params = getattr(self.request, "GET", None) or getattr(self.request, "query_params", None)
         current_part = Constants.get_part(self.round_number)
         can_proceed_key = f"can_proceed_to_results_part_{current_part}"
+        ready_at_key = f"results_ready_at_part_{current_part}"
         pool_key = f"results_pool_part_{current_part}"
         joined_at_key = f"results_wait_joined_at_part_{current_part}"
 
@@ -420,19 +425,58 @@ class BatchWaitForGroup(WaitPage):
                 self.participant.vars[joined_at_key] = time.time()
 
         # If already assigned to a results group, go to Results.
+        # Update the shared results pool and maybe form a group for this part
+        self._update_results_pool_and_maybe_group()
+        # If already assigned to a results group, wait a minimum time before redirecting.
         if self.participant.vars.get(can_proceed_key):
+            now = time.time()
+            ready_at = self.participant.vars.get(ready_at_key)
+            if ready_at is None:
+                self.participant.vars[ready_at_key] = now
+                return self._get_wait_page()
+            if now - float(ready_at) < BATCH_WAIT_MIN_SECONDS:
+                return self._get_wait_page()
             return self._response_when_ready()
         return self._get_wait_page()
 
-    def vars_for_template(self):
+    def post(self):
+        """
+        Handle auto-refresh POSTs from oTree's wait page JS.
+        We mirror the GET logic so that participants who already have
+        can_proceed_to_results_part_X set are redirected without needing
+        a full manual refresh.
+        """
         current_part = Constants.get_part(self.round_number)
+        can_proceed_key = f"can_proceed_to_results_part_{current_part}"
+        ready_at_key = f"results_ready_at_part_{current_part}"
+        # Pool/group update is idempotent when a group is already formed.
+        self._update_results_pool_and_maybe_group()
+        if self.participant.vars.get(can_proceed_key):
+            now = time.time()
+            ready_at = self.participant.vars.get(ready_at_key)
+            if ready_at is None:
+                self.participant.vars[ready_at_key] = now
+                return self._get_wait_page()
+            if now - float(ready_at) < BATCH_WAIT_MIN_SECONDS:
+                return self._get_wait_page()
+            return self._response_when_ready()
+        return self._get_wait_page()
+
+    def _update_results_pool_and_maybe_group(self):
+        """Side-effect helper: add self to pool and, if pool has 3, form group and run payoffs."""
+        current_part = Constants.get_part(self.round_number)
+        can_proceed_key = f"can_proceed_to_results_part_{current_part}"
+        # If this participant is already assigned to a results group for this part,
+        # never re-add them to the pool (prevents re-matching while they are still on the wait page).
+        if self.participant.vars.get(can_proceed_key):
+            return
         pool_key = f'results_pool_part_{current_part}'
         group_size = getattr(Constants, 'FIXED_GROUP_SIZE', 3)
         participants = self.session.get_participants()
         lock_key = f'_results_pool_lock_part_{current_part}'
         first_join_key = f'results_first_join_part_{current_part}'
         joined_at_key = f'results_wait_joined_at_part_{current_part}'
-        timeout_seconds = 300  # 5 minutes: show wait-or-quit only after this participant has waited this long
+        ready_at_key = f"results_ready_at_part_{current_part}"
         if pool_key not in self.session.vars:
             self.session.vars[pool_key] = []
         now = time.time()
@@ -450,8 +494,10 @@ class BatchWaitForGroup(WaitPage):
                     self.participant.vars[joined_at_key] = now  # per-participant: when they joined the wait
                 pool = list(self.session.vars.get(pool_key, []))
                 if len(pool) >= group_size:
-                    first_ids = pool[:group_size]
-                    self.session.vars[pool_key] = pool[group_size:]
+                    # Form group by smallest id_in_session so P1,P2,P3 form first, then P4,P5,P6, etc.
+                    pool_sorted = sorted(pool)
+                    first_ids = pool_sorted[:group_size]
+                    self.session.vars[pool_key] = pool_sorted[group_size:]
                     next_batch_key = f'results_next_batch_id_part_{current_part}'
                     batch_id = self.session.vars.get(next_batch_key, 0)
                     self.session.vars[next_batch_key] = batch_id + 1
@@ -471,8 +517,23 @@ class BatchWaitForGroup(WaitPage):
                         for p in participants:
                             if p.id_in_session in first_ids:
                                 p.vars[f'can_proceed_to_results_part_{current_part}'] = True
+                                # start each participant's minimum wait window from the moment the group is formed
+                                p.vars[ready_at_key] = now
             finally:
                 self.session.vars[lock_key] = False
+
+    def vars_for_template(self):
+        current_part = Constants.get_part(self.round_number)
+        pool_key = f'results_pool_part_{current_part}'
+        group_size = getattr(Constants, 'FIXED_GROUP_SIZE', 3)
+        first_join_key = f'results_first_join_part_{current_part}'
+        joined_at_key = f'results_wait_joined_at_part_{current_part}'
+        timeout_seconds = 300  # 5 minutes: show wait-or-quit only after this participant has waited this long
+        now = time.time()
+        if pool_key not in self.session.vars:
+            self.session.vars[pool_key] = []
+        if first_join_key not in self.session.vars:
+            self.session.vars[first_join_key] = now
         n_in_pool = len(self.session.vars.get(pool_key, []))
         # Show wait-or-quit only if pool still has < 3 AND this participant has personally waited >= 5 minutes.
         joined_at = self.participant.vars.get(joined_at_key, now)
@@ -555,11 +616,12 @@ class DelegationDecision(Page):
         # copy decision into ALL Part 3 rounds (21–30)
         start_round = 2 * Constants.rounds_per_part + 1  # 21
         end_round = 3 * Constants.rounds_per_part        # 30
+        self.participant.vars["entered_part3"] = True
 
         for r in range(start_round, end_round + 1):
             self.player.in_round(r).delegate_decision_optional = (
-                self.player.delegate_decision_optional
-            )
+                    self.player.delegate_decision_optional
+                )
 
 
 # =============================================================================
@@ -635,7 +697,12 @@ class Results(Page):
             rr = player.in_round(r)
             my_choice = rr.field_maybe_none("choice")
             other_choice = None
-            payoff_val = rr.payoff
+            # Start from the underlying numeric payoff so templates can show an integer instead of a Currency string.
+            raw_payoff = getattr(rr.payoff, "amount", rr.payoff) if rr.payoff is not None else 0
+            try:
+                payoff_val = int(raw_payoff)
+            except (TypeError, ValueError):
+                payoff_val = 0
             if assignments and my_pos and 1 <= my_pos <= len(member_ids):
                 round_in_part = r - part_start
                 opp_idx, _ = assignments[my_pos - 1][round_in_part]
@@ -644,12 +711,15 @@ class Results(Page):
                 opp = players_map.get(opp_sid) if opp_sid else None
                 other_choice = opp.field_maybe_none("choice") if opp else None
                 # If payoff is missing/0 but both choices exist, compute directly (avoid group.set_payoffs on giant group).
-                raw_pay = getattr(rr.payoff, "amount", rr.payoff) if rr.payoff is not None else 0
-                if raw_pay == 0 and my_choice and other_choice:
+                if raw_payoff == 0 and my_choice and other_choice:
                     pay = Constants.PD_PAYOFFS.get((my_choice, other_choice))
                     if pay is not None:
                         rr.payoff = cu(pay[0])
-                        payoff_val = rr.payoff
+                        raw_payoff = getattr(rr.payoff, "amount", rr.payoff)
+                        try:
+                            payoff_val = int(raw_payoff)
+                        except (TypeError, ValueError):
+                            payoff_val = 0
             rounds_data.append({
                 "round": r - (current_part - 1) * Constants.rounds_per_part,
                 "my_choice": my_choice,
@@ -713,18 +783,21 @@ class GuessDelegation(Page):
             guess = getattr(self.player, guess_field)
 
             #  1. store the per‑round guess explicitly
-            setattr(future_player, guess_field, guess)
+            if self.participant.vars.get("matching_group_id", -1) >= 0:
+                setattr(future_player, guess_field, guess)
 
             #  2. store unified guess field (used elsewhere)
-            future_player.guess_opponent_delegated = guess
+            if self.participant.vars.get("matching_group_id", -1) >= 0:
+                future_player.guess_opponent_delegated = guess
 
-            #  3. compute and ALWAYS store payoff (10 cents per correct → 10 correct = $1 total)
-            other = get_opponent_in_round(self.player, r)
-            actual = bool(other and other.field_maybe_none("delegate_decision_optional"))
+            #  3. compute and ALWAYS store payoff
+            if self.participant.vars.get("matching_group_id", -1) >= 0:
+                other = get_opponent_in_round(self.player, r)
+                actual = bool(other and other.field_maybe_none("delegate_decision_optional"))
 
-            future_player.guess_payoff = (
-                cu(10) if (guess == 'yes') == actual else cu(0)
-            )
+                future_player.guess_payoff = (
+                    cu(10) if (guess == 'yes') == actual else cu(0)
+                )
 
         self.participant.vars['guess_submitted'] = True
 
@@ -761,21 +834,27 @@ class Debriefing(Page):
             ):
                 me = self.player.in_round(r)
                 other = get_opponent_in_round(self.player, r)
+                # Convert Currency payoff to a plain integer number of Ecoins for display in the Debriefing template.
+                raw_payoff = getattr(me.payoff, "amount", me.payoff) if me.payoff is not None else 0
+                try:
+                    display_payoff = int(raw_payoff)
+                except (TypeError, ValueError):
+                    display_payoff = 0
                 part_data.append({
                     "round": r - (part - 1) * Constants.rounds_per_part,
                     "my_choice": me.field_maybe_none("choice"),
                     "other_choice": other.field_maybe_none("choice") if other else None,
                     "other_delegated": bool(other and other.field_maybe_none("delegate_decision_optional")),
-                    "payoff": me.payoff,
+                    "payoff": display_payoff,
                 })
 
-                total += me.payoff or 0
+                total += raw_payoff or 0
 
 
 
             results_by_part[part] = {
                 "rounds": part_data,
-                "total_payoff": total,
+                "total_payoff": int(total) if total is not None else 0,
             }
         # ==============================
         # ADDITION: Part 4 results table

@@ -25,3 +25,5 @@ otree prodserver 9000
 #     EXECUTE 'DROP TABLE IF EXISTS public.' || quote_ident(r.relname) || ' CASCADE';
 #   END LOOP;
 # END $$;
+
+otree migrate

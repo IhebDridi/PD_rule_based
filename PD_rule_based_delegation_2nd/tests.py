@@ -223,6 +223,7 @@ def _exit_form():
         'part_3_feedback_other': '',
         'part_4_feedback': random.choice(['expected_del_A', 'expected_no_del_A', 'same_action', 'opposite_action', 'random']),
         'part_4_feedback_other': '',
+        'used_ai_or_bot': random.choice(['ai_did_everything', 'ai_advisor', 'ai_translate', 'no_distracted', 'no_other_tabs', 'no_focused']),
         'feedback': '',
     }
 

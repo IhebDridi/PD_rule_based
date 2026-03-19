@@ -411,6 +411,18 @@ class Player(BasePlayer):
         label="Other reason, specify:",
     )
 
+    used_ai_or_bot = models.StringField(
+        choices=[
+            ('ai_did_everything', "Yes, I didn't even read the text; the AI did everything."),
+            ('ai_advisor', 'Yes, as an advisor on what to do.'),
+            ('ai_translate', 'Yes, to help me translate the task.'),
+            ('no_distracted', 'No, but I was a bit distracted throughout the study.'),
+            ('no_other_tabs', 'No, but I had some other tabs opened while waiting.'),
+            ('no_focused', 'No, and I was fully focused on the study during the entire time.'),
+        ],
+        label="Did you use some type of AI agent or bot to answer our survey (apart from the ones provided to you in the experiment)? (Answer truthfully, your answer here will not impact your earnings.)",
+        widget=widgets.RadioSelect,
+    )
 
     feedback = models.LongStringField(
         blank=True,                # optional
@@ -867,6 +879,7 @@ def custom_export(players):
         "Part3FeedbackOther",
         "Part4Feedback",
         "Part4FeedbackOther",
+        "UsedAiOrBot",
         "FeedbackFreeText",
     ]
     for r in range(1, 31):
@@ -939,6 +952,7 @@ def custom_export(players):
             row["Part3FeedbackOther"] = fld(p_last, "part_3_feedback_other")
             row["Part4Feedback"] = fld(p_last, "part_4_feedback")
             row["Part4FeedbackOther"] = fld(p_last, "part_4_feedback_other")
+            row["UsedAiOrBot"] = fld(p_last, "used_ai_or_bot")
             row["FeedbackFreeText"] = fld(p_last, "feedback")
 
             part_totals = [0.0, 0.0, 0.0]

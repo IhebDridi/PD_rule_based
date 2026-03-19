@@ -1003,6 +1003,7 @@ class ExitQuestionnaire(Page):
         'part_3_feedback_other',
         'part_4_feedback',
         'part_4_feedback_other',
+        'used_ai_or_bot',   # AI/bot use outside experiment
         'feedback',         # optional free text ≤ 1000 chars
 
     ]

@@ -2,7 +2,7 @@
 
 export DATABASE_URL=${POSTGRESQL_ADDON_URI}
 
-otree migrate
+# Note: otree migrate is not available in this oTree CLI; run ALTER TABLE manually if you add new Player fields.
 
 otree prodserver 9000
 

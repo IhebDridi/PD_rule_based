@@ -1,5 +1,6 @@
 #!/bin/bash
 
+otree migrate
 export DATABASE_URL=${POSTGRESQL_ADDON_URI}
 
 #echo y | otree resetdb
@@ -26,4 +27,3 @@ otree prodserver 9000
 #   END LOOP;
 # END $$;
 
-otree migrate

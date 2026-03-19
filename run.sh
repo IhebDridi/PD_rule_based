@@ -4,6 +4,9 @@ export DATABASE_URL=${POSTGRESQL_ADDON_URI}
 
 # Note: otree migrate is not available in this oTree CLI; run ALTER TABLE manually if you add new Player fields.
 
+# Reset DB so All apps export works (wipes all session/participant data)
+otree resetdb --noinput
+
 otree prodserver 9000
 
 # DO $$

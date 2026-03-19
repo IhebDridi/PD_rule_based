@@ -3,9 +3,7 @@
 export DATABASE_URL=${POSTGRESQL_ADDON_URI}
 
 # Note: otree migrate is not available in this oTree CLI; run ALTER TABLE manually if you add new Player fields.
-
-# Reset DB so All apps export works (wipes all session/participant data)
-otree resetdb --noinput
+# Note: otree resetdb fails on PostGIS DBs (cannot drop spatial_ref_sys). To clear data, use truncate_otree_tables.sql or run fix_wide_export_one_session.sql for one session.
 
 otree prodserver 9000
 

@@ -314,3 +314,25 @@ else:
             _db['CONN_HEALTH_CHECKS'] = True
     except NameError:
         pass
+
+# -----------------------------------------------------------------------------
+# SQLAlchemy pool resilience for cloud PostgreSQL (e.g. Clever Cloud):
+# - pool_pre_ping=True: validates pooled connection before use.
+# - pool_recycle=240: recycles before ~5 minute server idle timeout.
+# This guards against "SSL error: unexpected eof" when stale pooled
+# connections are reused after inactivity.
+# -----------------------------------------------------------------------------
+try:
+    import sqlalchemy.engine.create as _sa_create
+
+    _orig_sa_create_engine = _sa_create.create_engine
+
+    def _create_engine_with_pool_guards(*args, **kwargs):
+        kwargs.setdefault("pool_pre_ping", True)
+        kwargs.setdefault("pool_recycle", int(environ.get("SQLALCHEMY_POOL_RECYCLE_SECONDS", "240")))
+        return _orig_sa_create_engine(*args, **kwargs)
+
+    _sa_create.create_engine = _create_engine_with_pool_guards
+except Exception:
+    # Keep startup robust if SQLAlchemy internals differ in a given runtime.
+    pass

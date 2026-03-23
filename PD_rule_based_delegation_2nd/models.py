@@ -15,6 +15,8 @@ import random
 import sys
 from collections import defaultdict
 
+from models_classes import creating_session_mark_unmatched, set_payoffs_pd_batch_group
+
 # Prefix for cache-miss / fallback logs (visible in terminal; use DEBUG or run with otree runserver).
 RESULTS_DISPLAY_CACHE_LOG_PREFIX = "[results_display_cache]"
 
@@ -233,11 +235,7 @@ def get_opponent_in_round_cached(player, round_number, round_players_cache):
 
 class Subsession(BaseSubsession):
     def creating_session(self):
-        """Run once per subsession. Round 1 only: set matching_group_id = -1 so everyone is 'not yet released'."""
-        if self.round_number == 1:
-            for p in self.get_players():
-                p.participant.vars['matching_group_id'] = -1
-
+        creating_session_mark_unmatched(self)
 
 
 # =============================================================================
@@ -246,44 +244,7 @@ class Subsession(BaseSubsession):
 
 class Group(BaseGroup):
     def set_payoffs(self):
-        """
-        Set payoff for each player in this group. Single-player → 0. For N >= 3: if all share
-        the same matching_group_id >= 0 (released batch), use round-robin and PD matrix; otherwise
-        (waiting group or mixed) set payoff 0 for everyone.
-        """
-        players = self.get_players()
-        if len(players) == 1:
-            players[0].payoff = cu(0)
-            return
-        if len(players) >= 3:
-            # Only run round-robin payoffs if everyone is in the same released batch (matching_group_id >= 0).
-            gids = [p.participant.vars.get("matching_group_id", -1) for p in players]
-            if all(g >= 0 for g in gids) and len(set(gids)) == 1:
-                rnd = self.round_number
-                for p in players:
-                    opp = get_opponent_in_round(p, rnd)
-                    if opp is None:
-                        p.payoff = cu(0)
-                        continue
-                    c1 = p.field_maybe_none("choice")
-                    c2 = opp.field_maybe_none("choice")
-                    if c1 is None or c2 is None:
-                        p.payoff = cu(0)
-                        continue
-                    pay = Constants.PD_PAYOFFS.get((c1, c2))
-                    if pay is not None:
-                        p.payoff = cu(pay[0])
-                    else:
-                        p.payoff = cu(0)
-                return
-            # "Waiting" group (others not yet released): payoff 0 for all.
-            for p in players:
-                p.payoff = cu(0)
-            return
-        players[0].payoff = cu(0)
-        if len(players) > 1:
-            for p in players[1:]:
-                p.payoff = cu(0)
+        set_payoffs_pd_batch_group(self)
 
 
 
@@ -964,16 +925,21 @@ def custom_export(players):
             if not rounds:
                 continue
             p0 = rounds[0]
+            is_simulated = bool(pvars(p0, "is_simulated"))
+            prolific_id = _safe_fld(p0, "prolific_id")
+            # Drop ghost/unmatched export rows (typically placeholders with no prolific ID and no matching group).
+            if (not is_simulated) and (not prolific_id):
+                continue
             row = dict.fromkeys(header, "")
 
-            row["Condition"] = "rule2nd"
+            row["Condition"] = "rule1st" if Constants.DELEGATION_FIRST else "rule2nd"
             row["ProlificID"] = (
-                "SIMULATED" if pvars(p0, "is_simulated") else (_safe_fld(p0, "prolific_id") or "")
+                "SIMULATED" if is_simulated else (prolific_id or "")
             )
             row["Session"] = getattr(getattr(p0, "session", None), "code", "") or ""
             row["Group"] = pvars(p0, "matching_group_id")
             row["PlayerID"] = pvars(p0, "matching_group_position")
-            row["IsSimulated"] = 1 if pvars(p0, "is_simulated") else 0
+            row["IsSimulated"] = 1 if is_simulated else 0
             p_last = rounds[-1] if rounds else p0
             row["Gender"] = _safe_fld(p_last, "gender")
             row["Age"] = _safe_fld(p_last, "age")
@@ -1036,7 +1002,6 @@ def custom_export(players):
                     row[part_key] = 0
 
             n_rounds = len(rounds)
-            has_real_opponent = pvars(p0, "matching_group_id", -1) >= 0
 
             for i in range(1, 11):
                 idx = 19 + i
@@ -1046,13 +1011,10 @@ def custom_export(players):
 
                 row[f"Guess{i}"] = 1 if _safe_fld(pr, "guess_opponent_delegated") == "yes" else 0
 
-                if has_real_opponent:
-                    other = _safe_opponent_for_export(pr, 20 + i)
-                    row[f"TruthGuess{i}"] = 1 if (
-                        other and _safe_fld(other, "delegate_decision_optional")
-                    ) else 0
-                else:
-                    row[f"TruthGuess{i}"] = ""
+                other = _safe_opponent_for_export(pr, 20 + i)
+                row[f"TruthGuess{i}"] = 1 if (
+                    other and _safe_fld(other, "delegate_decision_optional")
+                ) else 0
                 gpay_float = _pay_export_amount(_safe_fld(pr, "guess_payoff"))
                 # Export guess earnings in dollars (10 → 0.1).
                 row[f"EarningsGuess{i}Dollars"] = round(gpay_float / 100.0, 4)
@@ -1200,8 +1162,6 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
     choices for all rounds in the part before running payoffs (avoids None opponent choices
     when many bots/participants run concurrently).
     """
-    import time as _time
-    _time.sleep(0.5)  # Brief moment so last arriver's choice can commit
     rnd = subsession.round_number
     current_part = Constants.get_part(rnd)
     if current_part == 1:
@@ -1212,6 +1172,9 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
         start, end = 21, 30
     else:
         return
+    run_key = f"payoffs_run_matching_group_{matching_group_id}_part_{current_part}"
+    if subsession.session.vars.get(run_key):
+        return True
     # Fast path: if we have the 3 member ids stored, compute payoffs directly without rewriting group matrix.
     key = f"matching_group_members_part_{current_part}_{matching_group_id}"
     member_ids = subsession.session.vars.get(key)
@@ -1232,16 +1195,9 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                         return False
             return True
 
-        # Polling schedule (low read frequency): check immediately, then at 5s, 10s, then every 2s up to ~3 minutes.
+        # Fast exit: try again on next wait-page refresh instead of blocking this worker.
         if not _all_choices_ready_for_three():
-            _time.sleep(5)
-            if not _all_choices_ready_for_three():
-                _time.sleep(5)
-                if not _all_choices_ready_for_three():
-                    for _ in range(85):
-                        _time.sleep(2)
-                        if _all_choices_ready_for_three():
-                            break
+            return False
 
         # Compute payoffs round-by-round using round-robin within these 3 players.
         N = len(member_ids)
@@ -1277,7 +1233,8 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                 p.participant.vars["results_display_cache"] = existing
         except Exception as e:
             _log_cache_miss("run_payoffs_write", getattr(players_start[0].participant, "id", None), str(e), debug_extra=str(e))
-        return
+        subsession.session.vars[run_key] = True
+        return True
     # Find the group (same 3 players in every round)
     round_ss = subsession.in_round(start)
     all_players = list(round_ss.get_players())
@@ -1309,16 +1266,9 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                     return False
         return True
 
-    # Polling (fewer reads): check immediately, then at 5s, 10s, then every 2s (up to ~3 minutes).
+    # Fast exit: try again on next wait-page refresh instead of blocking this worker.
     if not _all_choices_ready():
-        _time.sleep(5)
-        if not _all_choices_ready():
-            _time.sleep(5)
-            if not _all_choices_ready():
-                for _ in range(85):
-                    _time.sleep(2)
-                    if _all_choices_ready():
-                        break
+        return False
     for r in range(start, end + 1):
         round_ss = subsession.in_round(r)
         all_players_r = list(round_ss.get_players())
@@ -1332,4 +1282,6 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                 continue
             players[0].group.set_payoffs()
             break
+    subsession.session.vars[run_key] = True
+    return True
 

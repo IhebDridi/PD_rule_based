@@ -39,7 +39,7 @@ class Constants(BaseConstants):
     PROLIFIC_SHOWUP_FEE_URL = 'https://app.prolific.com/submissions/complete?cc=C13FZEI3'
 
     # Part order: False = Part 1 No delegation, Part 2 Delegation (rule2nd). True = Part 1 Delegation, Part 2 No delegation.
-    DELEGATION_FIRST = True
+    DELEGATION_FIRST = False
 
     PD_PAYOFFS = {
         ('A', 'A'): (70, 70),
@@ -368,6 +368,19 @@ class Player(BasePlayer):
     part_4_feedback_other = models.LongStringField(
         blank=True,
         label="Other reason, specify:",
+    )
+
+    used_ai_or_bot = models.StringField(
+        choices=[
+            ('ai_did_everything', "Yes, I didn't even read the text; the AI did everything."),
+            ('ai_advisor', 'Yes, as an advisor on what to do.'),
+            ('ai_translate', 'Yes, to help me translate the task.'),
+            ('no_distracted', 'No, but I was a bit distracted throughout the study.'),
+            ('no_other_tabs', 'No, but I had some other tabs opened while waiting.'),
+            ('no_focused', 'No, and I was fully focused on the study during the entire time.'),
+        ],
+        label="Did you use some type of AI agent or bot to answer our survey (apart from the ones provided to you in the experiment)? (Answer truthfully, your answer here will not impact your earnings.)",
+        widget=widgets.RadioSelect,
     )
 
 
@@ -892,17 +905,24 @@ def custom_export(players):
     for code, rounds in by_participant.items():
         try:
             rounds = sorted(rounds, key=lambda p: p.round_number)
+            if not rounds:
+                continue
             p0 = rounds[0]
+            is_simulated = bool(pvars(p0, "is_simulated"))
+            prolific_id = fld(p0, "prolific_id")
+            # Drop ghost/unmatched export rows (typically placeholders with no prolific ID and no matching group).
+            if (not is_simulated) and (not prolific_id):
+                continue
             row = dict.fromkeys(header, "")
 
-            row["Condition"] = "rule2nd"
+            row["Condition"] = "llm1st" if Constants.DELEGATION_FIRST else "llm2nd"
             row["ProlificID"] = (
-                "SIMULATED" if pvars(p0, "is_simulated") else fld(p0, "prolific_id")
+                "SIMULATED" if is_simulated else prolific_id
             )
             row["Session"] = p0.session.code
             row["Group"] = pvars(p0, "matching_group_id")
             row["PlayerID"] = pvars(p0, "matching_group_position")
-            row["IsSimulated"] = 1 if pvars(p0, "is_simulated") else 0
+            row["IsSimulated"] = 1 if is_simulated else 0
             p_last = rounds[-1] if rounds else p0
             row["Gender"] = fld(p_last, "gender")
             row["Age"] = fld(p_last, "age")
@@ -917,10 +937,8 @@ def custom_export(players):
 
             part_totals = [0.0, 0.0, 0.0]
             for pr in rounds:
-                gid = pvars(pr, "matching_group_id", -1)
-                has_real_opponent = gid is not None and gid >= 0
                 r = pr.round_number
-                other = _opponent_for_export(pr, r, round_data, rr_cache) if has_real_opponent else None
+                other = _opponent_for_export(pr, r, round_data, rr_cache)
                 row[f"Round{r}Decision"] = (
                     fld(pr, "choice") if fld(pr, "choice") is not None else ""
                 )
@@ -972,8 +990,6 @@ def custom_export(players):
                     row[part_key] = 0
 
             n_rounds = len(rounds)
-            has_real_opponent = pvars(p0, "matching_group_id", -1) >= 0
-
             for i in range(1, 11):
                 idx = 19 + i
                 pr = rounds[idx] if idx < n_rounds else None
@@ -982,13 +998,10 @@ def custom_export(players):
 
                 row[f"Guess{i}"] = 1 if fld(pr, "guess_opponent_delegated") == "yes" else 0
 
-                if has_real_opponent:
-                    other = _opponent_for_export(pr, 20 + i, round_data, rr_cache)
-                    row[f"TruthGuess{i}"] = 1 if (
-                        other and fld(other, "delegate_decision_optional")
-                    ) else 0
-                else:
-                    row[f"TruthGuess{i}"] = ""
+                other = _opponent_for_export(pr, 20 + i, round_data, rr_cache)
+                row[f"TruthGuess{i}"] = 1 if (
+                    other and fld(other, "delegate_decision_optional")
+                ) else 0
                 gpay = fld(pr, "guess_payoff") or 0
                 try:
                     gpay_float = float(gpay)
@@ -1075,8 +1088,6 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
     choices for all rounds in the part before running payoffs (avoids None opponent choices
     when many bots/participants run concurrently).
     """
-    import time as _time
-    _time.sleep(0.5)  # Brief moment so last arriver's choice can commit
     rnd = subsession.round_number
     current_part = Constants.get_part(rnd)
     if current_part == 1:
@@ -1087,6 +1098,9 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
         start, end = 21, 30
     else:
         return
+    run_key = f"payoffs_run_matching_group_{matching_group_id}_part_{current_part}"
+    if subsession.session.vars.get(run_key):
+        return True
     # Fast path: if we have the 3 member ids stored, compute payoffs directly without rewriting group matrix.
     key = f"matching_group_members_part_{current_part}_{matching_group_id}"
     member_ids = subsession.session.vars.get(key)
@@ -1107,16 +1121,9 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                         return False
             return True
 
-        # Polling schedule (low read frequency): check immediately, then at 5s, 10s, then every 2s up to ~3 minutes.
+        # Fast exit: try again on next wait-page refresh instead of blocking this worker.
         if not _all_choices_ready_for_three():
-            _time.sleep(5)
-            if not _all_choices_ready_for_three():
-                _time.sleep(5)
-                if not _all_choices_ready_for_three():
-                    for _ in range(85):
-                        _time.sleep(2)
-                        if _all_choices_ready_for_three():
-                            break
+            return False
 
         # Compute payoffs round-by-round using round-robin within these 3 players.
         N = len(member_ids)
@@ -1138,7 +1145,8 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                 else:
                     pay = Constants.PD_PAYOFFS.get((c1, c2))
                     p.payoff = cu(pay[0]) if pay is not None else cu(0)
-        return
+        subsession.session.vars[run_key] = True
+        return True
     # Find the group (same 3 players in every round)
     round_ss = subsession.in_round(start)
     all_players = list(round_ss.get_players())
@@ -1170,16 +1178,9 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                     return False
         return True
 
-    # Polling (fewer reads): check immediately, then at 5s, 10s, then every 2s (up to ~3 minutes).
+    # Fast exit: try again on next wait-page refresh instead of blocking this worker.
     if not _all_choices_ready():
-        _time.sleep(5)
-        if not _all_choices_ready():
-            _time.sleep(5)
-            if not _all_choices_ready():
-                for _ in range(85):
-                    _time.sleep(2)
-                    if _all_choices_ready():
-                        break
+        return False
     for r in range(start, end + 1):
         round_ss = subsession.in_round(r)
         all_players_r = list(round_ss.get_players())
@@ -1193,4 +1194,6 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                 continue
             players[0].group.set_payoffs()
             break
+    subsession.session.vars[run_key] = True
+    return True
 

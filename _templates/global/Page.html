@@ -4,12 +4,14 @@
 {% block title %}
 {% endblock %}
 
-{% block global_styles %}
-    <!-- Add any global styles here -->
+{% block styles %}
+    {{ block.super }}
+    <link rel="stylesheet" href="{% static 'global_app.css' %}?v=1">
 {% endblock %}
 
-{% block global_scripts %}
-    <!-- Add any global scripts here -->
+{% block scripts %}
+    {{ block.super }}
+    <script defer src="{% static 'global_app.js' %}?v=1"></script>
 {% endblock %}
 
 {% block content %}

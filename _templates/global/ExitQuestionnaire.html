@@ -54,59 +54,6 @@
     </form>
 </div>
 
-<style>
-body{font-family:'Arial',sans-serif;background:#f9f9f9;margin:0;color:#333;}
-.modern-test-container{max-width:900px;margin:30px auto;background:#fff;padding:20px;border-radius:8px;box-shadow:0 4px 20px rgba(0,0,0,0.1);} 
-.main-title{font-size:30px;text-align:center;margin-bottom:20px;font-weight:bold;color:#333;border-bottom:3px solid #0056b3;padding-bottom:10px;} 
-.question-container{margin-bottom:20px;} 
-.question-label, .otree-form-field label{font-size:18px;font-weight:bold;color:#0056b3;display:block;margin-bottom:6px;} 
-.otree-form-field{margin-bottom:12px;} 
-.divider{border:none;border-top:1px solid #e0e0e0;margin:20px 0;} 
-.modern-btn{display:block;width:100%;max-width:220px;margin:25px auto;padding:12px 18px;font-size:18px;color:#fff;background:#0056b3;border:none;border-radius:6px;cursor:pointer;transition:background .3s;text-align:center;} 
-.modern-btn:hover{background:#003d80;} 
-.errorlist{color:#d9534f;margin:4px 0;list-style:none;font-size:13px;}
-.global-error{margin-bottom:15px;}
-.inline-other {
-    margin-left: 10px;
-    display: inline-block;
-}
 
-.inline-other input {
-    width: 160px;
-    padding: 4px 6px;
-    font-size: 14px;
-}
-@media(max-width:768px){.modern-test-container{padding:15px;}.main-title{font-size:26px;}.question-label, .otree-form-field label{font-size:16px;}}
-.bot-check-hidden{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;}
-</style>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
 
-    function setupToggle(radioName, otherContainerId, otherValue) {
-        const radios = document.querySelectorAll(`input[name="${radioName}"]`);
-        const otherBox = document.getElementById(otherContainerId);
-
-        if (!radios.length || !otherBox) return;
-
-        function toggleOther() {
-            const selected = document.querySelector(`input[name="${radioName}"]:checked`);
-            if (selected && selected.value === otherValue) {
-                otherBox.style.display = 'block';
-            } else {
-                otherBox.style.display = 'none';
-            }
-        }
-
-        radios.forEach(r => r.addEventListener('change', toggleOther));
-        toggleOther(); // ✅ handle reloads / validation errors
-    }
-
-    // ✅ Part 3
-    setupToggle('part_3_feedback', 'part3-other-container', 'part_3_other');
-
-    // ✅ Part 4
-    setupToggle('part_4_feedback', 'part4-other-container', 'part_4_other');
-
-});
-</script>
 {% endblock %}

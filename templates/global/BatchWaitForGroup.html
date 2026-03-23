@@ -19,14 +19,7 @@
 {% block internal_scripts %}
     {{ super() }}
     {% if not show_wait_or_quit_results %}
-        <script>
-            (function() {
-                // Lightweight safety refresh so custom get/post logic keeps advancing
-                // even if the browser misses some wait-page polling events.
-                var refreshSeconds = 10 + Math.floor(Math.random() * 3); // 10-12s jitter
-                setTimeout(function() { window.location.reload(); }, refreshSeconds * 1000);
-            })();
-        </script>
+        
     {% endif %}
 {% endblock %}
 

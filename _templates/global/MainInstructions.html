@@ -18,8 +18,13 @@
         <div class="content-box">
             <p>The experiment consists of four parts:</p>
             <ul>
-                <li><strong>Part {{ part_no_delegation }}: </strong>10 rounds of an interactive task where you make all the decisions yourself in each round.</li>
-                <li><strong>Part {{ part_delegation }}: </strong>10 rounds of an interactive task where you delegate all decisions to an artificial delegate. Before the task begins, you will provide instructions for the delegate to follow.</li>
+                {% if part_delegation == 1 %}
+                <li><strong>Part 1: </strong>10 rounds of an interactive task where you delegate all decisions to an artificial delegate. Before the task begins, you will provide instructions for the delegate to follow.</li>
+                <li><strong>Part 2: </strong>10 rounds of an interactive task where you make all the decisions yourself in each round.</li>
+                {% else %}
+                <li><strong>Part 1: </strong>10 rounds of an interactive task where you make all the decisions yourself in each round.</li>
+                <li><strong>Part 2: </strong>10 rounds of an interactive task where you delegate all decisions to an artificial delegate. Before the task begins, you will provide instructions for the delegate to follow.</li>
+                {% endif %}
                 <li><strong>Part 3: </strong>10 rounds of an interactive task where you decide before the part begins whether to delegate all decisions to the artificial delegate (as in Part {{ part_delegation }}) or make all decisions yourself (as in Part {{ part_no_delegation }}).</li>
                 <li><strong>Part 4: </strong>A guessing game (non-interactive), where you can earn up to $1 extra based on your answers.</li>
 

@@ -96,9 +96,14 @@
         <h3>Experiment Structure</h3>
         <p>The experiment consists of four parts:</p>
         <ul>
+            {% if part_delegation == 1 %}
+            <li><strong>Part 1:</strong> 10 rounds of an interactive task where you delegate all decisions to an artificial delegate. Before the task begins, you will provide instructions for the delegate to follow.</li>
+            <li><strong>Part 2:</strong> 10 rounds of an interactive task where you make all the decisions yourself in each round.</li>
+            {% else %}
             <li><strong>Part 1:</strong> 10 rounds of an interactive task where you make all the decisions yourself in each round.</li>
             <li><strong>Part 2:</strong> 10 rounds of an interactive task where you delegate all decisions to an artificial delegate. Before the task begins, you will provide instructions for the delegate to follow.</li>
-            <li><strong>Part 3:</strong> 10 rounds of an interactive task where <strong>you decide before the part begins</strong> whether to delegate all decisions to the artificial delegate (as in Part 2) or make all decisions yourself (as in Part 1).</li>
+            {% endif %}
+            <li><strong>Part 3:</strong> 10 rounds of an interactive task where <strong>you decide before the part begins</strong> whether to delegate all decisions to the artificial delegate (as in Part {{ part_delegation }}) or make all decisions yourself (as in Part {{ part_no_delegation }}).</li>
             <li><strong>Part 4:</strong> A guessing game (non-interactive), where you can earn up to $1 extra based on your answers.</li>
         </ul>
         <p>Between each round of the interactive tasks (Parts 1–3), you will be randomly rematched with a different participant. This means you will interact with many different people, <strong>not the same person throughout</strong>.</p>

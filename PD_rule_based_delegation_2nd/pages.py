@@ -133,9 +133,13 @@ class ComprehensionTest(Page):
         self.player.comprehension_attempts += 1
         attempts_left = 3 - self.player.comprehension_attempts
 
+        # Display as q1–q7 in the error message (q1→q1, q2→q2, q6→q3, q7→q4, q8→q5, q9→q6, q10→q7)
+        field_to_display = {'q1': 'q1', 'q2': 'q2', 'q6': 'q3', 'q7': 'q4', 'q8': 'q5', 'q9': 'q6', 'q10': 'q7'}
+        display_incorrect = [field_to_display.get(q, q) for q in incorrect]
+
         if attempts_left > 0:
             msg = (
-                f"You have failed questions: {', '.join(incorrect)}. "
+                f"You have failed questions {', '.join(display_incorrect)}. "
                 f"You have {attempts_left} attempt(s) remaining."
             )
             self.participant.vars["comp_error_message"] = msg

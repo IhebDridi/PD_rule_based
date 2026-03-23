@@ -852,9 +852,13 @@ def custom_export(players):
             continue
         by_group = defaultdict(list)
         for p in by_round[r]:
-            gid = getattr(p, "group_id", None) or (
-                getattr(p.group, "id", None) if getattr(p, "group", None) else None
-            )
+            gid = getattr(p, "group_id", None)
+            if gid is None:
+                try:
+                    g = getattr(p, "group", None)
+                    gid = getattr(g, "id", None) if g is not None else None
+                except Exception:
+                    gid = None
             if gid is not None:
                 by_group[gid].append(p)
         round_data[r] = {
@@ -915,6 +919,32 @@ def custom_export(players):
     pvars = lambda p, k, default=None: p.participant.vars.get(k, default)
     fld = lambda p, k: p.field_maybe_none(k)
 
+    def _pay_export_amount(pay_raw):
+        """Convert oTree Currency / numeric payoff to float for export (avoids TypeError on some types)."""
+        if pay_raw is None:
+            return 0.0
+        amt = getattr(pay_raw, "amount", pay_raw)
+        try:
+            return float(amt)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _safe_opponent_for_export(pr, r):
+        try:
+            gid = pvars(pr, "matching_group_id", -1)
+            has_real = gid is not None and gid >= 0
+            if not has_real:
+                return None
+            return _opponent_for_export(pr, r, round_data, rr_cache)
+        except Exception:
+            return None
+
+    def _safe_fld(p, name):
+        try:
+            return fld(p, name)
+        except Exception:
+            return None
+
     def _agent_label(condition: str, app_name: str) -> str:
         """Map condition/app_name to a coarse agent label."""
         text = f"{condition or ''} {app_name or ''}".lower()
@@ -931,44 +961,39 @@ def custom_export(players):
     for code, rounds in by_participant.items():
         try:
             rounds = sorted(rounds, key=lambda p: p.round_number)
+            if not rounds:
+                continue
             p0 = rounds[0]
             row = dict.fromkeys(header, "")
 
             row["Condition"] = "rule2nd"
             row["ProlificID"] = (
-                "SIMULATED" if pvars(p0, "is_simulated") else fld(p0, "prolific_id")
+                "SIMULATED" if pvars(p0, "is_simulated") else (_safe_fld(p0, "prolific_id") or "")
             )
-            row["Session"] = p0.session.code
+            row["Session"] = getattr(getattr(p0, "session", None), "code", "") or ""
             row["Group"] = pvars(p0, "matching_group_id")
             row["PlayerID"] = pvars(p0, "matching_group_position")
             row["IsSimulated"] = 1 if pvars(p0, "is_simulated") else 0
             p_last = rounds[-1] if rounds else p0
-            row["Gender"] = fld(p_last, "gender")
-            row["Age"] = fld(p_last, "age")
-            row["Occupation"] = fld(p_last, "occupation")
-            row["AIuse"] = fld(p_last, "ai_use")
-            row["TaskDifficulty"] = fld(p_last, "task_difficulty")
-            row["Part3Feedback"] = fld(p_last, "part_3_feedback")
-            row["Part3FeedbackOther"] = fld(p_last, "part_3_feedback_other")
-            row["Part4Feedback"] = fld(p_last, "part_4_feedback")
-            row["Part4FeedbackOther"] = fld(p_last, "part_4_feedback_other")
-            row["UsedAiOrBot"] = fld(p_last, "used_ai_or_bot")
-            row["FeedbackFreeText"] = fld(p_last, "feedback")
+            row["Gender"] = _safe_fld(p_last, "gender")
+            row["Age"] = _safe_fld(p_last, "age")
+            row["Occupation"] = _safe_fld(p_last, "occupation")
+            row["AIuse"] = _safe_fld(p_last, "ai_use")
+            row["TaskDifficulty"] = _safe_fld(p_last, "task_difficulty")
+            row["Part3Feedback"] = _safe_fld(p_last, "part_3_feedback")
+            row["Part3FeedbackOther"] = _safe_fld(p_last, "part_3_feedback_other")
+            row["Part4Feedback"] = _safe_fld(p_last, "part_4_feedback")
+            row["Part4FeedbackOther"] = _safe_fld(p_last, "part_4_feedback_other")
+            row["UsedAiOrBot"] = _safe_fld(p_last, "used_ai_or_bot")
+            row["FeedbackFreeText"] = _safe_fld(p_last, "feedback")
 
             part_totals = [0.0, 0.0, 0.0]
             for pr in rounds:
-                gid = pvars(pr, "matching_group_id", -1)
-                has_real_opponent = gid is not None and gid >= 0
                 r = pr.round_number
-                other = _opponent_for_export(pr, r, round_data, rr_cache) if has_real_opponent else None
-                row[f"Round{r}Decision"] = (
-                    fld(pr, "choice") if fld(pr, "choice") is not None else ""
-                )
-                pay_raw = pr.payoff or 0
-                try:
-                    pay_float = float(pay_raw)
-                except (TypeError, ValueError):
-                    pay_float = 0.0
+                other = _safe_opponent_for_export(pr, r)
+                choice_val = _safe_fld(pr, "choice")
+                row[f"Round{r}Decision"] = choice_val if choice_val is not None else ""
+                pay_float = _pay_export_amount(getattr(pr, "payoff", None))
                 # Per-round payoff exported as raw Ecoins integer.
                 try:
                     row[f"Round{r}Ecoins"] = int(pay_float)
@@ -976,9 +1001,8 @@ def custom_export(players):
                     row[f"Round{r}Ecoins"] = 0
 
                 if other:
-                    row[f"Round{r}CoplayerDecision"] = (
-                        fld(other, "choice") if fld(other, "choice") is not None else ""
-                    )
+                    oc = _safe_fld(other, "choice")
+                    row[f"Round{r}CoplayerDecision"] = oc if oc is not None else ""
                     pos = pvars(other, "matching_group_position")
                     if pos is not None and pos != "" and pos != -1:
                         row[f"Round{r}CoplayerID"] = str(pos)
@@ -1020,20 +1044,16 @@ def custom_export(players):
                 if pr is None:
                     continue
 
-                row[f"Guess{i}"] = 1 if fld(pr, "guess_opponent_delegated") == "yes" else 0
+                row[f"Guess{i}"] = 1 if _safe_fld(pr, "guess_opponent_delegated") == "yes" else 0
 
                 if has_real_opponent:
-                    other = _opponent_for_export(pr, 20 + i, round_data, rr_cache)
+                    other = _safe_opponent_for_export(pr, 20 + i)
                     row[f"TruthGuess{i}"] = 1 if (
-                        other and fld(other, "delegate_decision_optional")
+                        other and _safe_fld(other, "delegate_decision_optional")
                     ) else 0
                 else:
                     row[f"TruthGuess{i}"] = ""
-                gpay = fld(pr, "guess_payoff") or 0
-                try:
-                    gpay_float = float(gpay)
-                except (TypeError, ValueError):
-                    gpay_float = 0.0
+                gpay_float = _pay_export_amount(_safe_fld(pr, "guess_payoff"))
                 # Export guess earnings in dollars (10 → 0.1).
                 row[f"EarningsGuess{i}Dollars"] = round(gpay_float / 100.0, 4)
 
@@ -1047,16 +1067,18 @@ def custom_export(players):
             delegated_part3 = 0
             for pr in rounds:
                 if Constants.get_part(pr.round_number) == 3:
-                    if fld(pr, "delegate_decision_optional"):
+                    if _safe_fld(pr, "delegate_decision_optional"):
                         delegated_part3 = 1
                         break
 
             row["DelegatedPart1"] = delegated_part1
             row["DelegatedPart2"] = delegated_part2
             row["DelegatedPart3"] = delegated_part3
-            row["Agent"] = _agent_label(row["Condition"], fld(p0, "app_name"))
+            row["Agent"] = _agent_label(row["Condition"], _safe_fld(p0, "app_name"))
 
-            part_chosen = fld(p_last, "random_payoff_part")
+            part_chosen = _safe_fld(p_last, "random_payoff_part")
+            if isinstance(part_chosen, str) and part_chosen.strip().isdigit():
+                part_chosen = int(part_chosen.strip())
             _float = lambda x: float(x) if x is not None else 0.0
             if pvars(p0, "quit_to_prolific"):
                 row["PartChosenBonus"] = "quit"
@@ -1097,8 +1119,13 @@ def custom_export(players):
             row["GameUsed"] = "PD"
 
             yield [row[h] for h in header]
-        except Exception:
-            yield [f"ERROR: {Exception}"] + [""] * (len(header) - 1)
+        except Exception as e:
+            print(
+                f"custom_export row failed participant_code={code!r}: {type(e).__name__}: {e}",
+                file=sys.stderr,
+                flush=True,
+            )
+            yield [f"ERROR: {type(e).__name__}: {e}"] + [""] * (len(header) - 1)
 
 # =============================================================================
 # Lobby release and payoff runner (called from pages.Lobby and BatchWaitForGroup)

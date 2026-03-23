@@ -1209,6 +1209,9 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
     run_key = f"payoffs_run_matching_group_{matching_group_id}_part_{current_part}"
     if subsession.session.vars.get(run_key):
         return True
+    # Final-boundary fail-open: at round 30, do not block forever on missing choices.
+    # Missing choices are already handled below as zero payoff per round.
+    allow_incomplete_choices = (current_part == 3 and rnd == 30)
     # Fast path: if we have the 3 member ids stored, compute payoffs directly without rewriting group matrix.
     key = f"matching_group_members_part_{current_part}_{matching_group_id}"
     member_ids = subsession.session.vars.get(key)
@@ -1230,7 +1233,7 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
             return True
 
         # Fast exit: try again on next wait-page refresh instead of blocking this worker.
-        if not _all_choices_ready_for_three():
+        if (not _all_choices_ready_for_three()) and (not allow_incomplete_choices):
             return False
 
         # Compute payoffs round-by-round using round-robin within these 3 players.
@@ -1301,7 +1304,7 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
         return True
 
     # Fast exit: try again on next wait-page refresh instead of blocking this worker.
-    if not _all_choices_ready():
+    if (not _all_choices_ready()) and (not allow_incomplete_choices):
         return False
     for r in range(start, end + 1):
         round_ss = subsession.in_round(r)

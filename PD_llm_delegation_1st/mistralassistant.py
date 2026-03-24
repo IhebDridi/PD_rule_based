@@ -56,13 +56,11 @@ class MistralAssistant:
             resp = client.beta.conversations.start(
                 agent_id=self.agent_id,
                 inputs=inputs,
-                stream=False,
             )
         else:
             resp = client.beta.conversations.append(
                 conversation_id=conversation_id,
                 inputs=inputs,
-                stream=False,
             )
 
         new_cid = getattr(resp, 'conversation_id', None) or (resp.get('conversation_id') if isinstance(resp, dict) else None)

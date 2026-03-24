@@ -288,8 +288,8 @@ SECRET_KEY = '9871076378040'
 data_path='players_data/'
 
 # Mistral (PD_llm_delegation_2nd): set MISTRAL_API_KEY in env or below; agent ID from your Mistral dashboard
-MISTRAL_API_KEY = environ.get('MISTRAL_API_KEY', 'GRv8D2nDrIUaElftIpAPe2VcYqNfXR12')
-MISTRAL_AGENT_ID = environ.get('MISTRAL_AGENT_ID', 'ag_019d000046b476f9b7937a71687e28a3')
+#MISTRAL_API_KEY = environ.get('MISTRAL_API_KEY', '')
+#MISTRAL_AGENT_ID = environ.get('MISTRAL_AGENT_ID', '')
 
 # -----------------------------------------------------------------------------
 # PostgreSQL connection resilience (reduce "SSL error: unexpected eof" on Clever Cloud)

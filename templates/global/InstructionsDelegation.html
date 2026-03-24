@@ -6,20 +6,77 @@
 
 
     <h1 class="main-title">Welcome to Part {{ part_delegation }}: Delegation</h1>
+    {% if is_rule_based_delegation %}
     <p class="intro-text">
         In this part of the experiment, you will delegate your decisions to an AI agent. This means that instead of making individual decisions in each round yourself, you will provide rule instructions to an AI agent that will make the decisions on your behalf for all 10 rounds in this part.
     </p>
+    {% elif is_llm_delegation %}
+    <p class="intro-text">
+        In this part of the experiment, you will delegate your decisions to an AI agent. This means that instead of making individual decisions in each round yourself, you will prompt an AI agent through a chatbox that will make the decisions on your behalf for all 10 rounds in this part.
+    </p>
+    {% elif is_supervised_delegation %}
+    <p class="intro-text">
+        In this part of the experiment, you will delegate your decisions to an AI agent. This means that instead of making individual decisions in each round yourself, you will provide input to a supervised learning AI agent by choosing a dataset for your agent will learn from. The agent will use your input to learn your preferences and make allocation decisions on your behalf for all 10 rounds in this part.
+    </p>
+    {% elif is_goal_oriented_delegation %}
+    <p class="intro-text">
+        In this part of the experiment, you will delegate your decisions to an AI agent. This means that instead of making individual decisions in each round yourself, you will set a goal based on your preferences for your AI agent to follow. The agent will use this goal to define which decisions to make on your behalf for all 10 rounds in this part.
+    </p>
+    {% else %}
+    <p class="intro-text">
+        In this part of the experiment, you will delegate your decisions to an AI agent. This means that instead of making individual decisions in each round yourself, you will provide rule instructions to an AI agent that will make the decisions on your behalf for all 10 rounds in this part.
+    </p>
+    {% endif %}
 
     <div class="content-section">
         <div class="content-box">
             <h2>How This Works</h2>
+            {% if is_rule_based_delegation %}
             <ol>
                 <li><strong>Set Your Rules:</strong> Before the 10 rounds begin, you will decide what you want your agent to choose in each round by filling up a table.</li>
                 <li><strong>Agent Execution:</strong> Based on your instructions, the AI agent will automatically implement these decisions during the rounds. You do not need to interact with the system during these rounds.</li>
                 <li><strong>Reshuffled co-players:</strong> Once again, you will be matched with a different co-player in each round, meaning that you might have to wait for them to also finalize their answers.</li>
-                <li><strong>Once you are satisfied with your decision:</strong> Click "Confirm" to finalize your agent’s settings. The rule-based AI agent will use your instructions to make decisions for you in all 10 rounds exactly as you planned. Once submitted, you will not be able to adjust the AI agent's decisions during the 10 rounds of play.</li>
-
+                <li><strong>Once you are satisfied with your decision:</strong> Click "Confirm" to finalize your agent's settings. The rule-based AI agent will use your instructions to make decisions for you in all 10 rounds exactly as you planned. Once submitted, you will not be able to adjust the AI agent's decisions during the 10 rounds of play.</li>
             </ol>
+            {% elif is_llm_delegation %}
+            <ol>
+                <li><strong>Prompt your AI agent:</strong> You will use a chat box to write a prompt describing how you want the AI agent to make decisions throughout the 10 rounds of the game. This prompt can include any guidelines or preferences you want the agent to follow during the task.</li>
+                <li><strong>Agent Execution:</strong> Based on your prompt, the AI agent will determine which choice to make in each of the 10 rounds of play. You can check how your prompt translates into behavior by checking the round-by-round decisions on the table that will appear on the right side of the chat window with your AI agent.</li>
+                <li><strong>Reshuffled co-players:</strong> Once again, you will be matched with a different co-player in each round, meaning that you might have to wait for them to also finalize their answers.</li>
+                <li><strong>Once you are satisfied with your decision:</strong> Click "Confirm" to finalize your agent's settings. The AI agent will use your instructions to make decisions for you across all 10 rounds, according to the table generated from your prompt. Once submitted, you will not be able to adjust the AI agent's decisions once the 10 rounds begin.</li>
+            </ol>
+            {% elif is_supervised_delegation %}
+            <ol>
+                <li><strong>Train your AI Agent:</strong> Before the 10 rounds begin, you will choose a table with example allocations that represent your preferences and click "Generate". This example dataset will be used by your AI agent to learn your preferences and generate similar choices.</li>
+                <li><strong>Agent Execution:</strong> The resulting behavior of your AI agent's learning will be shown in a table on the right side of the screen. If you do not want your AI agent to proceed with the behavior you see in this table, you have two options:
+                    <ul>
+                        <li>Choose another dataset for your agent to learn based on a set of different preferences.</li>
+                        <li>Ask your agent to learn again on the same dataset, and it will generate new behavior on the same preferences.</li>
+                    </ul>
+                </li>
+                <li><strong>Reshuffled co-players:</strong> Once again, you will be matched with a different co-player in each round, meaning that you might have to wait for them to also finalize their answers.</li>
+                <li><strong>Once you are satisfied with your decision:</strong> Click "Confirm" to finalize your agent's settings. The AI agent will use your instructions to make decisions in all 10 rounds according to the table generated based on the dataset of your choice. Once submitted, you will not be able to adjust the AI agent's decisions once the 10 rounds begin.</li>
+            </ol>
+            {% elif is_goal_oriented_delegation %}
+            <ol>
+                <li><strong>Set the AI Agent's Goal:</strong> Before the 10 rounds begin, you will use a slider to set up the agent's goal, ranging from prioritizing yourself to prioritizing your co-player in each round. Once the goal satisfies your preferences, click "Generate". The AI agent will then use your goal to generate decisions that follow your goal.</li>
+                <li><strong>Agent Execution:</strong> The resulting behavior of your AI agent following your goal will be shown in a table on the right side of the screen. If you do not want your AI agent to proceed with the behavior you see in this table, you have two options:
+                    <ul>
+                        <li>Choose another goal for your agent to follow, so that your agent follows a new preferred goal.</li>
+                        <li>Ask your agent to generate new behavior based on the same preferred goal.</li>
+                    </ul>
+                </li>
+                <li><strong>Reshuffled co-players:</strong> Once again, you will be matched with a different co-player in each round, meaning that you might have to wait for them to also finalize their answers.</li>
+                <li><strong>Once you are satisfied with your decision:</strong> Click "Confirm" to finalize your agent's settings. The AI agent will use your instructions to make decisions in all 10 rounds according to the table generated based on the goal you chose. Once submitted, you will not be able to adjust the AI agent's decisions once the 10 rounds begin.</li>
+            </ol>
+            {% else %}
+            <ol>
+                <li><strong>Set Your Rules:</strong> Before the 10 rounds begin, you will decide what you want your agent to choose in each round by filling up a table.</li>
+                <li><strong>Agent Execution:</strong> Based on your instructions, the AI agent will automatically implement these decisions during the rounds. You do not need to interact with the system during these rounds.</li>
+                <li><strong>Reshuffled co-players:</strong> Once again, you will be matched with a different co-player in each round, meaning that you might have to wait for them to also finalize their answers.</li>
+                <li><strong>Once you are satisfied with your decision:</strong> Click "Confirm" to finalize your agent's settings. The rule-based AI agent will use your instructions to make decisions for you in all 10 rounds exactly as you planned. Once submitted, you will not be able to adjust the AI agent's decisions during the 10 rounds of play.</li>
+            </ol>
+            {% endif %}
        
 
         </div>

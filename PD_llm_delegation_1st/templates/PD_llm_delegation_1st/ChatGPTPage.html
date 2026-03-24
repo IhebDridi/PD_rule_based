@@ -52,6 +52,31 @@
     </div>
 </div>
 
+<div class="small-instructions">
+    <p class="table-caption">For your convenience, we share the table of earnings again below:</p>
+    <table class="styled-table">
+        <thead>
+            <tr>
+                <th>Your Choice \ Other's Choice</th>
+                <th>Option A</th>
+                <th>Option B</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Option A</td>
+                <td>70</td>
+                <td>0</td>
+            </tr>
+            <tr>
+                <td>Option B</td>
+                <td>100</td>
+                <td>30</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script>
     function sendMessage() {
@@ -244,6 +269,19 @@ body {
 
 .styled-table tbody tr:hover {
     background-color: #f1f1f1;
+}
+
+.small-instructions {
+    font-size: 13px;
+    color: #555;
+    margin: 30px auto 0 auto;
+    background-color: #f4f4f4;
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    line-height: 1.5;
+    width: 1200px;
+    box-sizing: border-box;
 }
 
 .modern-btn {

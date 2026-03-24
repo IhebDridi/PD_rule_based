@@ -21,4 +21,18 @@ class InstructionsDelegation(Page):
         return False
 
     def vars_for_template(self):
-        return part_vars(self.player)
+        ctx = part_vars(self.player)
+        app_module = (getattr(self.player.__class__, "__module__", "") or "").lower()
+        is_llm = "llm" in app_module
+        is_rule = ("rule_based" in app_module) or ("rulebased" in app_module)
+        is_supervised = "supervised" in app_module
+        is_goal = ("goal_oriented" in app_module) or ("goaloriented" in app_module)
+        ctx.update(
+            {
+                "is_llm_delegation": is_llm,
+                "is_rule_based_delegation": is_rule,
+                "is_supervised_delegation": is_supervised,
+                "is_goal_oriented_delegation": is_goal,
+            }
+        )
+        return ctx

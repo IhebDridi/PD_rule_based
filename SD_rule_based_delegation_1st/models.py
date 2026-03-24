@@ -46,10 +46,10 @@ class Constants(BaseConstants):
     DELEGATION_FIRST = True
 
     PD_PAYOFFS = {
-        ('A', 'A'): (100, 100),
-        ('A', 'B'): (0, 50),
-        ('B', 'A'): (50, 0),
-        ('B', 'B'): (50, 50),
+        ('A', 'A'): (70, 70),
+        ('A', 'B'): (30, 100),
+        ('B', 'A'): (100, 30),
+        ('B', 'B'): (0, 0),
     }
 
     @staticmethod

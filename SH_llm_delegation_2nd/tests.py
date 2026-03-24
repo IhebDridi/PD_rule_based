@@ -1,6 +1,7 @@
 """
 Bot tests for prisoners_dilemma. Run: otree test prisoners_dilemma --num_participants 6
 """
+import json
 import os
 import random
 import re
@@ -14,7 +15,7 @@ from otree.models import Participant
 from .models import Constants
 from .pages import (
     BATCH_WAIT_MIN_SECONDS,
-    AgentProgramming,
+    ChatGPTPage,
     ComprehensionTest,
     DecisionNoDelegation,
     DelegationDecision,
@@ -258,10 +259,9 @@ def _yield_for_lookup(bot_self, lookup):
         return (Results, None)
     if page_name == 'DelegationDecision':
         return (DelegationDecision, {'delegate_decision_optional': random.choice([True, False])})
-    if page_name == 'AgentProgramming':
-        if rnd == 21:
-            bot_self.participant.vars['agent_programming_part3'] = {i: random.choice(['A', 'B']) for i in range(1, 11)}
-        return (AgentProgramming, None)
+    if page_name == 'ChatGPTPage':
+        bot_self.player.in_round(rnd).conversation_history = json.dumps([{"role": "assistant", "content": "A,B,A,B,A,B,A,B,A,B"}])
+        return (ChatGPTPage, None)
     if page_name == 'GuessDelegation':
         return (GuessDelegation, {f'guess_round_{i}': random.choice(['yes', 'no']) for i in range(1, 11)})
     if page_name == 'ResultsGuess':
@@ -315,8 +315,8 @@ class PlayerBot(Bot):
             else:
                 yield InstructionsNoDelegation
             if DELEGATION_FIRST:
-                self.participant.vars['agent_programming_part1'] = {i: random.choice(['A', 'B']) for i in range(1, 11)}
-                yield AgentProgramming
+                self.player.conversation_history = json.dumps([{"role": "assistant", "content": "A,B,A,B,A,B,A,B,A,B"}])
+                yield ChatGPTPage
             else:
                 yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
 
@@ -334,33 +334,33 @@ class PlayerBot(Bot):
             if DELEGATION_FIRST:
                 yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
             else:
-                self.participant.vars['agent_programming_part2'] = {i: random.choice(['A', 'B']) for i in range(1, 11)}
-                yield AgentProgramming
+                self.player.conversation_history = json.dumps([{"role": "assistant", "content": "A,B,A,B,A,B,A,B,A,B"}])
+                yield ChatGPTPage
 
-        # if rnd == 20:
-        #     yield Results
+        if rnd == 20:
+            yield Results
 
-        # if rnd == 21:
-        #     # Match page_sequence: InstructionsOptional then DelegationDecision. Runner catch-up submits the actual page when bot and participant disagree.
-        #     yield InstructionsOptional
-        #     delegate = random.choice([True, False])
-        #     yield DelegationDecision, {'delegate_decision_optional': delegate}
-        #     if delegate:
-        #         self.participant.vars['agent_programming_part3'] = {i: random.choice(['A', 'B']) for i in range(1, 11)}
-        #         yield AgentProgramming
-        #     else:
-        #         yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
+        if rnd == 21:
+            # Match page_sequence: InstructionsOptional then DelegationDecision. Runner catch-up submits the actual page when bot and participant disagree.
+            yield InstructionsOptional
+            delegate = random.choice([True, False])
+            yield DelegationDecision, {'delegate_decision_optional': delegate}
+            if delegate:
+                self.player.conversation_history = json.dumps([{"role": "assistant", "content": "A,B,A,B,A,B,A,B,A,B"}])
+                yield ChatGPTPage
+            else:
+                yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
 
-        # if _part(rnd) == 3 and rnd >= 22:
-        #     if not self.player.field_maybe_none('delegate_decision_optional'):
-        #         yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
-        #     if rnd == 30:
-        #         yield Results
+        if _part(rnd) == 3 and rnd >= 22:
+            if not self.player.field_maybe_none('delegate_decision_optional'):
+                yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
+            if rnd == 30:
+                yield Results
 
-        # if rnd == Constants.num_rounds:
-        #     yield InstructionsGuessingGame
-        #     yield GuessDelegation, {f'guess_round_{i}': random.choice(['yes', 'no']) for i in range(1, 11)}
-        #     yield ResultsGuess
-        #     yield Debriefing
-        #     yield ExitQuestionnaire, _exit_form()
-        #     yield Submission(Thankyou, {}, check_html=False)
+        if rnd == Constants.num_rounds:
+            yield InstructionsGuessingGame
+            yield GuessDelegation, {f'guess_round_{i}': random.choice(['yes', 'no']) for i in range(1, 11)}
+            yield ResultsGuess
+            yield Debriefing
+            yield ExitQuestionnaire, _exit_form()
+            yield Submission(Thankyou, {}, check_html=False)

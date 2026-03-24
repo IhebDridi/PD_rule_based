@@ -1,0 +1,306 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+
+{% block content %}
+<div class="main-container">
+    <div class="chat-container">
+        <h1 class="main-title">
+            Part {{ current_part }}: Set up your AI agent
+        </h1>
+        <p class="intro-text">Send your prompt to the chat below to specify how your AI agent should play in each of the 10 rounds. The agent can only choose Option A or Option B per round. Once the agent returns 10 choices and you are satisfied, click Confirm.</p>
+
+        <div id="chat-box" class="chat-box" style="overflow-y: scroll; border: 1px solid #ccc; padding: 10px; width: 700px; box-sizing: border-box;"></div>
+        <div class="input-container">
+            <input type="text" id="user-input" placeholder="Type your message..." class="allocation-input full-width-input" onkeypress="handleKeyPress(event)">
+            <button type="button" onclick="sendMessage()" class="modern-btn">Send</button>
+            <form method="post">
+                <button type="submit" class="modern-btn" id="confirm-btn" style="background-color: #009933; display: none;">Confirm</button>
+            </form>
+        </div>
+
+        <div id="loading-indicator" style="text-align: center; display: none;">
+            <span class="material-symbols-outlined">hourglass_empty</span> Fetching response...
+        </div>
+    </div>
+
+    <div class="results-container">
+        <h3 class="main-title">AI Agent Behavior</h3>
+        <div class="table-container">
+            <table id="allocation-table" class="styled-table">
+                <thead>
+                    <tr>
+                        <th>Round</th>
+                        <th>Decision</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <script>
+                        document.addEventListener("DOMContentLoaded", function() {
+                            let allocationTable = document.getElementById("allocation-table").getElementsByTagName('tbody')[0];
+                            for (let i = 1; i <= 10; i++) {
+                                let row = allocationTable.insertRow();
+                                let cell1 = row.insertCell(0);
+                                let cell2 = row.insertCell(1);
+                                cell1.textContent = "Round " + i;
+                                cell2.textContent = "-";
+                            }
+                        });
+                    </script>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="small-instructions">
+    <p class="table-caption">For your convenience, we share the table of earnings again below:</p>
+    <table class="styled-table">
+        <thead>
+            <tr>
+                <th>Your Choice \ Other's Choice</th>
+                <th>Option A</th>
+                <th>Option B</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Option A</td>
+                <td>70</td>
+                <td>0</td>
+            </tr>
+            <tr>
+                <td>Option B</td>
+                <td>100</td>
+                <td>30</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script>
+    function sendMessage() {
+        if (event) event.preventDefault();
+        let inputField = document.getElementById("user-input");
+        let message = (inputField && inputField.value) ? inputField.value.trim() : "";
+        if (!message) return;
+
+        let chatBox = document.getElementById("chat-box");
+        let loadingIndicator = document.getElementById("loading-indicator");
+
+        let userMsg = document.createElement("p");
+        userMsg.innerHTML = "<span class=\"material-symbols-outlined\">face</span> <strong>You:</strong> " + message.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        chatBox.appendChild(userMsg);
+
+        inputField.value = "";
+        if (loadingIndicator) loadingIndicator.style.display = "block";
+
+        liveSend({'message': message});
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === "Enter") {
+            event.preventDefault();
+            sendMessage();
+        }
+    }
+
+    function parseStrictTenAB(text) {
+        if (!text || typeof text !== "string") return null;
+        var lines = text.trim().split(/[\r\n]+/);
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i].trim();
+            if (!/^\s*[AB]\s*(,\s*[AB]\s*){9}\s*$/i.test(line)) continue;
+            var parts = line.split(",").map(function(p) { return p.trim().toUpperCase(); });
+            if (parts.length === 10 && parts.every(function(p) { return p === "A" || p === "B"; }))
+                return parts;
+        }
+        return null;
+    }
+
+    function liveRecv(data) {
+        var confirmBtn = document.getElementById("confirm-btn");
+        var chatBox = document.getElementById("chat-box");
+        var allocationTable = document.getElementById("allocation-table");
+        var loadingIndicator = document.getElementById("loading-indicator");
+
+        if (loadingIndicator) loadingIndicator.style.display = "none";
+
+        if (!chatBox) return;
+        if (data && data.response) {
+            var botMsg = document.createElement("div");
+            botMsg.className = "chat-msg agent-msg";
+            var raw = String(data.response);
+            var html = (typeof marked !== "undefined" && marked.parse) ? marked.parse(raw) : raw.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+            botMsg.innerHTML = "<span class=\"material-symbols-outlined\">robot_2</span> <strong>Agent:</strong><div class=\"agent-body\">" + html + "</div>";
+            chatBox.appendChild(botMsg);
+
+            var choices = parseStrictTenAB(data.response);
+            if (allocationTable && choices && choices.length === 10) {
+                var tbody = allocationTable.getElementsByTagName('tbody')[0];
+                if (tbody && tbody.rows.length >= 10) {
+                    for (var i = 0; i < 10; i++) tbody.rows[i].cells[1].textContent = choices[i];
+                    if (confirmBtn) confirmBtn.style.display = "block";
+                }
+            }
+        }
+
+        var chatContainer = document.querySelector(".chat-container");
+        var resultsContainer = document.querySelector(".results-container");
+        if (chatContainer && resultsContainer) chatContainer.style.height = resultsContainer.offsetHeight + "px";
+    }
+</script>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
+.intro-text {
+    font-size: 16px;
+    color: #555555;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+.timer {
+    font-size: 18px;
+    font-weight: bold;
+    color: red;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.chat-box {
+    width: 100%;
+    box-sizing: border-box;
+    height: 70%;
+}
+
+.agent-msg .agent-body { margin-top: 6px; }
+.agent-msg .agent-body h3 { font-size: 1em; margin: 8px 0 4px 0; }
+.agent-msg .agent-body ul { margin: 4px 0; padding-left: 20px; }
+.agent-msg .agent-body li { margin: 2px 0; }
+.agent-msg .agent-body p { margin: 4px 0; }
+.agent-msg .agent-body strong { font-weight: bold; }
+.agent-msg .agent-body hr { margin: 8px 0; border: 0; border-top: 1px solid #ddd; }
+
+.main-container {
+    display: flex;
+    justify-content: flex-start;
+    gap: 20px;
+    width: 1200px;
+}
+
+.results-container {
+    flex: 1;
+    background: #ffffff;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+.chat-container {
+    flex: 1;
+    background: #ffffff;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    width: 800px;
+    height: 900px;
+    margin-right: 30px;
+}
+
+.input-container {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.full-width-input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-right: 10px;
+}
+
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+.main-title {
+    font-size: 28px;
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333333;
+    font-weight: bold;
+    border-bottom: 3px solid #0056b3;
+    padding-bottom: 10px;
+}
+
+.styled-table {
+    border-collapse: collapse;
+    margin: 25px auto;
+    font-size: 16px;
+    font-family: Arial, sans-serif;
+    width: 100%;
+    text-align: center;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.styled-table thead tr {
+    background-color: #0056b3;
+    color: #ffffff;
+    text-align: center;
+    font-weight: bold;
+}
+
+.styled-table th, .styled-table td {
+    border: 1px solid #dddddd;
+    padding: 12px 15px;
+}
+
+.styled-table tbody tr:hover {
+    background-color: #f1f1f1;
+}
+
+.small-instructions {
+    font-size: 13px;
+    color: #555;
+    margin: 30px auto 0 auto;
+    background-color: #f4f4f4;
+    padding: 20px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    line-height: 1.5;
+    width: 1200px;
+    box-sizing: border-box;
+}
+
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 100px;
+    margin: 20px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #003d80;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.modern-btn:hover {
+    background-color: #003d80;
+}
+</style>
+{% endblock %}

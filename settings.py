@@ -237,14 +237,14 @@ SESSION_CONFIGS = [
         display_name='prisoners_dilemma_automatic',
         app_sequence=['PD_goal_oriented_delegation_2nd'],
         num_demo_participants=10,
-        use_browser_bots=True,
+        use_browser_bots=False,
     ),
     dict(
         name='prisoners_dilemma_100',
         display_name='prisoners_dilemma_100',
         app_sequence=['PD_goal_oriented_delegation_2nd'],
         num_demo_participants=100,
-        use_browser_bots=True,
+        use_browser_bots=False,
     ),
 ]
 

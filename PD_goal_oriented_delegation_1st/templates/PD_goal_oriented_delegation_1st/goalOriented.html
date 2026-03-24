@@ -1,121 +1,228 @@
 {% extends "global/Page.html" %}
-
 {% block content %}
-<div class="allocation-container">
-    <h1 class="main-title">
-        {% if current_part == 1 or current_part == 2 %}
+
+
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/round-slider@1.6.1/dist/roundslider.min.css" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/round-slider@1.6.1/dist/roundslider.min.js"></script>
+
+
+<div class="main-container">
+        <div class="slider-container">
+        <h1 class="main-title">
             Part {{ part_delegation }}: Set up your AI agent
-        {% elif current_part == 3 and delegate_decision == True %}
-            Part 3: Set up your AI agent
-        {% endif %}
-    </h1>
- 
-    <div class="countdown-banner">
-        Time remaining: <span id="countdown-seconds" data-start="{{ countdown_seconds }}">90</span> seconds
+        </h1>
+        <p class="intro-text">Choose a goal for your AI agent to aim for. After choosing a goal and clicking “Generate” you can check your AI agent’s behavior on the table on the right before confirming it. There are only two possible options for each round: Option A and Option B. The Table of Earnings in Ecoins is shown below again for your information. The Table of Earnings in Ecoins is shown below again for your information.</p>
+        
+            <div class="slider-labels">
+            <span>Choose your allocation goal</span>
+            <br></br>
+            </div>
+
+            <div id="slider"></div>
+                <div class="slider-labels">
+                    <span>Maximize personal gain</span>
+                    <span>Maximize other's gain</span>
+
+                </div>
+            <button class="modern-btn" onclick="sendSliderValue()">Generate</button>
+   
+   <form method="post">
+                    <button type="submit" class="modern-btn" id="confirm-btn" style="background-color: #009933; display: none;">Confirm</button>
+    </form>
     </div>
 
-    <p class="intro-text">
-        Fill in the table below to specify how your AI agent should make decisions in each of the 10 rounds of play. You can only choose between Option A and Option B. The Table of Earnings in Ecoins is shown below again for your information.
-    </p>
-
-
-    <form method="post" class="allocation-form">
-        <table class="styled-table">
+    <div class="results-container">
+        <h3 class="main-title">AI Agent Behavior</h3>
+        <table id="allocation-table" class="styled-table">
             <thead>
                 <tr>
                     <th>Round</th>
-                    <th>Decisions</th>
+                    <th>Decision</th>
                 </tr>
             </thead>
             <tbody>
-                {% for i in range(1, 11) %}
-                <tr>
-                    <td>{{ i }}</td>
-                    <td>
-                            <label class="choice-option">
-                                <input type="radio" name="agent_decision_mandatory_delegation_round_{{ i }}" value="A" required>
-                                A
-                            </label>
-                            <label class="choice-option">
-                                <input type="radio" name="agent_decision_mandatory_delegation_round_{{ i }}" value="B" required>
-                                B
-                            </label>
-                    </td>
-                </tr>
-                {% endfor %}
+                <script>
+                    document.addEventListener("DOMContentLoaded", function() {
+                        let allocationTable = document.getElementById("allocation-table").getElementsByTagName('tbody')[0];
+                        for (let i = 1; i <= 10; i++) {
+                            let row = allocationTable.insertRow();
+                            let cell1 = row.insertCell(0);
+                            let cell2 = row.insertCell(1);
+                            cell1.textContent = `Round ${i}`;
+                            cell2.textContent = "-";
+                        }
+                    });
+                </script>
             </tbody>
         </table>
-        <p class="confirmation-text">
-            Once you confirm, the decisions will be final, and the AI agent will use these instructions during the rounds.
-        </p>
-        <button type="submit" class="modern-btn" onclick="sendAllocations()">Confirm</button>
-        <div class="small-instructions">
-            <p class="table-caption">For your convenience, we share the table of earnings again below:</p>
-            <table class="styled-table">
-                <thead>
-                    <tr>
-                        <th>Your Choice \ Other’s Choice</th>
-                        <th>Option A</th>
-                        <th>Option B</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Option A</td>
-                        <td>[70, 70]</td>
-                        <td>[0, 100]</td>
-                    </tr>
-                    <tr>
-                        <td>Option B</td>
-                        <td>[100, 0]</td>
-                        <td>[30, 30]</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
-        </form>
+    </div>
 </div>
 
-
+<div class="small-instructions">
+    <p class="table-caption">For your convenience, we share the table of earnings again below:</p>
+    <table class="styled-table">
+        <thead>
+            <tr>
+                <th>Your Choice \ Other's Choice</th>
+                <th>Option A</th>
+                <th>Option B</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Option A</td>
+                <td>70</td>
+                <td>0</td>
+            </tr>
+            <tr>
+                <td>Option B</td>
+                <td>100</td>
+                <td>30</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
 <script>
 
-    function Sleep(milliseconds) {
-    return new Promise(resolve => setTimeout(resolve, milliseconds));
-    }
 
-    (function startCountdown() {
-        var el = document.getElementById('countdown-seconds');
-        if (!el) { return; }
-        var startAttr = el.getAttribute('data-start');
-        var remaining = parseInt(startAttr || el.textContent || '90', 10);
-        if (isNaN(remaining) || remaining < 0) { remaining = 90; }
-        function render() {
-            if (remaining < 0) { remaining = 0; }
-            el.textContent = remaining;
-        }
-        render();
-        setInterval(function() {
-            remaining -= 1;
-            render();
-        }, 1000);
-    })();
 
-    function sendAllocations() {
-        let allocationData = {};
-
-        document.querySelectorAll('input[type="radio"]:checked').forEach(input => {
-            allocationData[input.name] = input.value;  // "A" or "B"
+$(document).ready(function () {
+        $("#slider").roundSlider({
+            radius: 170,
+            width: 10,
+            circleShape: "half-top",
+            handleSize: "+10",
+            handleShape: "dot",
+            sliderType: "min-range",
+            value: 0.5,
+            min: 0,
+            max: 1,
+            step: 0.25,
+            editableTooltip: false,
+            showTooltip: false,
+            startAngle: 0,
+            endAngle: 180,
+            pathColor: "#ddd",
+            rangeColor: "#007BFF",
+            handleColor: "#007BFF",
+            labelSuffix: "maximize other's gain",
+            labelPrefix: "maximize personal gain",
         });
+    });
+    
+const values = [0, 0.25, 0.5, 0.75, 1];
+        let currentIndex = 0;
+        
+        function moveSlider(direction)
+        {
+            currentIndex = Math.max(0, Math.min(values.length - 1, currentIndex + direction));
+            document.getElementById("fill").style.transform = `scaleX(${values[currentIndex]})`;
+        }
 
-        console.log('Agent choices:', allocationData);
+        function sendSliderValue() {
+            if (event) event.preventDefault();  // Prevent default form submission
+            let value = $("#slider").roundSlider("option", "value");
+            console.log("Selected Value:", value);
+            liveSend({'slider_value': value});
 
-        liveSend({ 'allocations': JSON.stringify(allocationData) });
+            // You can send this value via an AJAX request or store it in a hidden field
+        }
+
+function liveRecv(data) {
+    console.log('Recieved Data:', data);
+    const pattern = /^([AB],\s*){9}[AB]$/;
+    const confirmBtn = document.getElementById("confirm-btn");
+
+    const decisionsRaw = String(data.decisions || "").trim();
+    if (pattern.test(decisionsRaw))
+        {
+            if (confirmBtn) {
+            confirmBtn.style.display = "block"; // or "block" if you prefer full-width
+                            }
+
+        }
+
+    else {
+
+            confirmBtn.style.display = "none"
+        }
+    let allocationTable = document.getElementById("allocation-table").getElementsByTagName('tbody')[0];
+
+    if (decisionsRaw) {
+        console.log('Updating table')
+        console.log('Response:', decisionsRaw);
+        let decisions = decisionsRaw.split(',').map(v => v.trim());
+        console.log('Decisions:', decisions.values());
+
+      //  if (allocations.length === 10) {
+            console.log('Check')
+            let rows = allocationTable.getElementsByTagName("tr");
+
+            for (let i = 0; i < 10; i++) {
+                if (rows[i]) {
+                    rows[i].cells[1].textContent = decisions[i] || "-";
+                    
+                }
+            }
+        }
     }
+//}
 </script>
-
-
 <style>
-/* General Styling */
+
+
+.slider-labels {
+        display: flex;
+        justify-content: space-between;
+        width: auto;
+        margin: auto;
+        margin-top: 10px;
+        font-size: 14px;
+        font-weight: bold;
+        color: #333;
+    }
+
+
+.slider-container {
+    width: 600px;
+    text-align: center;
+    padding: 20px;
+    background: #fff;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
+
+.main-container {
+    display: flex;
+    justify-content: flex-start;
+    gap: 20px;
+    width: 1000px;
+     /* Added left padding to shift elements left */
+}
+.results-container {
+    flex: 1;
+    background: #ffffff;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
 body {
     font-family: 'Arial', sans-serif;
     background-color: #f9f9f9;
@@ -124,9 +231,8 @@ body {
     padding: 0;
 }
 
-/* Container Styling */
-.allocation-container {
-    max-width: 800px;
+.modern-decision-container {
+    max-width: 900px;
     margin: 50px auto;
     background: #ffffff;
     padding: 30px;
@@ -134,79 +240,57 @@ body {
     border-radius: 8px;
 }
 
-/* Title Styling */
 .main-title {
     font-size: 28px;
     text-align: center;
     margin-bottom: 20px;
     color: #333333;
     font-weight: bold;
-    border-bottom: 3px solid #0056b3; /* Bottom border color */
+    border-bottom: 3px solid #0056b3;
     padding-bottom: 10px;
 }
 
-/* Text Styling */
-.intro-text, .instructions, .confirmation-text {
-    font-size: 16px;
-    margin-bottom: 20px;
-    text-align: center;
-    color: #555555;
-}
-
-/* Table Styling */
 .styled-table {
-    border-collapse: show;
+    border-collapse: collapse;
     margin: 25px auto;
-    font-size: 15px;
+    font-size: 16px;
     font-family: Arial, sans-serif;
     width: 100%;
     text-align: center;
+    background-color: #ffffff;
     border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .styled-table thead tr {
     background-color: #0056b3;
     color: #ffffff;
+    text-align: center;
     font-weight: bold;
 }
 
 .styled-table th, .styled-table td {
-    border: 1px solid #c1c1c1;
-    padding: 10px 15px;
-}
-
-.styled-table tbody tr:nth-of-type(even) {
-    background-color: #f3f3f3;
+    border: 1px solid #dddddd;
+    padding: 12px 15px;
 }
 
 .styled-table tbody tr:hover {
     background-color: #f1f1f1;
 }
 
-.countdown-banner {
-    margin: 10px auto 20px auto;
-    padding: 8px 12px;
-    max-width: 300px;
-    background-color: #fff3cd;
-    border: 1px solid #ffeeba;
+.small-instructions {
+    font-size: 13px;
+    color: #555;
+    margin: 30px auto 0 auto;
+    background-color: #f4f4f4;
+    padding: 20px;
     border-radius: 6px;
-    color: #856404;
-    font-weight: 500;
+    border: 1px solid #ddd;
+    line-height: 1.5;
+    width: 1000px;
+    box-sizing: border-box;
 }
 
-/* Input Styling */
-.input-number {
-    width: 80%;
-    padding: 10px;
-    font-size: 15px;
-    border: 1px solid #c1c1c1;
-    border-radius: 4px;
-    text-align: center;
-}
-
-/* Button Styling */
 .modern-btn {
     display: block;
     width: 100%;
@@ -215,39 +299,22 @@ body {
     padding: 12px 20px;
     font-size: 18px;
     color: #ffffff;
-    background-color: #0056b3; /* Button background color */
+    background-color: #003d80;
     border: none;
     border-radius: 6px;
     cursor: pointer;
     transition: background-color 0.3s;
-    text-align: center;
 }
 
 .modern-btn:hover {
-    background-color: #003d80; /* Darker on hover */
+    background-color: #003d80;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .allocation-container {
-        padding: 20px;
+    #slider {
+        width: 400px;
+        height: 50px;
+        margin: auto;
     }
 
-    .main-title {
-        font-size: 24px;
-    }
-
-    .intro-text, .instructions, .confirmation-text {
-        font-size: 14px;
-    }
-
-    .styled-table {
-        font-size: 14px;
-    }
-
-    .input-number {
-        width: 90%;
-    }
-}
-</style>
+    </style>
 {% endblock %}

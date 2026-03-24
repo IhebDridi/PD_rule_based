@@ -318,21 +318,27 @@ else:
 # -----------------------------------------------------------------------------
 # SQLAlchemy pool resilience for cloud PostgreSQL (e.g. Clever Cloud):
 # - pool_pre_ping=True: validates pooled connection before use.
-# - pool_recycle=240: recycles before ~5 minute server idle timeout.
-# This guards against "SSL error: unexpected eof" when stale pooled
-# connections are reused after inactivity.
+# - pool_recycle: recycle before the provider idle/SSL timeout (Clever Cloud often < 5 min).
+# Guards "SSL error: unexpected eof" on otree_taskqueuemessage and other SA pools.
+#
+# NOTE: Older code patched sqlalchemy.engine.create — that module does not exist in
+# SQLAlchemy 1.4+/2.x, so the patch silently did nothing. Patch engine.create_engine
+# and re-bind sqlalchemy.create_engine so all import styles see the wrapper.
 # -----------------------------------------------------------------------------
 try:
-    import sqlalchemy.engine.create as _sa_create
+    import sqlalchemy
+    import sqlalchemy.engine as _sa_engine
 
-    _orig_sa_create_engine = _sa_create.create_engine
+    _orig_sa_create_engine = _sa_engine.create_engine
+    _pool_recycle = int(environ.get("SQLALCHEMY_POOL_RECYCLE_SECONDS", "120"))
 
     def _create_engine_with_pool_guards(*args, **kwargs):
         kwargs.setdefault("pool_pre_ping", True)
-        kwargs.setdefault("pool_recycle", int(environ.get("SQLALCHEMY_POOL_RECYCLE_SECONDS", "240")))
+        kwargs.setdefault("pool_recycle", _pool_recycle)
         return _orig_sa_create_engine(*args, **kwargs)
 
-    _sa_create.create_engine = _create_engine_with_pool_guards
+    _sa_engine.create_engine = _create_engine_with_pool_guards
+    sqlalchemy.create_engine = _create_engine_with_pool_guards
 except Exception:
-    # Keep startup robust if SQLAlchemy internals differ in a given runtime.
+    # Keep startup robust if SQLAlchemy is missing or API differs.
     pass

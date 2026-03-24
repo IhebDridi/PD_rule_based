@@ -35,8 +35,8 @@ from .pages import (
 
 # Correct answers for comprehension test (bots pass so they are not excluded)
 COMPREHENSION_ANSWERS = {
-    'q1': 'c', 'q2': 'b', 'q3': 'c', 'q4': 'c', 'q5': 'a',
-    'q6': 'c', 'q7': 'a', 'q8': 'b', 'q9': 'b', 'q10': 'b',
+    'q1': 'c', 'q2': 'b',
+    'q6': 'c', 'q7': 'a', 'q8': 'd', 'q9': 'b', 'q10': 'b',
 }
 
 os.environ.setdefault('OTREE_SKIP_CSRF', '1')
@@ -223,6 +223,7 @@ def _exit_form():
         'part_3_feedback_other': '',
         'part_4_feedback': random.choice(['expected_del_A', 'expected_no_del_A', 'same_action', 'opposite_action', 'random']),
         'part_4_feedback_other': '',
+        'used_ai_or_bot': random.choice(['ai_did_everything', 'ai_advisor', 'ai_translate', 'no_distracted', 'no_other_tabs', 'no_focused']),
         'feedback': '',
     }
 
@@ -337,30 +338,30 @@ class PlayerBot(Bot):
                 self.participant.vars['agent_programming_part2'] = {i: random.choice(['A', 'B']) for i in range(1, 11)}
                 yield AgentProgramming
 
-        # if rnd == 20:
-        #     yield Results
+        if rnd == 20:
+            yield Results
 
-        # if rnd == 21:
-        #     # Match page_sequence: InstructionsOptional then DelegationDecision. Runner catch-up submits the actual page when bot and participant disagree.
-        #     yield InstructionsOptional
-        #     delegate = random.choice([True, False])
-        #     yield DelegationDecision, {'delegate_decision_optional': delegate}
-        #     if delegate:
-        #         self.participant.vars['agent_programming_part3'] = {i: random.choice(['A', 'B']) for i in range(1, 11)}
-        #         yield AgentProgramming
-        #     else:
-        #         yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
+        if rnd == 21:
+            # Match page_sequence: InstructionsOptional then DelegationDecision. Runner catch-up submits the actual page when bot and participant disagree.
+            yield InstructionsOptional
+            delegate = random.choice([True, False])
+            yield DelegationDecision, {'delegate_decision_optional': delegate}
+            if delegate:
+                self.participant.vars['agent_programming_part3'] = {i: random.choice(['A', 'B']) for i in range(1, 11)}
+                yield AgentProgramming
+            else:
+                yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
 
-        # if _part(rnd) == 3 and rnd >= 22:
-        #     if not self.player.field_maybe_none('delegate_decision_optional'):
-        #         yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
-        #     if rnd == 30:
-        #         yield Results
+        if _part(rnd) == 3 and rnd >= 22:
+            if not self.player.field_maybe_none('delegate_decision_optional'):
+                yield DecisionNoDelegation, {'choice': random.choice(['A', 'B'])}
+            if rnd == 30:
+                yield Results
 
-        # if rnd == Constants.num_rounds:
-        #     yield InstructionsGuessingGame
-        #     yield GuessDelegation, {f'guess_round_{i}': random.choice(['yes', 'no']) for i in range(1, 11)}
-        #     yield ResultsGuess
-        #     yield Debriefing
-        #     yield ExitQuestionnaire, _exit_form()
-        #     yield Submission(Thankyou, {}, check_html=False)
+        if rnd == Constants.num_rounds:
+            yield InstructionsGuessingGame
+            yield GuessDelegation, {f'guess_round_{i}': random.choice(['yes', 'no']) for i in range(1, 11)}
+            yield ResultsGuess
+            yield Debriefing
+            yield ExitQuestionnaire, _exit_form()
+            yield Submission(Thankyou, {}, check_html=False)

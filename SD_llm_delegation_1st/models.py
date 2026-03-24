@@ -13,13 +13,18 @@ Prisoners' dilemma app models: constants, round-robin matching, grouping, payoff
 from otree.api import *
 import random
 from collections import defaultdict
+from models_classes import (
+    ConstantsBase,
+    creating_session_mark_unmatched,
+    set_payoffs_pd_batch_group,
+)
 
 
 # =============================================================================
 # Constants
 # =============================================================================
 
-class Constants(BaseConstants):
+class Constants(ConstantsBase):
     name_in_url = 'exp_game312'
     # None = one group of everyone at creation; real groups form only when lobby releases a batch (set_group_matrix_for_released_batch).
     players_per_group = None
@@ -42,34 +47,11 @@ class Constants(BaseConstants):
     DELEGATION_FIRST = True
 
     PD_PAYOFFS = {
-        ('A', 'A'): (70, 70),
-        ('A', 'B'): (0, 100),
-        ('B', 'A'): (100, 0),
-        ('B', 'B'): (30, 30),
+        ('A', 'A'): (100, 100),
+        ('A', 'B'): (0, 50),
+        ('B', 'A'): (50, 0),
+        ('B', 'B'): (50, 50),
     }
-
-    @staticmethod
-    def get_part(round_number):
-        """Map round_number (1–30) to part 1, 2, or 3. Rounds 1–10 → 1, 11–20 → 2, 21–30 → 3."""
-        return (round_number - 1) // Constants.rounds_per_part + 1
-
-    @staticmethod
-    def part_no_delegation():
-        """Part number shown in UI for the no-delegation block (e.g. Part 1 or Part 2 depending on DELEGATION_FIRST)."""
-        return 2 if Constants.DELEGATION_FIRST else 1
-
-    @staticmethod
-    def part_delegation():
-        """Part number shown in UI for the mandatory-delegation block."""
-        return 1 if Constants.DELEGATION_FIRST else 2
-
-    @staticmethod
-    def is_mandatory_delegation_round(round_number):
-        """True if this round is in the block where delegation is mandatory (Part 1 if DELEGATION_FIRST else Part 2)."""
-        part = Constants.get_part(round_number)
-        if Constants.DELEGATION_FIRST:
-            return part == 1  # rounds 1-10 = delegation
-        return part == 2  # rounds 11-20 = delegation
 
 
 # =============================================================================
@@ -190,11 +172,7 @@ def get_opponent_in_round(player, round_number):
 
 class Subsession(BaseSubsession):
     def creating_session(self):
-        """Run once per subsession. Round 1 only: set matching_group_id = -1 so everyone is 'not yet released'."""
-        if self.round_number == 1:
-            for p in self.get_players():
-                p.participant.vars['matching_group_id'] = -1
-
+        creating_session_mark_unmatched(self)
 
 
 # =============================================================================
@@ -203,46 +181,7 @@ class Subsession(BaseSubsession):
 
 class Group(BaseGroup):
     def set_payoffs(self):
-        """
-        Set payoff for each player in this group. Single-player → 0. For N >= 3: if all share
-        the same matching_group_id >= 0 (released batch), use round-robin and PD matrix; otherwise
-        (waiting group or mixed) set payoff 0 for everyone.
-        """
-        players = self.get_players()
-        if len(players) == 1:
-            players[0].payoff = cu(0)
-            return
-        if len(players) >= 3:
-            # Only run round-robin payoffs if everyone is in the same released batch (matching_group_id >= 0).
-            gids = [p.participant.vars.get("matching_group_id", -1) for p in players]
-            if all(g >= 0 for g in gids) and len(set(gids)) == 1:
-                rnd = self.round_number
-                for p in players:
-                    opp = get_opponent_in_round(p, rnd)
-                    if opp is None:
-                        p.payoff = cu(0)
-                        continue
-                    c1 = p.field_maybe_none("choice")
-                    c2 = opp.field_maybe_none("choice")
-                    if c1 is None or c2 is None:
-                        p.payoff = cu(0)
-                        continue
-                    pay = Constants.PD_PAYOFFS.get((c1, c2))
-                    if pay is not None:
-                        p.payoff = cu(pay[0])
-                    else:
-                        p.payoff = cu(0)
-                return
-            # "Waiting" group (others not yet released): payoff 0 for all.
-            for p in players:
-                p.payoff = cu(0)
-            return
-        players[0].payoff = cu(0)
-        if len(players) > 1:
-            for p in players[1:]:
-                p.payoff = cu(0)
-
-
+        set_payoffs_pd_batch_group(self)
 
 
 # =============================================================================
@@ -268,6 +207,7 @@ class Player(BasePlayer):
     label="Please choose A or B",
     )
     guess_payoff = models.CurrencyField(initial=0)
+    conversation_history = models.LongStringField(initial='[]')  # LLM chat history (JSON) for ChatGPTPage
     allocation = models.IntegerField(
         min=0,
         max=100,
@@ -366,6 +306,19 @@ class Player(BasePlayer):
     part_4_feedback_other = models.LongStringField(
         blank=True,
         label="Other reason, specify:",
+    )
+
+    used_ai_or_bot = models.StringField(
+        choices=[
+            ('ai_did_everything', "Yes, I didn't even read the text; the AI did everything."),
+            ('ai_advisor', 'Yes, as an advisor on what to do.'),
+            ('ai_translate', 'Yes, to help me translate the task.'),
+            ('no_distracted', 'No, but I was a bit distracted throughout the study.'),
+            ('no_other_tabs', 'No, but I had some other tabs opened while waiting.'),
+            ('no_focused', 'No, and I was fully focused on the study during the entire time.'),
+        ],
+        label="Did you use some type of AI agent or bot to answer our survey (apart from the ones provided to you in the experiment)? (Answer truthfully, your answer here will not impact your earnings.)",
+        widget=widgets.RadioSelect,
     )
 
 
@@ -479,17 +432,12 @@ class Player(BasePlayer):
     guess_round_9  = models.StringField(choices=[('yes', 'Delegated'), ('no', 'Did not delegate')], blank=True)
     guess_round_10 = models.StringField(choices=[('yes', 'Delegated'), ('no', 'Did not delegate')], blank=True)
 
-    # per‑round payoff
-    guess_payoff = models.CurrencyField(initial=0)
-
     def get_agent_decision_mandatory(self, round_number):
-        """Return the stored agent decision (A or B) for the given round in the mandatory-delegation part, or None."""
         field_name = f"agent_decision_mandatory_delegation_round_{round_number}"
         value = self.field_maybe_none(field_name)
         return value if value is not None else None
 
     def get_agent_decision_optional(self, round_number):
-        """Return the stored agent decision for the given round in Part 3 (optional delegation). Raises if missing."""
         field_name = f"decision_optional_delegation_round_{round_number}"
         if hasattr(self, field_name):
             value = getattr(self, field_name)
@@ -499,15 +447,11 @@ class Player(BasePlayer):
         raise AttributeError(f"Agent allocation for {field_name} not found.")
 
     def get_part_data(self):
-        """Return list of Player instances for all rounds in the current part (used for iteration)."""
         current_part = Constants.get_part(self.round_number)
-        rounds = self.in_rounds(
+        return self.in_rounds(
             (current_part - 1) * Constants.rounds_per_part + 1,
-            current_part * Constants.rounds_per_part
+            current_part * Constants.rounds_per_part,
         )
-        return rounds
-    
-
 
 
 # =============================================================================
@@ -609,15 +553,22 @@ def custom_export(players):
     for code, rounds in by_participant.items():
         try:
             rounds = sorted(rounds, key=lambda p: p.round_number)
+            if not rounds:
+                continue
             p0 = rounds[0]
+            is_simulated = bool(pvars(p0, "is_simulated"))
+            prolific_id = fld(p0, "prolific_id")
+            # Drop ghost/unmatched export rows (typically placeholders with no prolific ID and no matching group).
+            if (not is_simulated) and (not prolific_id):
+                continue
             row = dict.fromkeys(header, "")
 
-            row["Condition"] = "rule2nd"
-            row["ProlificID"] = "SIMULATED" if pvars(p0, "is_simulated") else fld(p0, "prolific_id")
+            row["Condition"] = "llm1st" if Constants.DELEGATION_FIRST else "llm2nd"
+            row["ProlificID"] = "SIMULATED" if is_simulated else prolific_id
             row["Session"] = p0.session.code
             row["Group"] = pvars(p0, "matching_group_id")
             row["PlayerID"] = pvars(p0, "matching_group_position")
-            row["IsSimulated"] = 1 if pvars(p0, "is_simulated") else 0
+            row["IsSimulated"] = 1 if is_simulated else 0
             p_last = rounds[-1] if rounds else p0
             row["Gender"] = fld(p_last, "gender")
             row["Age"] = fld(p_last, "age")
@@ -646,8 +597,26 @@ def custom_export(players):
                 else:
                     row[f"Round{r}CoplayerDecision"] = ""
                     row[f"Round{r}CoplayerID"] = ""
-                agent = "rule" if r <= 10 or r > 20 else "no-agent"
-                row[f"Round{r}PlayerAgent"] = row[f"Round{r}CoPlayerAgent"] = agent
+                # Agent labels reflect whether this participant delegated in that round.
+                if Constants.is_mandatory_delegation_round(r):
+                    agent_self = "llm"
+                elif r > 2 * Constants.rounds_per_part:
+                    agent_self = "llm" if fld(pr, "delegate_decision_optional") else "no-agent"
+                else:
+                    agent_self = "no-agent"
+
+                if other is not None:
+                    if Constants.is_mandatory_delegation_round(r):
+                        agent_other = "llm"
+                    elif r > 2 * Constants.rounds_per_part:
+                        agent_other = "llm" if fld(other, "delegate_decision_optional") else "no-agent"
+                    else:
+                        agent_other = "no-agent"
+                else:
+                    agent_other = ""
+
+                row[f"Round{r}PlayerAgent"] = agent_self
+                row[f"Round{r}CoPlayerAgent"] = agent_other
                 if r <= 10:
                     part_totals[0] += pr.payoff or 0
                 elif r <= 20:
@@ -714,8 +683,6 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
     choices for all rounds in the part before running payoffs (avoids None opponent choices
     when many bots/participants run concurrently).
     """
-    import time as _time
-    _time.sleep(0.5)  # Brief moment so last arriver's choice can commit
     rnd = subsession.round_number
     current_part = Constants.get_part(rnd)
     if current_part == 1:
@@ -726,6 +693,12 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
         start, end = 21, 30
     else:
         return
+    run_key = f"payoffs_run_matching_group_{matching_group_id}_part_{current_part}"
+    if subsession.session.vars.get(run_key):
+        return True
+    # Final-boundary fail-open: at round 30, do not block forever on missing choices.
+    # Missing choices are already handled below as zero payoff per round.
+    allow_incomplete_choices = (current_part == 3 and rnd == 30)
     # Fast path: if we have the 3 member ids stored, compute payoffs directly without rewriting group matrix.
     key = f"matching_group_members_part_{current_part}_{matching_group_id}"
     member_ids = subsession.session.vars.get(key)
@@ -746,16 +719,9 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                         return False
             return True
 
-        # Polling schedule (low read frequency): check immediately, then at 5s, 10s, then every 2s up to ~3 minutes.
-        if not _all_choices_ready_for_three():
-            _time.sleep(5)
-            if not _all_choices_ready_for_three():
-                _time.sleep(5)
-                if not _all_choices_ready_for_three():
-                    for _ in range(85):
-                        _time.sleep(2)
-                        if _all_choices_ready_for_three():
-                            break
+        # Fast exit: try again on next wait-page refresh instead of blocking this worker.
+        if (not _all_choices_ready_for_three()) and (not allow_incomplete_choices):
+            return False
 
         # Compute payoffs round-by-round using round-robin within these 3 players.
         N = len(member_ids)
@@ -777,7 +743,8 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                 else:
                     pay = Constants.PD_PAYOFFS.get((c1, c2))
                     p.payoff = cu(pay[0]) if pay is not None else cu(0)
-        return
+        subsession.session.vars[run_key] = True
+        return True
     # Find the group (same 3 players in every round)
     round_ss = subsession.in_round(start)
     all_players = list(round_ss.get_players())
@@ -809,16 +776,9 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                     return False
         return True
 
-    # Polling (fewer reads): check immediately, then at 5s, 10s, then every 2s (up to ~3 minutes).
-    if not _all_choices_ready():
-        _time.sleep(5)
-        if not _all_choices_ready():
-            _time.sleep(5)
-            if not _all_choices_ready():
-                for _ in range(85):
-                    _time.sleep(2)
-                    if _all_choices_ready():
-                        break
+    # Fast exit: try again on next wait-page refresh instead of blocking this worker.
+    if (not _all_choices_ready()) and (not allow_incomplete_choices):
+        return False
     for r in range(start, end + 1):
         round_ss = subsession.in_round(r)
         all_players_r = list(round_ss.get_players())
@@ -832,4 +792,6 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                 continue
             players[0].group.set_payoffs()
             break
+    subsession.session.vars[run_key] = True
+    return True
 

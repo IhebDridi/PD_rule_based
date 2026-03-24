@@ -15,6 +15,21 @@ import random
 from collections import defaultdict
 
 
+# Goal-oriented helper: create a 10-round profile from slider mean in [0, 1].
+def generate_goal_allocations(mean_value, n_rounds=10, std_dev=18):
+    try:
+        mu = float(mean_value) * 100.0
+    except (TypeError, ValueError):
+        mu = 50.0
+    mu = max(0.0, min(100.0, mu))
+    values = []
+    for _ in range(n_rounds):
+        x = random.gauss(mu, std_dev)
+        x = int(round(max(0.0, min(100.0, x))))
+        values.append(x)
+    return values
+
+
 # =============================================================================
 # Constants
 # =============================================================================
@@ -42,10 +57,10 @@ class Constants(BaseConstants):
     DELEGATION_FIRST = False
 
     PD_PAYOFFS = {
-        ('A', 'A'): (70, 70),
-        ('A', 'B'): (0, 100),
-        ('B', 'A'): (100, 0),
-        ('B', 'B'): (30, 30),
+        ('A', 'A'): (100, 100),
+        ('A', 'B'): (0, 50),
+        ('B', 'A'): (50, 0),
+        ('B', 'B'): (50, 50),
     }
 
     @staticmethod
@@ -368,6 +383,19 @@ class Player(BasePlayer):
         label="Other reason, specify:",
     )
 
+    used_ai_or_bot = models.StringField(
+        choices=[
+            ('ai_did_everything', "Yes, I didn't even read the text; the AI did everything."),
+            ('ai_advisor', 'Yes, as an advisor on what to do.'),
+            ('ai_translate', 'Yes, to help me translate the task.'),
+            ('no_distracted', 'No, but I was a bit distracted throughout the study.'),
+            ('no_other_tabs', 'No, but I had some other tabs opened while waiting.'),
+            ('no_focused', 'No, and I was fully focused on the study during the entire time.'),
+        ],
+        label="Did you use some type of AI agent or bot to answer our survey (apart from the ones provided to you in the experiment)? (Answer truthfully, your answer here will not impact your earnings.)",
+        widget=widgets.RadioSelect,
+    )
+
 
     feedback = models.LongStringField(
         blank=True,                # optional
@@ -609,15 +637,21 @@ def custom_export(players):
     for code, rounds in by_participant.items():
         try:
             rounds = sorted(rounds, key=lambda p: p.round_number)
+            if not rounds:
+                continue
             p0 = rounds[0]
+            is_simulated = bool(pvars(p0, "is_simulated"))
+            prolific_id = fld(p0, "prolific_id")
+            if (not is_simulated) and (not prolific_id):
+                continue
             row = dict.fromkeys(header, "")
 
-            row["Condition"] = "rule2nd"
-            row["ProlificID"] = "SIMULATED" if pvars(p0, "is_simulated") else fld(p0, "prolific_id")
+            row["Condition"] = "goal1st" if Constants.DELEGATION_FIRST else "goal2nd"
+            row["ProlificID"] = "SIMULATED" if is_simulated else prolific_id
             row["Session"] = p0.session.code
             row["Group"] = pvars(p0, "matching_group_id")
             row["PlayerID"] = pvars(p0, "matching_group_position")
-            row["IsSimulated"] = 1 if pvars(p0, "is_simulated") else 0
+            row["IsSimulated"] = 1 if is_simulated else 0
             p_last = rounds[-1] if rounds else p0
             row["Gender"] = fld(p_last, "gender")
             row["Age"] = fld(p_last, "age")
@@ -714,8 +748,6 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
     choices for all rounds in the part before running payoffs (avoids None opponent choices
     when many bots/participants run concurrently).
     """
-    import time as _time
-    _time.sleep(0.5)  # Brief moment so last arriver's choice can commit
     rnd = subsession.round_number
     current_part = Constants.get_part(rnd)
     if current_part == 1:
@@ -726,6 +758,12 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
         start, end = 21, 30
     else:
         return
+    run_key = f"payoffs_run_matching_group_{matching_group_id}_part_{current_part}"
+    if subsession.session.vars.get(run_key):
+        return True
+    # Final-boundary fail-open: at round 30, do not block forever on missing choices.
+    # Missing choices are already handled below as zero payoff per round.
+    allow_incomplete_choices = (current_part == 3 and rnd == 30)
     # Fast path: if we have the 3 member ids stored, compute payoffs directly without rewriting group matrix.
     key = f"matching_group_members_part_{current_part}_{matching_group_id}"
     member_ids = subsession.session.vars.get(key)
@@ -746,16 +784,9 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                         return False
             return True
 
-        # Polling schedule (low read frequency): check immediately, then at 5s, 10s, then every 2s up to ~3 minutes.
-        if not _all_choices_ready_for_three():
-            _time.sleep(5)
-            if not _all_choices_ready_for_three():
-                _time.sleep(5)
-                if not _all_choices_ready_for_three():
-                    for _ in range(85):
-                        _time.sleep(2)
-                        if _all_choices_ready_for_three():
-                            break
+        # Fast exit: try again on next wait-page refresh instead of blocking this worker.
+        if (not _all_choices_ready_for_three()) and (not allow_incomplete_choices):
+            return False
 
         # Compute payoffs round-by-round using round-robin within these 3 players.
         N = len(member_ids)
@@ -777,7 +808,8 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                 else:
                     pay = Constants.PD_PAYOFFS.get((c1, c2))
                     p.payoff = cu(pay[0]) if pay is not None else cu(0)
-        return
+        subsession.session.vars[run_key] = True
+        return True
     # Find the group (same 3 players in every round)
     round_ss = subsession.in_round(start)
     all_players = list(round_ss.get_players())
@@ -809,16 +841,9 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                     return False
         return True
 
-    # Polling (fewer reads): check immediately, then at 5s, 10s, then every 2s (up to ~3 minutes).
-    if not _all_choices_ready():
-        _time.sleep(5)
-        if not _all_choices_ready():
-            _time.sleep(5)
-            if not _all_choices_ready():
-                for _ in range(85):
-                    _time.sleep(2)
-                    if _all_choices_ready():
-                        break
+    # Fast exit: try again on next wait-page refresh instead of blocking this worker.
+    if (not _all_choices_ready()) and (not allow_incomplete_choices):
+        return False
     for r in range(start, end + 1):
         round_ss = subsession.in_round(r)
         all_players_r = list(round_ss.get_players())
@@ -832,4 +857,6 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                 continue
             players[0].group.set_payoffs()
             break
+    subsession.session.vars[run_key] = True
+    return True
 

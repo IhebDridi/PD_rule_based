@@ -53,6 +53,7 @@ class BatchWaitForGroup(WaitPage):
         pool_key = f"results_pool_part_{current_part}"
         pool_version_key = f"results_pool_version_part_{current_part}"
         joined_at_key = f"results_wait_joined_at_part_{current_part}"
+        wait_more_token_key = f"results_wait_more_token_part_{current_part}"
 
         # Handle actions from the timeout choice UI.
         if _params:
@@ -65,8 +66,19 @@ class BatchWaitForGroup(WaitPage):
                 self.participant.vars[f"results_waiting_part_{current_part}"] = False
                 return self._response_when_ready()
             if _params.get("wait_more"):
-                # This participant chooses to wait 5 more minutes → reset their personal join time (new 5‑min window).
-                self.participant.vars[joined_at_key] = time.time()
+                # Consume "wait more" only once per click token.
+                # Without this, auto-refresh on a URL containing wait_more=1 can keep resetting the timer.
+                wait_more_token = _params.get("wait_more_token") or _params.get("t") or ""
+                if wait_more_token:
+                    if self.participant.vars.get(wait_more_token_key) != wait_more_token:
+                        self.participant.vars[joined_at_key] = time.time()
+                        self.participant.vars[wait_more_token_key] = wait_more_token
+                else:
+                    # Backward-compatible fallback if token is missing.
+                    # Reset once and mark consumed to avoid repeated resets on refresh.
+                    if self.participant.vars.get(wait_more_token_key) != "__legacy__":
+                        self.participant.vars[joined_at_key] = time.time()
+                        self.participant.vars[wait_more_token_key] = "__legacy__"
 
         # If already assigned to a results group, go to Results.
         # Update the shared results pool and maybe form a group for this part
@@ -259,7 +271,12 @@ class BatchWaitForGroup(WaitPage):
         path = getattr(self.request, 'path', None) or getattr(self.request, 'path_info', '') or ''
         build_uri = getattr(self.request, 'build_absolute_uri', None)
         base_url = (build_uri(path) if build_uri and path else path) or ''
-        wait_more_url = base_url + ('&' if '?' in base_url else '?') + 'wait_more=1'
+        wait_more_token = str(int(now * 1000))
+        wait_more_url = (
+            base_url
+            + ('&' if '?' in base_url else '?')
+            + f'wait_more=1&wait_more_token={wait_more_token}'
+        )
         quit_url = base_url + ('&' if '?' in base_url else '?') + 'quit=1'
         return {
             'n_arrived': n_in_pool,

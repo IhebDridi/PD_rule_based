@@ -15,7 +15,7 @@
         <p class="intro-text">Choose a goal for your AI agent to aim for. After choosing a goal and clicking “Generate” you can check your AI agent’s behavior on the table on the right before confirming it. There are only two possible options for each round: Option A and Option B. The Table of Earnings in Ecoins is shown below again for your information. The Table of Earnings in Ecoins is shown below again for your information.</p>
         
             <div class="slider-labels">
-            <span>Choose your allocation goal</span>
+            <span>Choose your goal:</span>
             <br></br>
             </div>
 
@@ -108,6 +108,10 @@ $(document).ready(function () {
             handleColor: "#007BFF",
             labelSuffix: "maximize other's gain",
             labelPrefix: "maximize personal gain",
+        });
+        $("#slider").addClass("slider-pristine");
+        $("#slider").on("mousedown touchstart keydown click", function () {
+            $("#slider").removeClass("slider-pristine");
         });
     });
     
@@ -314,6 +318,10 @@ body {
         width: 400px;
         height: 50px;
         margin: auto;
+    }
+
+    #slider.slider-pristine .rs-handle {
+        display: none !important;
     }
 
     </style>

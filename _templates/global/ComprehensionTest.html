@@ -35,7 +35,7 @@
         </div>
         <hr class="divider">
 
-        <!-- Question 3 (A&A): answer c = 70 Ecoins -->
+        <!-- Question 3 (A&A) -->
         <div class="question-container">
             <label class="question-label">3. If you choose Option A and the other player chooses Option A, what are your earnings in that round?</label>
             <div class="option"><input type="radio" name="q6" value="a" id="q6_a"><label for="q6_a"> A) 0 Ecoins</label></div>
@@ -45,7 +45,7 @@
         </div>
         <hr class="divider">
 
-        <!-- Question 4 (A&B): answer a = 0 Ecoins -->
+        <!-- Question 4 (A&B) -->
         <div class="question-container">
             <label class="question-label">4. If you choose Option A and the other player chooses Option B, what are your earnings in that round?</label>
             <div class="option"><input type="radio" name="q7" value="a" id="q7_a"><label for="q7_a"> A) 0 Ecoins</label></div>
@@ -55,23 +55,32 @@
         </div>
         <hr class="divider">
 
-        <!-- Question 5 (B&A): answer d = 100 Ecoins -->
+        <!-- Question 5 (B&A) -->
         <div class="question-container">
             <label class="question-label">5. If you choose Option B and the other player chooses Option A, what are your earnings in that round?</label>
             <div class="option"><input type="radio" name="q8" value="a" id="q8_a"><label for="q8_a"> A) 0 Ecoins</label></div>
             <div class="option"><input type="radio" name="q8" value="b" id="q8_b"><label for="q8_b"> B) 30 Ecoins</label></div>
+            {% if is_sh_game %}
+            <div class="option"><input type="radio" name="q8" value="c" id="q8_c"><label for="q8_c"> C) 50 Ecoins</label></div>
+            {% else %}
             <div class="option"><input type="radio" name="q8" value="c" id="q8_c"><label for="q8_c"> C) 70 Ecoins</label></div>
+            {% endif %}
             <div class="option"><input type="radio" name="q8" value="d" id="q8_d"><label for="q8_d"> D) 100 Ecoins</label></div>
         </div>
         <hr class="divider">
 
-        <!-- Question 6 (B&B): answer b = 30 Ecoins -->
+        <!-- Question 6 (B&B) -->
         <div class="question-container">
             <label class="question-label">6. If you choose Option B and the other player chooses Option B, what are your earnings in that round?</label>
             <div class="option"><input type="radio" name="q9" value="a" id="q9_a"><label for="q9_a"> A) 0 Ecoins</label></div>
             <div class="option"><input type="radio" name="q9" value="b" id="q9_b"><label for="q9_b"> B) 30 Ecoins</label></div>
+            {% if is_sh_game %}
+            <div class="option"><input type="radio" name="q9" value="c" id="q9_c"><label for="q9_c"> C) 50 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q9" value="d" id="q9_d"><label for="q9_d"> D) 100 Ecoins</label></div>
+            {% else %}
             <div class="option"><input type="radio" name="q9" value="c" id="q9_c"><label for="q9_c"> C) 70 Ecoins</label></div>
             <div class="option"><input type="radio" name="q9" value="d" id="q9_d"><label for="q9_d"> D) 100 Ecoins</label></div>
+            {% endif %}
         </div>
         <hr class="divider">
 
@@ -109,7 +118,7 @@
         <p>Between each round of the interactive tasks (Parts 1–3), you will be randomly rematched with a different participant. This means you will interact with many different people, <strong>not the same person throughout</strong>.</p>
 
         <h3>How the Interactive Tasks Work (Parts 1–3)</h3>
-        <p>In each round, you and another participant will make decisions simultaneously. Your earnings depend on both your choice and the other participant's choice.</p>
+        <p>In each round, you and another participant will make decisions simultaneously. Your earnings depend on both your and the other participant's choices, as shown in the table below.</p>
         <p><strong>Table of Earnings (in Ecoins):</strong></p>
         <table class="styled-table">
             <thead>
@@ -122,18 +131,25 @@
             <tbody>
                 <tr>
                     <td>Option A</td>
-                    <td>70</td>
-                    <td>0</td>
+                    <td>{{ payoff_AA }}</td>
+                    <td>{{ payoff_AB }}</td>
                 </tr>
                 <tr>
                     <td>Option B</td>
-                    <td>100</td>
-                    <td>30</td>
+                    <td>{{ payoff_BA }}</td>
+                    <td>{{ payoff_BB }}</td>
                 </tr>
             </tbody>
         </table>
         <p>The numbers in the table represent <strong>your earnings</strong> in Ecoins for each combination of choices made by you (left column) and your opponent (top row).
         Exchange rate: 10 Ecoins = 1 cent.</p>
+        <p>Specifically, the table can be interpreted as follows:</p>
+        <ul>
+            <li> When <strong>both</strong> you and the other player <strong>choose A</strong>, both of you get <strong>{{ payoff_AA }} Ecoins</strong>.</li>
+            <li> When <strong>you choose A, and the other player chooses B</strong>, you get <strong>{{ payoff_AB }} Ecoins</strong>, and the other player gets <strong>{{ payoff_BA }} Ecoins</strong>.</li>
+            <li> When <strong>you choose B, and the other player chooses A</strong>, you get <strong>{{ payoff_BA }} Ecoins</strong>, and the other player gets <strong>{{ payoff_AB }} Ecoins</strong>.</li>
+            <li> When <strong>both</strong> you and the other player <strong>choose B</strong>, both of you get <strong>{{ payoff_BB }} Ecoins</strong>.</li>
+        </ul>
         <p><strong>Important:</strong></p>
         <p>Every participant you will interact with received the same set of Instructions as you.</p>
         <p>There is no deception in this experiment.</p>

@@ -319,26 +319,44 @@ else:
 # SQLAlchemy pool resilience for cloud PostgreSQL (e.g. Clever Cloud):
 # - pool_pre_ping=True: validates pooled connection before use.
 # - pool_recycle: recycle before the provider idle/SSL timeout (Clever Cloud often < 5 min).
-# Guards "SSL error: unexpected eof" on otree_taskqueuemessage and other SA pools.
 #
-# NOTE: Older code patched sqlalchemy.engine.create — that module does not exist in
-# SQLAlchemy 1.4+/2.x, so the patch silently did nothing. Patch engine.create_engine
-# and re-bind sqlalchemy.create_engine so all import styles see the wrapper.
+# IMPORTANT: Do not monkeypatch create_engine for local SQLite. Any global wrapper
+# that touches pool settings can trigger sqlite3 "Cannot operate on a closed database"
+# with oTree's connect handlers. Only install when DATABASE_URL is PostgreSQL.
+# Optional override: SQLALCHEMY_ENABLE_POOL_GUARDS=1
 # -----------------------------------------------------------------------------
-try:
-    import sqlalchemy
-    import sqlalchemy.engine as _sa_engine
+def _should_install_sa_pool_guards() -> bool:
+    if str(environ.get("SQLALCHEMY_ENABLE_POOL_GUARDS", "")).strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    ):
+        return True
+    u = (environ.get("DATABASE_URL") or "").lower()
+    return ("postgresql" in u) or ("postgres" in u)
 
-    _orig_sa_create_engine = _sa_engine.create_engine
-    _pool_recycle = int(environ.get("SQLALCHEMY_POOL_RECYCLE_SECONDS", "120"))
 
-    def _create_engine_with_pool_guards(*args, **kwargs):
-        kwargs.setdefault("pool_pre_ping", True)
-        kwargs.setdefault("pool_recycle", _pool_recycle)
-        return _orig_sa_create_engine(*args, **kwargs)
+if _should_install_sa_pool_guards():
+    try:
+        import sqlalchemy
+        import sqlalchemy.engine as _sa_engine
 
-    _sa_engine.create_engine = _create_engine_with_pool_guards
-    sqlalchemy.create_engine = _create_engine_with_pool_guards
-except Exception:
-    # Keep startup robust if SQLAlchemy is missing or API differs.
-    pass
+        _orig_sa_create_engine = _sa_engine.create_engine
+        _pool_recycle = int(environ.get("SQLALCHEMY_POOL_RECYCLE_SECONDS", "120"))
+
+        def _create_engine_with_pool_guards(*args, **kwargs):
+            target = ""
+            if args:
+                target = str(args[0] or "").lower()
+            elif "url" in kwargs:
+                target = str(kwargs.get("url") or "").lower()
+            is_postgres = ("postgresql" in target) or ("postgres" in target)
+            if is_postgres:
+                kwargs.setdefault("pool_pre_ping", True)
+                kwargs.setdefault("pool_recycle", _pool_recycle)
+            return _orig_sa_create_engine(*args, **kwargs)
+
+        _sa_engine.create_engine = _create_engine_with_pool_guards
+        sqlalchemy.create_engine = _create_engine_with_pool_guards
+    except Exception:
+        pass

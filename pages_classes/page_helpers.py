@@ -38,4 +38,7 @@ def part_vars(player):
         out["payoff_AB"] = pd[("A", "B")][0]
         out["payoff_BA"] = pd[("B", "A")][0]
         out["payoff_BB"] = pd[("B", "B")][0]
+    else:
+        # Always define keys so ComprehensionTest.html never raises UndefinedVariable.
+        out["payoff_AA"] = out["payoff_AB"] = out["payoff_BA"] = out["payoff_BB"] = ""
     return out

@@ -27,7 +27,15 @@ def _is_bot_suspected(participant):
 def part_vars(player):
     """Template vars for part labels (part_no_delegation, part_delegation) used across instruction pages."""
     C = get_constants(player)
-    return {
+    out = {
         "part_no_delegation": C.part_no_delegation(),
         "part_delegation": C.part_delegation(),
     }
+    pd = getattr(C, "PD_PAYOFFS", None)
+    if isinstance(pd, dict):
+        # Your earnings when row choice is yours and column is opponent's (matches table + comprehension text).
+        out["payoff_AA"] = pd[("A", "A")][0]
+        out["payoff_AB"] = pd[("A", "B")][0]
+        out["payoff_BA"] = pd[("B", "A")][0]
+        out["payoff_BB"] = pd[("B", "B")][0]
+    return out

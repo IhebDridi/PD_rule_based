@@ -265,9 +265,10 @@ class BatchWaitForGroup(WaitPage):
         if first_join_key not in self.session.vars:
             self.session.vars[first_join_key] = now
         n_in_pool = len(self.session.vars.get(pool_key, []))
-        # Show wait-or-quit only if pool still has < 3 AND this participant has personally waited >= 5 minutes.
+        # Show wait-or-quit after this participant has personally waited >= 5 minutes,
+        # regardless of current pool size.
         joined_at = self.participant.vars.get(joined_at_key, now)
-        show_wait_or_quit_results = (n_in_pool < group_size) and ((now - joined_at) >= timeout_seconds)
+        show_wait_or_quit_results = (now - joined_at) >= timeout_seconds
         path = getattr(self.request, 'path', None) or getattr(self.request, 'path_info', '') or ''
         build_uri = getattr(self.request, 'build_absolute_uri', None)
         base_url = (build_uri(path) if build_uri and path else path) or ''

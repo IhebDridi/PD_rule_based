@@ -22,7 +22,7 @@ def _decisions_to_csv(decisions: list) -> str:
 
 
 class SupervisedLearning(Page):
-    template_name = "PD_supervised_learning_delegation_2nd/supervisedLearning.html"
+    template_name = "TG_supervised_learning_delegation_2nd/supervisedLearning.html"
     form_model = "player"
     form_fields = ["supervised_last_generated_csv"]
 

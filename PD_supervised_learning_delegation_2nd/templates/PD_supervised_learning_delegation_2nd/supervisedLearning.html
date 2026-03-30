@@ -1,221 +1,290 @@
 {% extends "global/Page.html" %}
-
 {% block content %}
-<div class="allocation-container">
-    <h1 class="main-title">
-        {% if current_part == 1 or current_part == 2 %}
-            Part {{ part_delegation }}: Set up your AI agent
-        {% elif current_part == 3 and delegate_decision == True %}
-            Part 3: Set up your AI agent
-        {% endif %}
-    </h1>
- 
-    <div class="countdown-banner">
-        Time remaining: <span id="countdown-seconds" data-start="{{ countdown_seconds }}">90</span> seconds
+
+<div class="main-container">
+    <div class="dataset-container">
+        <h1 class="main-title">
+            {% if current_part == 3 and delegate_decision == True %}
+                Part 3: Set up your AI agent
+            {% else %}
+                Part {{ part_delegation }}: Set up your AI agent
+            {% endif %}
+        </h1>
+
+        <div class="countdown-banner">
+            Time remaining: <span id="countdown-seconds" data-start="{{ countdown_seconds }}">90</span> seconds
+        </div>
+
+        <p class="intro-text">
+            Choose one of the datasets below for your AI agent to learn from. After choosing a table and clicking &ldquo;Generate&rdquo; you can check your AI agent&rsquo;s behavior on the table on the right before confirming it. There are only two possible options for each round: Option A and Option B. The Table of Earnings in Ecoins is shown below again for your information.
+        </p>
+
+        <div class="dataset-tables">
+            {% for dataset in datasets %}
+                <div class="dataset-box">
+                    <p class="intro-text"><strong>Dataset: {{ dataset.dataset_num }}</strong></p>
+                    <table class="styled-table dataset-table" id="dataset_{{ dataset.dataset_num }}" onclick="selectTable({{ dataset.dataset_num }})">
+                        <thead>
+                            <tr>
+                                <th>Round</th>
+                                <th>Decision</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in dataset.allocations %}
+                                <tr>
+                                    <td>{{ row.round_num }}</td>
+                                    <td>{{ row.decision }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endfor %}
+        </div>
     </div>
 
-    <p class="intro-text">
-        Fill in the table below to specify how your AI agent should make decisions in each of the 10 rounds of play. You can only choose between Option A and Option B. The Table of Earnings in Ecoins is shown below again for your information.
-    </p>
-
-
-    <form method="post" class="allocation-form">
-        <table class="styled-table">
+    <div class="results-container">
+        <h3 class="main-title">AI Agent Behavior</h3>
+        <table id="decision-table" class="styled-table">
             <thead>
                 <tr>
                     <th>Round</th>
-                    <th>Decisions</th>
+                    <th>Decision</th>
                 </tr>
             </thead>
             <tbody>
-                {% for i in range(1, 11) %}
+                {% for row in preview_rows %}
                 <tr>
-                    <td>{{ i }}</td>
-                    <td>
-                            <label class="choice-option">
-                                <input type="radio" name="agent_decision_mandatory_delegation_round_{{ i }}" value="A" required>
-                                A
-                            </label>
-                            <label class="choice-option">
-                                <input type="radio" name="agent_decision_mandatory_delegation_round_{{ i }}" value="B" required>
-                                B
-                            </label>
-                    </td>
+                    <td>{{ row.round_num }}</td>
+                    <td>{{ row.value }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
-        <p class="confirmation-text">
-            Once you confirm, the decisions will be final, and the AI agent will use these instructions during the rounds.
-        </p>
-        <button type="submit" class="modern-btn" onclick="sendAllocations()">Confirm</button>
-        <div class="small-instructions">
-            <p class="table-caption">For your convenience, we share the table of earnings again below:</p>
-            <table class="styled-table">
-                <thead>
-                    <tr>
-                        <th>Your Choice \ Other’s Choice</th>
-                        <th>Option A</th>
-                        <th>Option B</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>Option A</td>
-                        <td>[70, 70]</td>
-                        <td>[0, 100]</td>
-                    </tr>
-                    <tr>
-                        <td>Option B</td>
-                        <td>[100, 0]</td>
-                        <td>[30, 30]</td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="generate-container">
+            <button type="button" class="modern-btn2" onclick="generateAllocations(event)">Generate</button>
         </div>
+        <form method="post">
+            <input type="hidden" name="supervised_last_generated_csv" id="supervised_last_generated_csv"
+                   value="{{ supervised_csv_hidden }}">
+            <button type="submit" class="modern-btn" id="confirm-btn" style="background-color: #009933;{% if not show_confirm %} display: none;{% endif %}">Confirm</button>
         </form>
+    </div>
 </div>
 
+<div class="small-instructions">
+    <p class="table-caption">For your convenience, we share the table of earnings again below:</p>
+    <table class="styled-table">
+        <thead>
+            <tr>
+                <th>Your Choice \ Other&rsquo;s Choice</th>
+                <th>Option A</th>
+                <th>Option B</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Option A</td>
+                <td>{{ payoff_AA }}</td>
+                <td>{{ payoff_AB }}</td>
+            </tr>
+            <tr>
+                <td>Option B</td>
+                <td>{{ payoff_BA }}</td>
+                <td>{{ payoff_BB }}</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
 
 <script>
+let selectedDatasetNum = null;
 
-    function Sleep(milliseconds) {
-    return new Promise(resolve => setTimeout(resolve, milliseconds));
+function selectTable(datasetNum) {
+    if (typeof event !== "undefined" && event.preventDefault) {
+        event.preventDefault();
     }
+    document.querySelectorAll(".dataset-table").forEach(function(table) {
+        table.classList.remove("selected-table");
+    });
+    document.getElementById("dataset_" + datasetNum).classList.add("selected-table");
+    selectedDatasetNum = datasetNum;
+}
 
-    (function startCountdown() {
-        var el = document.getElementById('countdown-seconds');
-        if (!el) { return; }
-        var startAttr = el.getAttribute('data-start');
-        var remaining = parseInt(startAttr || el.textContent || '90', 10);
-        if (isNaN(remaining) || remaining < 0) { remaining = 90; }
-        function render() {
-            if (remaining < 0) { remaining = 0; }
-            el.textContent = remaining;
+function generateAllocations(ev) {
+    if (ev && ev.preventDefault) {
+        ev.preventDefault();
+    }
+    if (selectedDatasetNum !== null) {
+        liveSend({"dataset_num": selectedDatasetNum});
+    } else {
+        alert("Please select a dataset first!");
+    }
+}
+
+function liveRecv(data) {
+    console.log("Received Data:", data);
+    var normalized = (data.response || "").replace(/\s/g, "").toUpperCase();
+    var pattern = /^([AB],){9}[AB]$/;
+    var confirmBtn = document.getElementById("confirm-btn");
+    var csvHidden = document.getElementById("supervised_last_generated_csv");
+    if (pattern.test(normalized)) {
+        if (confirmBtn) {
+            confirmBtn.style.display = "block";
         }
-        render();
-        setInterval(function() {
-            remaining -= 1;
-            render();
-        }, 1000);
-    })();
-
-    function sendAllocations() {
-        let allocationData = {};
-
-        document.querySelectorAll('input[type="radio"]:checked').forEach(input => {
-            allocationData[input.name] = input.value;  // "A" or "B"
-        });
-
-        console.log('Agent choices:', allocationData);
-
-        liveSend({ 'allocations': JSON.stringify(allocationData) });
+        if (csvHidden) {
+            csvHidden.value = normalized;
+        }
+    } else if (confirmBtn) {
+        confirmBtn.style.display = "none";
+        if (csvHidden) {
+            csvHidden.value = "";
+        }
     }
+    var tbody = document.getElementById("decision-table");
+    if (tbody) {
+        tbody = tbody.getElementsByTagName("tbody")[0];
+    }
+    if (normalized && tbody) {
+        var parts = normalized.split(",");
+        if (parts.length === 10) {
+            var rows = tbody.getElementsByTagName("tr");
+            for (var i = 0; i < 10; i++) {
+                rows[i].cells[1].textContent = parts[i];
+            }
+        }
+    }
+}
+
+(function startCountdown() {
+    var el = document.getElementById("countdown-seconds");
+    if (!el) { return; }
+    var startAttr = el.getAttribute("data-start");
+    var remaining = parseInt(startAttr || el.textContent || "90", 10);
+    if (isNaN(remaining) || remaining < 0) { remaining = 90; }
+    function render() {
+        if (remaining < 0) { remaining = 0; }
+        el.textContent = remaining;
+    }
+    render();
+    setInterval(function() {
+        remaining -= 1;
+        render();
+    }, 1000);
+})();
 </script>
 
-
 <style>
-/* General Styling */
 body {
-    font-family: 'Arial', sans-serif;
+    font-family: "Arial", sans-serif;
     background-color: #f9f9f9;
     color: #333;
     margin: 0;
     padding: 0;
 }
 
-/* Container Styling */
-.allocation-container {
-    max-width: 800px;
-    margin: 50px auto;
+.main-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    width: 100%;
+    padding: 20px;
+}
+
+.dataset-container {
+    flex: 1;
+    background: #ffffff;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    margin-right: 30px;
+}
+
+.dataset-tables {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    max-width: 600px;
+    padding-top: 20px;
+}
+
+.dataset-tables .dataset-box:nth-child(4),
+.dataset-tables .dataset-box:nth-child(5) {
+    grid-column: span 1;
+    justify-self: center;
+}
+
+.dataset-box {
+    width: 180px;
+    text-align: center;
+}
+
+.results-container {
+    flex: 1;
+    max-width: 450px;
     background: #ffffff;
     padding: 30px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     border-radius: 8px;
 }
 
-/* Title Styling */
-.main-title {
-    font-size: 28px;
-    text-align: center;
-    margin-bottom: 20px;
-    color: #333333;
-    font-weight: bold;
-    border-bottom: 3px solid #0056b3; /* Bottom border color */
-    padding-bottom: 10px;
-}
-
-/* Text Styling */
-.intro-text, .instructions, .confirmation-text {
-    font-size: 16px;
-    margin-bottom: 20px;
-    text-align: center;
-    color: #555555;
-}
-
-/* Table Styling */
 .styled-table {
-    border-collapse: show;
-    margin: 25px auto;
-    font-size: 15px;
-    font-family: Arial, sans-serif;
+    border-collapse: collapse;
     width: 100%;
+    font-size: 14px;
     text-align: center;
+    cursor: pointer;
     border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.styled-table thead tr {
-    background-color: #0056b3;
-    color: #ffffff;
-    font-weight: bold;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .styled-table th, .styled-table td {
-    border: 1px solid #c1c1c1;
-    padding: 10px 15px;
+    border: 1px solid #ddd;
+    padding: 8px;
 }
 
-.styled-table tbody tr:nth-of-type(even) {
-    background-color: #f3f3f3;
+.styled-table thead {
+    background-color: #0056b3;
+    color: #ffffff;
+    text-align: center;
 }
 
 .styled-table tbody tr:hover {
     background-color: #f1f1f1;
 }
 
-.countdown-banner {
-    margin: 10px auto 20px auto;
-    padding: 8px 12px;
-    max-width: 300px;
-    background-color: #fff3cd;
-    border: 1px solid #ffeeba;
-    border-radius: 6px;
-    color: #856404;
-    font-weight: 500;
+.selected-table {
+    border: 3px solid #3f963b !important;
+    background-color: #e6f0ff !important;
 }
 
-/* Input Styling */
-.input-number {
-    width: 80%;
-    padding: 10px;
-    font-size: 15px;
-    border: 1px solid #c1c1c1;
-    border-radius: 4px;
-    text-align: center;
-}
-
-/* Button Styling */
 .modern-btn {
     display: block;
     width: 100%;
     max-width: 200px;
-    margin: 20px auto;
+    margin: 10px auto;
     padding: 12px 20px;
     font-size: 18px;
     color: #ffffff;
-    background-color: #0056b3; /* Button background color */
+    background-color: #0056b3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    text-align: center;
+}
+
+.modern-btn2 {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 10px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3;
     border: none;
     border-radius: 6px;
     cursor: pointer;
@@ -224,30 +293,80 @@ body {
 }
 
 .modern-btn:hover {
-    background-color: #003d80; /* Darker on hover */
+    background-color: #003d80;
 }
 
-/* Responsive Design */
+.generate-container {
+    grid-column: span 2;
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+.main-title {
+    font-size: 28px;
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333333;
+    font-weight: bold;
+    border-bottom: 3px solid #0056b3;
+    padding-bottom: 10px;
+}
+
+.countdown-banner {
+    margin: 10px auto 16px auto;
+    padding: 8px 12px;
+    max-width: 300px;
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+    border-radius: 6px;
+    color: #856404;
+    font-weight: 500;
+    text-align: center;
+}
+
+.intro-text {
+    font-size: 15px;
+    color: #333;
+    line-height: 1.5;
+    margin-bottom: 12px;
+}
+
+.small-instructions {
+    max-width: 800px;
+    margin: 30px auto 50px auto;
+    padding: 0 20px;
+}
+
+.small-instructions .styled-table {
+    cursor: default;
+    margin: 25px auto;
+    width: 100%;
+}
+
+.table-caption {
+    text-align: center;
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 8px;
+}
+
 @media (max-width: 768px) {
-    .allocation-container {
-        padding: 20px;
+    .main-container {
+        flex-direction: column;
+        align-items: center;
     }
-
-    .main-title {
-        font-size: 24px;
+    .dataset-tables {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
     }
-
-    .intro-text, .instructions, .confirmation-text {
-        font-size: 14px;
+    .dataset-box {
+        width: 150px;
     }
-
-    .styled-table {
-        font-size: 14px;
-    }
-
-    .input-number {
-        width: 90%;
+    .results-container {
+        max-width: 100%;
     }
 }
 </style>
+
 {% endblock %}

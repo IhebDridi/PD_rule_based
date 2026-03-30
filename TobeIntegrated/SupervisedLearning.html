@@ -1,0 +1,318 @@
+{% extends "global/Page.html" %}
+{% block content %}
+
+<div class="main-container">
+    <!-- Left Side: Dataset Tables -->
+    <div class="dataset-container">
+    <h1 class="main-title">
+        Part {{ current_part }}: Set up your AI agent
+    </h1>
+        <p class="intro-text">Choose one of the datasets below for your AI agent to learn from. After choosing a table and clicking “Generate” you can check your AI agent’s behavior on the table on the right before confirming it.</p>
+        
+        <div class="dataset-tables">
+            {% for dataset in datasets %}
+                <div class="dataset-box">
+                    <p class="intro-text"><strong>Dataset: {{dataset.dataset_num}}</strong></p>
+                    <table class="styled-table dataset-table" id="dataset_{{ dataset.dataset_num }}" onclick="selectTable({{ dataset.dataset_num }}, {{ dataset.mean_value }})">
+                        <thead>
+                            <tr>
+                                <th>Round</th>
+                                <th>Allocations</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in dataset.allocations %}
+                                <tr>
+                                    <td>{{ row.round_num }}</td>
+                                    <td>{{ row.allocate }}</td>
+
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Generate Button Below the Second Row -->
+    </div>
+
+    <!-- Right Side: Results Table -->
+    <div class="results-container">
+        <h3 class="main-title">AI Agent Behavior</h3>
+        <table id="allocation-table" class="styled-table">
+            <thead>
+                <tr>
+                    <th>Round</th>
+                    <th>Allocations</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for i in range(1, 11) %}
+                <tr>
+                    <td>{{ i }}</td>
+                    <td>-</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="generate-container">
+            <button class="modern-btn2" onclick="generateAllocations()">Generate</button>
+        </div>
+   <form method="post">
+                    <button type="submit" class="modern-btn" id="confirm-btn" style="background-color: #009933; display: none;">Confirm</button>
+    </form>
+    </div>
+</div>
+
+<script>
+let selectedDatasetNum = null;
+let selectedMeanValue = null;
+
+function selectTable(datasetNum, meanValue) {
+    event.preventDefault();
+
+    // Remove highlight from all tables
+    document.querySelectorAll('.dataset-table').forEach(table => {
+        table.classList.remove('selected-table');
+    });
+
+    // Highlight the selected table
+    document.getElementById(`dataset_${datasetNum}`).classList.add('selected-table');
+
+    // Store selected dataset
+    selectedDatasetNum = datasetNum;
+    selectedMeanValue = meanValue;
+}
+
+function generateAllocations() {
+    event.preventDefault();
+    if (selectedDatasetNum !== null && selectedMeanValue !== null) {
+        liveSend({'dataset_num': selectedDatasetNum, 'mean_value': selectedMeanValue});
+    } else {
+        alert("Please select a dataset first!");
+    }
+}
+
+function liveRecv(data) {
+        console.log('Received Data:', data);
+        const pattern = /^(\d{1,3},\s*){9}\d{1,3}$/;
+        const confirmBtn = document.getElementById("confirm-btn");
+
+
+        if (pattern.test(data.response))
+        {
+            if (confirmBtn) {
+            confirmBtn.style.display = "block"; // or "block" if you prefer full-width
+                            }
+
+        }
+
+        else {
+
+            confirmBtn.style.display = "none"
+        }
+    let allocationTable = document.getElementById("allocation-table").getElementsByTagName('tbody')[0];
+
+    if (data.response) {
+        let allocations = data.response.split(',');
+        if (allocations.length === 10) {
+            let rows = allocationTable.getElementsByTagName("tr");
+            for (let i = 0; i < 10; i++) {
+                rows[i].cells[1].textContent = allocations[i];
+                
+            }
+        }
+    }
+}
+</script>
+
+<style>
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* Make dataset tables & results container side by side */
+.main-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    width: 100%;
+    padding: 20px;
+}
+
+/* Left Side: Dataset Tables */
+.dataset-container {
+    flex: 1;
+    background: #ffffff;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    margin-right: 30px
+}
+
+/* Arrange tables in a 3-2 grid */
+.dataset-tables {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    max-width: 600px;
+    padding-top: 50px;
+}
+
+/* Move last two tables to the second row */
+.dataset-tables .dataset-box:nth-child(4),
+.dataset-tables .dataset-box:nth-child(5) {
+    grid-column: span 1;
+    justify-self: center;
+}
+
+/* Ensure tables are small */
+.dataset-box {
+    width: 180px;
+    text-align: center;
+}
+
+/* Right Side: Results Container */
+.results-container {
+    flex: 1;
+    max-width: 450px;
+    background: #ffffff;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+/* Table Styling */
+.styled-table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 14px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.styled-table th, .styled-table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+}
+
+.styled-table thead {
+    background-color: #0056b3;
+    color: #ffffff;
+    text-align: center;
+}
+
+.styled-table th, .styled-table td {
+    border: 1px solid #dddddd;
+}
+
+.styled-table tbody tr:hover {
+    background-color: #f1f1f1;
+}
+
+/* Highlight selected table */
+.selected-table {
+    border: 3px solid #3f963b !important;
+    background-color: #e6f0ff !important;
+}
+
+/* Button Styling */
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 10px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    text-align: center;
+}
+
+.modern-btn2 {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 10px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    text-align: center;
+}
+
+.modern-btn:hover {
+    background-color: #003d80;
+}
+
+/* Position the Generate button */
+.generate-container {
+    grid-column: span 2;
+    display: flex;
+    justify-content: center;
+    margin-top: 10px;
+}
+
+
+.main-title {
+        font-size: 28px;
+        text-align: center;
+        margin-bottom: 20px;
+        color: #333333;
+        font-weight: bold;
+        border-bottom: 3px solid #0056b3;
+        padding-bottom: 10px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .main-container {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .dataset-tables {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .dataset-box {
+        width: 150px;
+    }
+
+    .results-container {
+        max-width: 100%;
+    }
+
+
+    .styled-table {
+        font-size: 14px;
+    }
+
+    .intro-text {
+    font-size: 16px;
+    font-weight: bolder;
+    color: #000000;
+    line-height: 1.6;
+    margin-top: 20px;
+}
+}
+</style>
+
+{% endblock %}

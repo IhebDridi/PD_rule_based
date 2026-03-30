@@ -14,6 +14,10 @@ try:
 except Exception:
     pass
 
+# Supervised / goal-oriented dataset generation (Gaussian around mean on 0–1 scale; see models.generate_numbers).
+std_dev_supervised = 0.15
+std_dev_goal = 0.15
+
 SESSION_CONFIGS = [
     dict(
         name='PD_goal_oriented_delegation_1st',

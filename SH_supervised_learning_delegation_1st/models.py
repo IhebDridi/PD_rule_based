@@ -275,7 +275,7 @@ class Player(BasePlayer):
         blank=True
     )
     
-    final_allocations = models.LongStringField()
+    final_allocations = models.LongStringField(blank=True)
     prolific_id = models.StringField()
     # Bot detection flag (written to DB). Set when attention checks indicate automated participation.
     bot_detected = models.BooleanField(initial=False)
@@ -286,6 +286,11 @@ class Player(BasePlayer):
     comprehension_attempts = models.IntegerField(initial=0) #new
     incorrect_answers = models.StringField(blank=True) #new
     agent_prog_allocation=models.StringField(initial='[]') #new
+    supervised_history = models.LongStringField(initial="{}")
+    supervised_dataset = models.LongStringField(initial="{}")
+    sample_cnt = models.IntegerField(initial=0)
+    supervised_mean = models.FloatField(blank=True)
+    supervised_last_generated_csv = models.LongStringField(blank=True)
     # Tracks whether the participant is excluded from the study
     is_excluded = models.BooleanField(initial=False)
 

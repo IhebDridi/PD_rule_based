@@ -1,6 +1,6 @@
 """Supervised-learning: five fixed example datasets (same for every participant) + preview.
 
-Dataset i has exactly (2*i + 1) B decisions in 10 rounds (i.e. 1,3,5,7,9 Bs for i=0..4)."""
+Dataset i has exactly (9 - 2*i) B decisions in 10 rounds (i.e. 9,7,5,3,1 Bs for i=0..4)."""
 
 import json
 
@@ -11,16 +11,16 @@ from pages_classes.page_helpers import _has_left_lobby_for_part, part_vars
 
 NUM_DATASETS = 5
 
-# Empirical P(A) in each static table: (10 - num_B) / 10 for datasets with 1,3,5,7,9 Bs.
-DATASET_P_A = [0.9, 0.7, 0.5, 0.3, 0.1]
+# Empirical P(A) in each static table: (10 - num_B) / 10 for datasets with 9,7,5,3,1 Bs.
+DATASET_P_A = [0.1, 0.3, 0.5, 0.7, 0.9]
 
 # Hardcoded 10-round sequences; same for all participants (not generated at runtime).
 STATIC_DATASETS = [
-    ["A", "A", "A", "A", "A", "A", "A", "A", "A", "B"],  # 1 B
-    ["A", "A", "A", "A", "A", "A", "A", "B", "B", "B"],  # 3 Bs
-    ["A", "B", "A", "B", "A", "B", "A", "B", "A", "B"],  # 5 Bs
-    ["A", "A", "A", "B", "B", "B", "B", "B", "B", "B"],  # 7 Bs
     ["A", "B", "B", "B", "B", "B", "B", "B", "B", "B"],  # 9 Bs
+    ["A", "A", "A", "B", "B", "B", "B", "B", "B", "B"],  # 7 Bs
+    ["A", "B", "A", "B", "A", "B", "A", "B", "A", "B"],  # 5 Bs
+    ["A", "A", "A", "A", "A", "A", "A", "B", "B", "B"],  # 3 Bs
+    ["A", "A", "A", "A", "A", "A", "A", "A", "A", "B"],  # 1 B
 ]
 
 

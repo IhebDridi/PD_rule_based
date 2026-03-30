@@ -1,20 +1,27 @@
-"""Supervised-learning: five example datasets + generated preview, all as Option A/B with fixed P(A) per dataset."""
+"""Supervised-learning: five fixed example datasets (same for every participant) + preview.
+
+Dataset i has exactly (2*i + 1) B decisions in 10 rounds (i.e. 1,3,5,7,9 Bs for i=0..4)."""
 
 import json
-import random
 
 from otree.api import Page
 
 from pages_classes.model_bridge import get_constants
 from pages_classes.page_helpers import _has_left_lobby_for_part, part_vars
 
-# P(Option A) for dataset indices 0..4 (Option B with the remaining probability).
-DATASET_P_A = [0.05, 0.25, 0.5, 0.75, 0.95]
+NUM_DATASETS = 5
 
+# Empirical P(A) in each static table: (10 - num_B) / 10 for datasets with 1,3,5,7,9 Bs.
+DATASET_P_A = [0.9, 0.7, 0.5, 0.3, 0.1]
 
-def _sample_10_decisions(p_a: float) -> list:
-    """Independent draws: A with probability p_a, else B."""
-    return ["A" if random.random() < p_a else "B" for _ in range(10)]
+# Hardcoded 10-round sequences; same for all participants (not generated at runtime).
+STATIC_DATASETS = [
+    ["A", "A", "A", "A", "A", "A", "A", "A", "A", "B"],  # 1 B
+    ["A", "A", "A", "A", "A", "A", "A", "B", "B", "B"],  # 3 Bs
+    ["A", "B", "A", "B", "A", "B", "A", "B", "A", "B"],  # 5 Bs
+    ["A", "A", "A", "B", "B", "B", "B", "B", "B", "B"],  # 7 Bs
+    ["A", "B", "B", "B", "B", "B", "B", "B", "B", "B"],  # 9 Bs
+]
 
 
 def _decisions_to_csv(decisions: list) -> str:
@@ -34,10 +41,10 @@ class SupervisedLearning(Page):
             dnum = int(data["dataset_num"])
         except (TypeError, ValueError):
             return
-        if dnum < 0 or dnum >= len(DATASET_P_A):
+        if dnum < 0 or dnum >= NUM_DATASETS:
             return
         p_a = DATASET_P_A[dnum]
-        decisions = _sample_10_decisions(p_a)
+        decisions = STATIC_DATASETS[dnum]
         response_str = _decisions_to_csv(decisions)
 
         raw = player.field_maybe_none("supervised_dataset")
@@ -79,15 +86,7 @@ class SupervisedLearning(Page):
         return False
 
     def _get_or_build_raw_datasets(self):
-        key = "_supervised_ab_datasets_cache"
-        cached = self.participant.vars.get(key)
-        if cached is not None:
-            return cached
-        out = {}
-        for i in range(5):
-            out[i] = _sample_10_decisions(DATASET_P_A[i])
-        self.participant.vars[key] = out
-        return out
+        return {i: STATIC_DATASETS[i] for i in range(NUM_DATASETS)}
 
     def vars_for_template(self):
         C = get_constants(self.player)
@@ -97,7 +96,7 @@ class SupervisedLearning(Page):
         self.player.supervised_history = json.dumps(json_serializable)
 
         formatted_datasets = []
-        for i in range(5):
+        for i in range(NUM_DATASETS):
             arr = supervised_dataset[i]
             formatted_datasets.append(
                 {

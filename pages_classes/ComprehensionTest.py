@@ -1,6 +1,6 @@
 from otree.api import *
 
-from .page_helpers import part_vars
+from .page_helpers import comprehension_payoff_correct_letters, part_vars
 
 
 class ComprehensionTest(Page):
@@ -26,13 +26,10 @@ class ComprehensionTest(Page):
 
     def error_message(self, values):
         correct_answers = {
-            'q1': 'c',
-            'q2': 'b',
-            'q6': 'c',   # A&A → 70 Ecoins (C)
-            'q7': 'a',   # A&B → 0 Ecoins (A)
-            'q8': 'd',   # B&A → 100 Ecoins (D)
-            'q9': 'b',   # B&B → 30 Ecoins (B)
-            'q10': 'b',
+            "q1": "c",
+            "q2": "b",
+            **comprehension_payoff_correct_letters(self.player),
+            "q10": "b",
         }
 
         incorrect = [

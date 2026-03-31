@@ -22,7 +22,7 @@ from pages_classes import (
     TimeOutquit,
 )
 
-from .chatGPTPage import ChatGPTLocal
+from .mistralPage import ChatGPTLocal
 
 page_sequence = [
     InformedConsent,

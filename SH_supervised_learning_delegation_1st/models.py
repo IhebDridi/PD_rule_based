@@ -14,6 +14,34 @@ from otree.api import *
 import random
 from collections import defaultdict
 
+import numpy as np
+
+try:
+    import settings as otree_project_settings
+except ImportError:
+    otree_project_settings = None
+
+
+def generate_numbers(mean, case):
+    """
+    Random length-10 vectors on 0..100 (dictator-style), used for supervised-learning datasets.
+    Mirrors TobeIntegrated/models*.py; `case=='supervised'` is what the supervised-learning page uses.
+    """
+    if case == "goal":
+        std_dev = float(getattr(otree_project_settings, "std_dev_goal", 0.15)) * 100
+    elif case == "supervised":
+        std_dev = float(getattr(otree_project_settings, "std_dev_supervised", 0.15)) * 100
+    else:
+        std_dev = 0
+    if mean < 0:
+        return [] if case != "goal" else {"mean_value": mean, "allocations": []}
+    allocations = np.random.normal(loc=mean * 100, scale=std_dev, size=10)
+    allocations = np.clip(allocations, 0, 100)
+    allocations = np.round(allocations).astype(int)
+    if case == "goal":
+        return {"mean_value": mean, "allocations": allocations}
+    return allocations
+
 
 # =============================================================================
 # Constants
@@ -36,7 +64,7 @@ class Constants(BaseConstants):
     # Prolific return link when participant quits before matching (e.g. $1 compensation from lobby / early stages)
     PROLIFIC_RETURN_URL = 'https://app.prolific.com/submissions/complete?cc=CL4BO4RB'
     # Prolific show-up fee link when a part cannot be completed because others dropped out mid-experiment (results wait timeout).
-    PROLIFIC_SHOWUP_FEE_URL = 'https://app.prolific.com/submissions/complete?cc=C13FZEI3'
+    PROLIFIC_SHOWUP_FEE_URL = 'https://app.prolific.com/submissions/complete?cc=CL4BO4RB'
 
     # Part order: False = Part 1 No delegation, Part 2 Delegation (rule2nd). True = Part 1 Delegation, Part 2 No delegation.
     DELEGATION_FIRST = True
@@ -286,10 +314,12 @@ class Player(BasePlayer):
     comprehension_attempts = models.IntegerField(initial=0) #new
     incorrect_answers = models.StringField(blank=True) #new
     agent_prog_allocation=models.StringField(initial='[]') #new
+    # Supervised-learning UI (TobeIntegrated): sample datasets, generated previews, click history
     supervised_history = models.LongStringField(initial="{}")
     supervised_dataset = models.LongStringField(initial="{}")
     sample_cnt = models.IntegerField(initial=0)
     supervised_mean = models.FloatField(blank=True)
+    # Last 10 comma-separated draws shown after "Generate"; used for form validation on Confirm (TobeIntegrated flow).
     supervised_last_generated_csv = models.LongStringField(blank=True)
     # Tracks whether the participant is excluded from the study
     is_excluded = models.BooleanField(initial=False)

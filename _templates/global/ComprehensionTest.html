@@ -35,41 +35,35 @@
         </div>
         <hr class="divider">
 
-        <!-- Question 3 (A&A) -->
+        <!-- Payoff MC: always 0, then 30 or 50, then 70, then 100 (incremental); B shows 50 if any matrix cell uses 50. -->
         <div class="question-container">
             <label class="question-label">3. If you choose Option A and the other player chooses Option A, what are your earnings in that round?</label>
             <div class="option"><input type="radio" name="q6" value="a" id="q6_a"><label for="q6_a"> A) 0 Ecoins</label></div>
-            <div class="option"><input type="radio" name="q6" value="b" id="q6_b"><label for="q6_b"> B) 30 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q6" value="b" id="q6_b"><label for="q6_b"> B) {% if comp_payoff_50_in_matrix %}50{% else %}30{% endif %} Ecoins</label></div>
             <div class="option"><input type="radio" name="q6" value="c" id="q6_c"><label for="q6_c"> C) 70 Ecoins</label></div>
             <div class="option"><input type="radio" name="q6" value="d" id="q6_d"><label for="q6_d"> D) 100 Ecoins</label></div>
         </div>
         <hr class="divider">
-
-        <!-- Question 4 (A&B) -->
         <div class="question-container">
             <label class="question-label">4. If you choose Option A and the other player chooses Option B, what are your earnings in that round?</label>
             <div class="option"><input type="radio" name="q7" value="a" id="q7_a"><label for="q7_a"> A) 0 Ecoins</label></div>
-            <div class="option"><input type="radio" name="q7" value="b" id="q7_b"><label for="q7_b"> B) 30 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q7" value="b" id="q7_b"><label for="q7_b"> B) {% if comp_payoff_50_in_matrix %}50{% else %}30{% endif %} Ecoins</label></div>
             <div class="option"><input type="radio" name="q7" value="c" id="q7_c"><label for="q7_c"> C) 70 Ecoins</label></div>
             <div class="option"><input type="radio" name="q7" value="d" id="q7_d"><label for="q7_d"> D) 100 Ecoins</label></div>
         </div>
         <hr class="divider">
-
-        <!-- Question 5 (B&A) -->
         <div class="question-container">
             <label class="question-label">5. If you choose Option B and the other player chooses Option A, what are your earnings in that round?</label>
             <div class="option"><input type="radio" name="q8" value="a" id="q8_a"><label for="q8_a"> A) 0 Ecoins</label></div>
-            <div class="option"><input type="radio" name="q8" value="b" id="q8_b"><label for="q8_b"> B) 30 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q8" value="b" id="q8_b"><label for="q8_b"> B) {% if comp_payoff_50_in_matrix %}50{% else %}30{% endif %} Ecoins</label></div>
             <div class="option"><input type="radio" name="q8" value="c" id="q8_c"><label for="q8_c"> C) 70 Ecoins</label></div>
             <div class="option"><input type="radio" name="q8" value="d" id="q8_d"><label for="q8_d"> D) 100 Ecoins</label></div>
         </div>
         <hr class="divider">
-
-        <!-- Question 6 (B&B) -->
         <div class="question-container">
             <label class="question-label">6. If you choose Option B and the other player chooses Option B, what are your earnings in that round?</label>
             <div class="option"><input type="radio" name="q9" value="a" id="q9_a"><label for="q9_a"> A) 0 Ecoins</label></div>
-            <div class="option"><input type="radio" name="q9" value="b" id="q9_b"><label for="q9_b"> B) 30 Ecoins</label></div>
+            <div class="option"><input type="radio" name="q9" value="b" id="q9_b"><label for="q9_b"> B) {% if comp_payoff_50_in_matrix %}50{% else %}30{% endif %} Ecoins</label></div>
             <div class="option"><input type="radio" name="q9" value="c" id="q9_c"><label for="q9_c"> C) 70 Ecoins</label></div>
             <div class="option"><input type="radio" name="q9" value="d" id="q9_d"><label for="q9_d"> D) 100 Ecoins</label></div>
         </div>
@@ -147,7 +141,7 @@
         <p><strong>Your answers will remain anonymous to your co-players throughout this experiment.</strong></p>
         <p>After each part, you will see your cumulative earnings from that part in Ecoins.</p>
         <p><strong>One part (10 rounds) will be randomly selected </strong>at the end to determine your bonus payment for the interactive tasks.</p>
-        <p>In each round, you can earn up to 100 Ecoins (10 cents). Since one part (10 rounds) will be selected for payment, you can earn up to <strong>$1</strong> from the interactive tasks.</p>
+        <p>In each round, you can earn up to {{ payoff_max_per_round }} Ecoins ({{ payoff_max_cents_per_round }} cents at 10 Ecoins = 1 cent). Since one part (10 rounds) will be selected for payment, you can earn up to <strong>${{ payoff_max_bonus_usd }}</strong> from the interactive tasks.</p>
 
     </div>
 

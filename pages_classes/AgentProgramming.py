@@ -13,7 +13,7 @@ class AgentProgramming(Page):
     copies those (or form fields for mandatory blocks) into player.in_round(r).choice.
 
     Intentionally **no** ``template_name`` here: each app supplies its own HTML (e.g.
-    ``AgentProgramming.html`` or ``ChatGPTPage.html``) under ``<app>/templates/<AppName>/``.
+    ``AgentProgramming.html`` or ``MistralPage.html``) under ``<app>/templates/<AppName>/``.
     """
 
     form_model = 'player'

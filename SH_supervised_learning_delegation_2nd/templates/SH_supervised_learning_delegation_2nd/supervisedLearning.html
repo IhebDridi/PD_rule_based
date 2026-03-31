@@ -125,7 +125,8 @@ function generateAllocations(ev) {
 
 function liveRecv(data) {
     console.log("Received Data:", data);
-    var normalized = (data.response || "").replace(/\s/g, "").toUpperCase();
+    var abCsv = (data.decisions != null && data.decisions !== "") ? data.decisions : data.response;
+    var normalized = (abCsv || "").replace(/\s/g, "").toUpperCase();
     var pattern = /^([AB],){9}[AB]$/;
     var confirmBtn = document.getElementById("confirm-btn");
     var csvHidden = document.getElementById("supervised_last_generated_csv");

@@ -23,7 +23,7 @@ from pages_classes import (
     Thankyou,
     TimeOutquit,
 )
-from pages_classes.page_helpers import part_vars
+from pages_classes.page_helpers import comprehension_payoff_correct_letters, part_vars
 
 
 class ComprehensionTest(Page):
@@ -45,10 +45,7 @@ class ComprehensionTest(Page):
         correct_answers = {
             "q1": "c",
             "q2": "b",
-            "q6": "c",
-            "q7": "a",
-            "q8": "d",
-            "q9": "b",
+            **comprehension_payoff_correct_letters(self.player),
             "q10": "b",
         }
         incorrect = [q for q, correct in correct_answers.items() if values.get(q) != correct]

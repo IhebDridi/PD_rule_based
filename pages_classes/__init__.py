@@ -23,7 +23,7 @@ from .Results import Results
 from .ResultsGuess import ResultsGuess
 from .Thankyou import Thankyou
 from .TimeOutquit import TimeOutquit
-from .ChatGPTPage import ChatGPTPage
+from .MistralPage import ChatGPTPage
 
 page_sequence = [
     InformedConsent,

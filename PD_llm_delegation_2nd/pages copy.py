@@ -259,7 +259,7 @@ class ChatGPTPage(Page):
     """
     form_model = 'player'
     form_fields = []
-    template_name = 'PD_llm_delegation_2nd/ChatGPTPage.html'
+    template_name = 'PD_llm_delegation_2nd/MistralPage.html'
 
     def is_displayed(self):
         r = self.round_number

@@ -480,7 +480,6 @@ class Player(BasePlayer):
     guess_round_10 = models.StringField(choices=[('yes', 'Delegated'), ('no', 'Did not delegate')], blank=True)
 
     # per‑round payoff
-    guess_payoff = models.CurrencyField(initial=0)
 
     def get_agent_decision_mandatory(self, round_number):
         """Return the stored agent decision (A or B) for the given round in the mandatory-delegation part, or None."""

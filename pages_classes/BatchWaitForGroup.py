@@ -1,7 +1,6 @@
 import time
 
 from otree.api import *
-from starlette.responses import RedirectResponse
 
 from .model_bridge import app_models
 from .page_helpers import BATCH_WAIT_MIN_SECONDS, _has_left_lobby_for_part
@@ -80,10 +79,6 @@ class BatchWaitForGroup(WaitPage):
                     if self.participant.vars.get(wait_more_token_key) != "__legacy__":
                         self.participant.vars[joined_at_key] = time.time()
                         self.participant.vars[wait_more_token_key] = "__legacy__"
-                # Strip query params after consuming wait_more so subsequent auto-refreshes
-                # do not keep carrying action parameters in the URL.
-                path = getattr(self.request, "path", None) or getattr(self.request, "path_info", "") or "/"
-                return RedirectResponse(url=path, status_code=303)
 
         # If already assigned to a results group, go to Results.
         # Update the shared results pool and maybe form a group for this part

@@ -125,6 +125,20 @@ SESSION_CONFIGS = [
         use_browser_bots=False,
     ),
     dict(
+        name='SD_rule_based_delegation_1st',
+        display_name='SD_rule_based_delegation_1st',
+        app_sequence=['SD_rule_based_delegation_1st'],
+        num_demo_participants=10,
+        use_browser_bots=False,
+    ),
+    dict(
+        name='SD_rule_based_delegation_2nd',
+        display_name='SD_rule_based_delegation_2nd',
+        app_sequence=['SD_rule_based_delegation_2nd'],
+        num_demo_participants=10,
+        use_browser_bots=False,
+    ),
+    dict(
         name='SH_goal_oriented_delegation_1st',
         display_name='SH_goal_oriented_delegation_1st',
         app_sequence=['SH_goal_oriented_delegation_1st'],

@@ -9,7 +9,7 @@ custom wait/release and payoff logic; DelegationDecision is Part 3 only.
 Page class implementations live in ``pages_classes/`` (one file per class, named after the class).
 """
 from pages_classes import (
-    AgentProgramming,
+    AgentProgramming as _BaseAgentProgramming,
     BatchWaitForGroup,
     BotDetection,
     ComprehensionTest,
@@ -29,8 +29,15 @@ from pages_classes import (
     ResultsGuess,
     Thankyou,
     TimeOutquit,
-    page_sequence,
+    page_sequence as _base_page_sequence,
 )
+from .ruleBased import RuleBased
+
+AgentProgramming = RuleBased
+page_sequence = [
+    RuleBased if page is _BaseAgentProgramming else page
+    for page in _base_page_sequence
+]
 
 # Re-export shared helpers for tests or other modules that imported from pages.
 from pages_classes.page_helpers import (

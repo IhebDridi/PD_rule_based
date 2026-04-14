@@ -1,6 +1,7 @@
 import importlib
 import json
 import re
+import time
 
 from otree.api import *
 
@@ -8,6 +9,13 @@ from .model_bridge import app_package_name, get_constants
 from .page_helpers import _has_left_lobby_for_part, part_vars
 
 _STRICT_TEN_AB_RE = re.compile(r"^\s*[AB]\s*(,\s*[AB]\s*){9}\s*$", re.IGNORECASE)
+
+# Mistral API: retry transient failures; one user+assistant pair is written after the final outcome.
+_MISTRAL_SEND_MAX_ATTEMPTS = 6
+_MISTRAL_SEND_RETRY_BASE_SLEEP_SEC = 1.25
+_MISTRAL_SEND_FAILURE_USER_MESSAGE = (
+    "Retrying is taking longer than expected. Please try sending your message again in a few seconds."
+)
 
 
 def _parse_strict_ten_ab(text):
@@ -128,11 +136,22 @@ class ChatGPTPage(Page):
             return {player.id_in_group: {"response": "Error initializing assistant: " + str(e)}}
 
         user_message = data["message"]
-        try:
-            response_text, new_cid = assistant.send_message(user_message, conversation_id=conversation_id)
-        except Exception as e:
-            response_text = str(e) if str(e) else "Error getting response."
-            new_cid = conversation_id
+        response_text = ""
+        new_cid = conversation_id
+        cid_for_attempt = conversation_id
+        for attempt in range(_MISTRAL_SEND_MAX_ATTEMPTS):
+            try:
+                response_text, new_cid = assistant.send_message(
+                    user_message, conversation_id=cid_for_attempt
+                )
+                break
+            except Exception:
+                if attempt + 1 >= _MISTRAL_SEND_MAX_ATTEMPTS:
+                    response_text = _MISTRAL_SEND_FAILURE_USER_MESSAGE
+                    new_cid = conversation_id
+                    break
+                time.sleep(_MISTRAL_SEND_RETRY_BASE_SLEEP_SEC * (attempt + 1))
+                cid_for_attempt = conversation_id
 
         if new_cid:
             player.participant.vars[conv_key] = new_cid

@@ -31,55 +31,6 @@ def _parse_strict_ten_ab(text):
     return None
 
 
-def _mistral_payload_user_message(player, user_message, conversation_id):
-    """
-    On the first API turn for this Mistral thread only, prepend session payoffs + part order.
-    The participant UI and conversation_history still store only the raw user_message.
-    """
-    if conversation_id is not None:
-        return user_message
-
-    C = get_constants(player)
-    current_part = C.get_part(player.round_number)
-    lines = [
-        "[RESEARCH_SESSION_CONTEXT — for the agent only; participants do not see this block.]",
-    ]
-
-    pv = part_vars(player)
-    try:
-        aa = int(pv["payoff_AA"])
-        ab = int(pv["payoff_AB"])
-        ba = int(pv["payoff_BA"])
-        bb = int(pv["payoff_BB"])
-    except (KeyError, TypeError, ValueError):
-        pass
-    else:
-        lines.append(
-            "Your_earnings_Ecoins (your_choice, opponent_choice): "
-            f"(A,A)={aa}; (A,B)={ab}; (B,A)={ba}; (B,B)={bb}."
-        )
-
-    df = getattr(C, "DELEGATION_FIRST", None)
-    if df is not None:
-        p_del = C.part_delegation()
-        p_nd = C.part_no_delegation()
-        lines.append(
-            "Part_structure (UI part numbers): "
-            f"DELEGATION_FIRST={df}; mandatory_delegation_block=Part {p_del}; "
-            f"self_decisions_each_round_block=Part {p_nd}; "
-            "Part_3=optional_delegate_or_self. "
-            f"This_chat_is_for_part_index={current_part}."
-        )
-    else:
-        lines.append(f"This_chat_is_for_part_index={current_part}.")
-
-    lines.append("[END_RESEARCH_SESSION_CONTEXT]")
-    lines.append("")
-    lines.append("Participant message (follow your output rules; reply only to this):")
-    lines.append(user_message)
-    return "\n".join(lines)
-
-
 class ChatGPTPage(Page):
     """
     Shared LLM delegation page:
@@ -185,14 +136,13 @@ class ChatGPTPage(Page):
             return {player.id_in_group: {"response": "Error initializing assistant: " + str(e)}}
 
         user_message = data["message"]
-        api_user_message = _mistral_payload_user_message(player, user_message, conversation_id)
         response_text = ""
         new_cid = conversation_id
         cid_for_attempt = conversation_id
         for attempt in range(_MISTRAL_SEND_MAX_ATTEMPTS):
             try:
                 response_text, new_cid = assistant.send_message(
-                    api_user_message, conversation_id=cid_for_attempt
+                    user_message, conversation_id=cid_for_attempt
                 )
                 break
             except Exception:

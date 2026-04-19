@@ -11,6 +11,7 @@ Prisoners' dilemma app models: constants, round-robin matching, grouping, payoff
 - Lobby helpers: release_lobby_batch, run_payoffs_for_matching_group.
 """
 from otree.api import *
+import json
 import random
 from collections import defaultdict
 
@@ -605,6 +606,19 @@ def custom_export(players):
     pvars = lambda p, k, default=None: p.participant.vars.get(k, default)
     fld = lambda p, k: p.field_maybe_none(k)
 
+    def _strip_allocations(raw_value):
+        if not raw_value:
+            return ""
+        try:
+            payload = json.loads(raw_value)
+            if isinstance(payload, list):
+                for item in payload:
+                    if isinstance(item, dict):
+                        item.pop("allocations", None)
+            return json.dumps(payload)
+        except Exception:
+            return raw_value
+
     for code, rounds in by_participant.items():
         try:
             rounds = sorted(rounds, key=lambda p: p.round_number)
@@ -691,15 +705,20 @@ def custom_export(players):
 
             delegation_round = 1 if Constants.DELEGATION_FIRST else 11
             deleg_pr = rounds[delegation_round - 1] if len(rounds) >= delegation_round else None
-            row["GoalListChoicesDelegation"] = (fld(deleg_pr, "agent_prog_allocation") if deleg_pr else "") or ""
+            row["GoalListChoicesDelegation"] = _strip_allocations(
+                (fld(deleg_pr, "agent_prog_allocation") if deleg_pr else "") or ""
+            )
 
             optional_round = 21
             opt_pr = rounds[optional_round - 1] if len(rounds) >= optional_round else None
-            row["GoalListChoicesOptional"] = (
-                (fld(opt_pr, "agent_prog_allocation") if fld(opt_pr, "delegate_decision_optional") else "")
-                if opt_pr
-                else ""
-            ) or ""
+            row["GoalListChoicesOptional"] = _strip_allocations(
+                (
+                    (fld(opt_pr, "agent_prog_allocation") if fld(opt_pr, "delegate_decision_optional") else "")
+                    if opt_pr
+                    else ""
+                )
+                or ""
+            )
 
             for k in ("SupervisedListChoicesDelegation", "SupervisedListChoicesOptional", "LLMchatDelegation", "LLMchatOptional"):
                 row[k] = ""

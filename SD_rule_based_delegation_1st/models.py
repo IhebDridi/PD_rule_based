@@ -1112,7 +1112,7 @@ def custom_export(players):
                 "LLMchatOptional",
             ):
                 row[k] = ""
-            row["GameUsed"] = "PD"
+            row["GameUsed"] = __name__.split("_", 1)[0].upper()
 
             yield [row[h] for h in header]
         except Exception as e:

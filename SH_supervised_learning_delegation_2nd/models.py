@@ -746,7 +746,7 @@ def custom_export(players):
 
             for k in ("GoalListChoicesDelegation", "GoalListChoicesOptional", "LLMchatDelegation", "LLMchatOptional"):
                 row[k] = ""
-            row["GameUsed"] = "PD"
+            row["GameUsed"] = __name__.split("_", 1)[0].upper()
 
             yield [row[h] for h in header]
         except Exception:

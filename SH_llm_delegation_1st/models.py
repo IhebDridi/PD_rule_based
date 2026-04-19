@@ -659,8 +659,22 @@ def custom_export(players):
                 row["TotalEarningsPart4Dollars"] = round(part4_ecoins, 4)
                 row["BonusPaymentTotal"] = round(row["TotalEarningsPart4Dollars"], 4)
 
+            # LLM chats are stored in conversation_history at delegation setup rounds.
+            delegation_round = 1 if Constants.DELEGATION_FIRST else 11
+            deleg_pr = rounds[delegation_round - 1] if len(rounds) >= delegation_round else None
+            row["LLMchatDelegation"] = (fld(deleg_pr, "conversation_history") if deleg_pr else "") or ""
+
+            optional_round = 21
+            opt_pr = rounds[optional_round - 1] if len(rounds) >= optional_round else None
+            row["LLMchatOptional"] = (
+                (fld(opt_pr, "conversation_history") if fld(opt_pr, "delegate_decision_optional") else "")
+                if opt_pr
+                else ""
+            ) or ""
+
+            # Kept empty in LLM apps; these are list-based agent columns.
             for k in ("SupervisedListChoicesDelegation", "SupervisedListChoicesOptional", "GoalListChoicesDelegation",
-                      "GoalListChoicesOptional", "LLMchatDelegation", "LLMchatOptional"):
+                      "GoalListChoicesOptional"):
                 row[k] = ""
             row["GameUsed"] = "PD"
 

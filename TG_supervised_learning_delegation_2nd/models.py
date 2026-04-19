@@ -694,8 +694,19 @@ def custom_export(players):
                 row["TotalEarningsPart4Dollars"] = round(part4_ecoins, 4)
                 row["BonusPaymentTotal"] = round(row["TotalEarningsPart4Dollars"], 4)
 
-            for k in ("SupervisedListChoicesDelegation", "SupervisedListChoicesOptional", "GoalListChoicesDelegation",
-                      "GoalListChoicesOptional", "LLMchatDelegation", "LLMchatOptional"):
+            delegation_round = 1 if Constants.DELEGATION_FIRST else 11
+            deleg_pr = rounds[delegation_round - 1] if len(rounds) >= delegation_round else None
+            row["SupervisedListChoicesDelegation"] = (fld(deleg_pr, "agent_prog_allocation") if deleg_pr else "") or ""
+
+            optional_round = 21
+            opt_pr = rounds[optional_round - 1] if len(rounds) >= optional_round else None
+            row["SupervisedListChoicesOptional"] = (
+                (fld(opt_pr, "agent_prog_allocation") if fld(opt_pr, "delegate_decision_optional") else "")
+                if opt_pr
+                else ""
+            ) or ""
+
+            for k in ("GoalListChoicesDelegation", "GoalListChoicesOptional", "LLMchatDelegation", "LLMchatOptional"):
                 row[k] = ""
             row["GameUsed"] = "PD"
 

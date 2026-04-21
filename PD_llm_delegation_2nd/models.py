@@ -814,7 +814,7 @@ def custom_export(players):
             game_used=__name__.split("_", 1)[0].upper(),
             condition_first='llm1st',
             condition_second='llm2nd',
-            layout='compact_rounds',
+            layout='first_person_agents',
             demographics='standard',
             round_data_style='standard',
             per_round_agent_token='llm',

@@ -93,8 +93,8 @@ class DelegationExportSpec:
     condition_first: str
     condition_second: str
 
-    # "first_person_agents" = fill per-round PlayerAgent/CoPlayerAgent; "compact_rounds" = those cells empty
-    # Guess earnings: compact fills EarningsGuess{i}Dollars; first_person fills EarningsGuess{i} (+ derived Dollars)
+    # All bundled PD/SD/SH apps use "first_person_agents". "compact_rounds" is still supported here
+    # (empty per-round agent cells; guess dollars primary) for any external/custom specs.
     layout: str
 
     # rule_based fills UsedAiOrBot from the player field; standard leaves that column empty

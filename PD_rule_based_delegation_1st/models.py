@@ -839,7 +839,7 @@ def custom_export(players):
             game_used=__name__.split("_", 1)[0].upper(),
             condition_first='rule1st',
             condition_second='rule2nd',
-            layout='compact_rounds',
+            layout='first_person_agents',
             demographics='rule_based',
             round_data_style='rule_based_gid',
             per_round_agent_token='rule',

@@ -499,188 +499,32 @@ def _opponent_for_export(pr, r, round_data, rr_cache):
 
 
 def custom_export(players):
-    """
-    oTree custom export: yield CSV rows (header first, then one row per participant).
-    Builds round_data and rr_cache once, then uses _opponent_for_export for each round.
-    Handles quit_to_prolific (BonusPaymentTotal=1.0), random_payoff_part, and Part 4 guessing.
-    """
-    from collections import defaultdict
+    """CSV custom export (shared implementation in ``shared.delegation_custom_export``)."""
+    from shared.delegation_custom_export import DelegationExportSpec, delegation_custom_export
 
-    by_participant = defaultdict(list)
-    by_round = defaultdict(list)
-    for p in players:
-        by_participant[p.participant.code].append(p)
-        by_round[p.round_number].append(p)
-
-    # Prebuild round_data[r] = { group_id: sorted_players } to avoid per-row DB calls
-    round_data = {}
-    for r in range(1, Constants.num_rounds + 1):
-        if r not in by_round:
-            continue
-        by_group = defaultdict(list)
-        for p in by_round[r]:
-            gid = getattr(p, "group_id", None) or (getattr(p.group, "id", None) if getattr(p, "group", None) else None)
-            if gid is not None:
-                by_group[gid].append(p)
-        round_data[r] = {
-            gid: sorted(plist, key=lambda p: p.participant.vars.get("matching_group_position", 0))
-            for gid, plist in by_group.items()
-        }
-    rr_cache = {}
-
-    header = [
-        "Condition", "ProlificID", "Session", "Group", "PlayerID", "IsSimulated",
-        "Gender", "Age", "Occupation", "AIuse", "TaskDifficulty",
-        "Part3Feedback", "Part3FeedbackOther", "Part4Feedback", "Part4FeedbackOther", "FeedbackFreeText",
-    ]
-    for r in range(1, 31):
-        header += [f"Round{r}Decision", f"Round{r}CoplayerID", f"Round{r}CoplayerDecision",
-                   f"Round{r}Ecoins", f"Round{r}PlayerAgent", f"Round{r}CoPlayerAgent"]
-    for i in range(1, 11):
-        header += [f"Guess{i}", f"TruthGuess{i}", f"EarningsGuess{i}"]
-    header += [
-        "TotalEarningsPart1Ecoins", "TotalEarningsPart2Ecoins", "TotalEarningsPart3Ecoins",
-        "PartChosenBonus", "TotalEarningsParts123Dollars", "TotalEarningsPart4Dollars", "BonusPaymentTotal",
-        "SupervisedListChoicesDelegation", "SupervisedListChoicesOptional",
-        "GoalListChoicesDelegation", "GoalListChoicesOptional", "LLMchatDelegation", "LLMchatOptional", "GameUsed",
-    ]
-
-    yield header
-
-    pvars = lambda p, k, default=None: p.participant.vars.get(k, default)
-    fld = lambda p, k: p.field_maybe_none(k)
-
-    for code, rounds in by_participant.items():
-        try:
-            rounds = sorted(rounds, key=lambda p: p.round_number)
-            if not rounds:
-                continue
-            p0 = rounds[0]
-            is_simulated = bool(pvars(p0, "is_simulated"))
-            prolific_id = fld(p0, "prolific_id")
-            # Drop ghost/unmatched export rows (typically placeholders with no prolific ID and no matching group).
-            if (not is_simulated) and (not prolific_id):
-                continue
-            row = dict.fromkeys(header, "")
-
-            row["Condition"] = "llm1st" if Constants.DELEGATION_FIRST else "llm2nd"
-            row["ProlificID"] = "SIMULATED" if is_simulated else prolific_id
-            row["Session"] = p0.session.code
-            row["Group"] = pvars(p0, "matching_group_id")
-            row["PlayerID"] = pvars(p0, "matching_group_position")
-            row["IsSimulated"] = 1 if is_simulated else 0
-            p_last = rounds[-1] if rounds else p0
-            row["Gender"] = fld(p_last, "gender")
-            row["Age"] = fld(p_last, "age")
-            row["Occupation"] = fld(p_last, "occupation")
-            row["AIuse"] = fld(p_last, "ai_use")
-            row["TaskDifficulty"] = fld(p_last, "task_difficulty")
-            row["Part3Feedback"] = fld(p_last, "part_3_feedback")
-            row["Part3FeedbackOther"] = fld(p_last, "part_3_feedback_other")
-            row["Part4Feedback"] = fld(p_last, "part_4_feedback")
-            row["Part4FeedbackOther"] = fld(p_last, "part_4_feedback_other")
-            row["FeedbackFreeText"] = fld(p_last, "feedback")
-
-            part_totals = [0, 0, 0]
-            for pr in rounds:
-                r = pr.round_number
-                other = _opponent_for_export(pr, r, round_data, rr_cache)
-                row[f"Round{r}Decision"] = fld(pr, "choice") if fld(pr, "choice") is not None else ""
-                row[f"Round{r}Ecoins"] = pr.payoff
-                if other:
-                    row[f"Round{r}CoplayerDecision"] = fld(other, "choice") if fld(other, "choice") is not None else ""
-                    pos = pvars(other, "matching_group_position")
-                    if pos is not None and pos != "" and pos != -1:
-                        row[f"Round{r}CoplayerID"] = str(pos)
-                    else:
-                        row[f"Round{r}CoplayerID"] = str(getattr(other.participant, "id_in_session", "") or "")
-                else:
-                    row[f"Round{r}CoplayerDecision"] = ""
-                    row[f"Round{r}CoplayerID"] = ""
-                # Agent labels reflect whether this participant delegated in that round.
-                if Constants.is_mandatory_delegation_round(r):
-                    agent_self = "llm"
-                elif r > 2 * Constants.rounds_per_part:
-                    agent_self = "llm" if fld(pr, "delegate_decision_optional") else "no-agent"
-                else:
-                    agent_self = "no-agent"
-
-                if other is not None:
-                    if Constants.is_mandatory_delegation_round(r):
-                        agent_other = "llm"
-                    elif r > 2 * Constants.rounds_per_part:
-                        agent_other = "llm" if fld(other, "delegate_decision_optional") else "no-agent"
-                    else:
-                        agent_other = "no-agent"
-                else:
-                    agent_other = ""
-
-                row[f"Round{r}PlayerAgent"] = agent_self
-                row[f"Round{r}CoPlayerAgent"] = agent_other
-                if r <= 10:
-                    part_totals[0] += pr.payoff or 0
-                elif r <= 20:
-                    part_totals[1] += pr.payoff or 0
-                else:
-                    part_totals[2] += pr.payoff or 0
-
-            for i, part_key in enumerate(["TotalEarningsPart1Ecoins", "TotalEarningsPart2Ecoins", "TotalEarningsPart3Ecoins"], start=1):
-                row[part_key] = part_totals[i - 1]
-
-            n_rounds = len(rounds)
-            for i in range(1, 11):
-                idx = 19 + i
-                pr = rounds[idx] if idx < n_rounds else None
-                if pr is None:
-                    continue
-                other = _opponent_for_export(pr, 20 + i, round_data, rr_cache)
-                row[f"Guess{i}"] = 1 if fld(pr, "guess_opponent_delegated") == "yes" else 0
-                row[f"TruthGuess{i}"] = 1 if (other and fld(other, "delegate_decision_optional")) else 0
-                row[f"EarningsGuess{i}"] = fld(pr, "guess_payoff") or 0
-
-            part_chosen = fld(p_last, "random_payoff_part")
-            _float = lambda x: float(x) if x is not None else 0.0
-            if pvars(p0, "quit_to_prolific"):
-                row["PartChosenBonus"] = "quit"
-                row["TotalEarningsParts123Dollars"] = 0.0
-                row["TotalEarningsPart4Dollars"] = 0.0
-                row["BonusPaymentTotal"] = 1.0
-            elif part_chosen in (1, 2, 3):
-                ecoins = _float(part_totals[part_chosen - 1])
-                row["PartChosenBonus"] = part_chosen
-                row["TotalEarningsParts123Dollars"] = round(ecoins * 0.001, 4)
-                part4_ecoins = sum(_float(row.get(f"EarningsGuess{i}")) for i in range(1, 11)) * 0.01
-                row["TotalEarningsPart4Dollars"] = round(part4_ecoins, 4)
-                row["BonusPaymentTotal"] = round(row["TotalEarningsParts123Dollars"] + row["TotalEarningsPart4Dollars"], 4)
-            else:
-                row["PartChosenBonus"] = part_chosen if part_chosen is not None else ""
-                row["TotalEarningsParts123Dollars"] = 0.0
-                part4_ecoins = sum(_float(row.get(f"EarningsGuess{i}")) for i in range(1, 11)) * 0.01
-                row["TotalEarningsPart4Dollars"] = round(part4_ecoins, 4)
-                row["BonusPaymentTotal"] = round(row["TotalEarningsPart4Dollars"], 4)
-
-            # LLM chats are stored in conversation_history at delegation setup rounds.
-            delegation_round = 1 if Constants.DELEGATION_FIRST else 11
-            deleg_pr = rounds[delegation_round - 1] if len(rounds) >= delegation_round else None
-            row["LLMchatDelegation"] = (fld(deleg_pr, "conversation_history") if deleg_pr else "") or ""
-
-            optional_round = 21
-            opt_pr = rounds[optional_round - 1] if len(rounds) >= optional_round else None
-            row["LLMchatOptional"] = (
-                (fld(opt_pr, "conversation_history") if fld(opt_pr, "delegate_decision_optional") else "")
-                if opt_pr
-                else ""
-            ) or ""
-
-            # Kept empty in LLM apps; these are list-based agent columns.
-            for k in ("SupervisedListChoicesDelegation", "SupervisedListChoicesOptional", "GoalListChoicesDelegation",
-                      "GoalListChoicesOptional"):
-                row[k] = ""
-            row["GameUsed"] = __name__.split("_", 1)[0].upper()
-
-            yield [row[h] for h in header]
-        except Exception:
-            continue
+    yield from delegation_custom_export(
+        players,
+        DelegationExportSpec(
+            constants=Constants,
+            compute_rr=compute_round_robin_assignments,
+            game_used=__name__.split("_", 1)[0].upper(),
+            condition_first='llm1st',
+            condition_second='llm2nd',
+            layout='first_person_agents',
+            demographics='standard',
+            round_data_style='standard',
+            per_round_agent_token='llm',
+            summary_agent_fixed='llm',
+            extension='llm',
+            access_mode='normal',
+            opponent_mode='normal',
+            payoff_mode='simple',
+            session_mode='direct',
+            prolific_mode='strict',
+            log_errors_to_stderr=False,
+            custom_opponent_resolver=_opponent_for_export,
+        ),
+    )
 
 # =============================================================================
 # Lobby release and payoff runner (called from pages.Lobby and BatchWaitForGroup)

@@ -93,11 +93,11 @@ class DelegationExportSpec:
     condition_first: str
     condition_second: str
 
-    # "first_person_agents" = per-round PlayerAgent/CoPlayerAgent + guess ecoins columns
-    # "compact_rounds" = no per-round agents; guess *Dollars columns
+    # "first_person_agents" = fill per-round PlayerAgent/CoPlayerAgent; "compact_rounds" = those cells empty
+    # Guess earnings: compact fills EarningsGuess{i}Dollars; first_person fills EarningsGuess{i} (+ derived Dollars)
     layout: str
 
-    # standard = Part3…FeedbackFreeText only; rule_based = adds UsedAiOrBot before FeedbackFreeText
+    # rule_based fills UsedAiOrBot from the player field; standard leaves that column empty
     demographics: str
 
     # standard = simple group_id resolution; rule_based_gid = guarded gid fetch like rule-based apps
@@ -131,6 +131,69 @@ class DelegationExportSpec:
 
     # When set, export uses this (e.g. models._opponent_for_export) so batch / group logic stays per-app.
     custom_opponent_resolver: Optional[Callable[[Any, int, dict, dict], Any]] = None
+
+
+def canonical_delegation_export_header() -> List[str]:
+    """
+    Column list used for every PD/SD/SH delegation app export.
+
+    Superset of all per-spec columns so merged CSVs and cross-app pipelines share
+    one header; cells that do not apply to a given treatment stay empty (or derived
+    where noted in ``delegation_custom_export``).
+    """
+    header: List[str] = [
+        "Condition",
+        "ProlificID",
+        "Session",
+        "Group",
+        "PlayerID",
+        "IsSimulated",
+        "Gender",
+        "Age",
+        "Occupation",
+        "AIuse",
+        "TaskDifficulty",
+        "Part3Feedback",
+        "Part3FeedbackOther",
+        "Part4Feedback",
+        "Part4FeedbackOther",
+        "UsedAiOrBot",
+        "FeedbackFreeText",
+    ]
+    for r in range(1, 31):
+        header += [
+            f"Round{r}Decision",
+            f"Round{r}CoplayerID",
+            f"Round{r}CoplayerDecision",
+            f"Round{r}Ecoins",
+            f"Round{r}PlayerAgent",
+            f"Round{r}CoPlayerAgent",
+        ]
+    for i in range(1, 11):
+        header += [
+            f"Guess{i}",
+            f"TruthGuess{i}",
+            f"EarningsGuess{i}",
+            f"EarningsGuess{i}Dollars",
+        ]
+    header += ["DelegatedPart1", "DelegatedPart2", "DelegatedPart3", "Agent"]
+    header += [
+        "TotalEarningsPart1Ecoins",
+        "TotalEarningsPart2Ecoins",
+        "TotalEarningsPart3Ecoins",
+        "PartChosenBonus",
+        "TotalEarningsParts123Dollars",
+        "TotalEarningsPart4Dollars",
+        "BonusPaymentTotal",
+        "SupervisedListChoicesDelegation",
+        "SupervisedListChoicesOptional",
+        "GoalListChoicesDelegation",
+        "GoalListChoicesOptional",
+        "LLMchatDelegation",
+        "LLMchatOptional",
+        "GameUsed",
+    ]
+    return header
 
 
 def _build_round_data_standard(by_round: dict, num_rounds: int) -> dict:
@@ -199,61 +262,7 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
         round_data = _build_round_data_standard(by_round, C.num_rounds)
     rr_cache: dict = {}
 
-    header: List[str] = [
-        "Condition",
-        "ProlificID",
-        "Session",
-        "Group",
-        "PlayerID",
-        "IsSimulated",
-        "Gender",
-        "Age",
-        "Occupation",
-        "AIuse",
-        "TaskDifficulty",
-        "Part3Feedback",
-        "Part3FeedbackOther",
-        "Part4Feedback",
-        "Part4FeedbackOther",
-    ]
-    if spec.demographics == "rule_based":
-        header += ["UsedAiOrBot"]
-    header += ["FeedbackFreeText"]
-
-    for r in range(1, 31):
-        header += [
-            f"Round{r}Decision",
-            f"Round{r}CoplayerID",
-            f"Round{r}CoplayerDecision",
-            f"Round{r}Ecoins",
-        ]
-        if spec.layout == "first_person_agents":
-            header += [f"Round{r}PlayerAgent", f"Round{r}CoPlayerAgent"]
-
-    guess_suffix = "Dollars" if spec.layout == "compact_rounds" else ""
-    for i in range(1, 11):
-        if guess_suffix:
-            header += [f"Guess{i}", f"TruthGuess{i}", f"EarningsGuess{i}Dollars"]
-        else:
-            header += [f"Guess{i}", f"TruthGuess{i}", f"EarningsGuess{i}"]
-
-    header += ["DelegatedPart1", "DelegatedPart2", "DelegatedPart3", "Agent"]
-    header += [
-        "TotalEarningsPart1Ecoins",
-        "TotalEarningsPart2Ecoins",
-        "TotalEarningsPart3Ecoins",
-        "PartChosenBonus",
-        "TotalEarningsParts123Dollars",
-        "TotalEarningsPart4Dollars",
-        "BonusPaymentTotal",
-        "SupervisedListChoicesDelegation",
-        "SupervisedListChoicesOptional",
-        "GoalListChoicesDelegation",
-        "GoalListChoicesOptional",
-        "LLMchatDelegation",
-        "LLMchatOptional",
-        "GameUsed",
-    ]
+    header = canonical_delegation_export_header()
 
     yield header
 
@@ -347,7 +356,9 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
             row["Part4Feedback"] = get_fld(p_last, "part_4_feedback")
             row["Part4FeedbackOther"] = get_fld(p_last, "part_4_feedback_other")
             if spec.demographics == "rule_based":
-                row["UsedAiOrBot"] = get_fld(p_last, "used_ai_or_bot")
+                row["UsedAiOrBot"] = get_fld(p_last, "used_ai_or_bot") or ""
+            else:
+                row["UsedAiOrBot"] = ""
             row["FeedbackFreeText"] = get_fld(p_last, "feedback")
 
             part_totals = [0.0, 0.0, 0.0]
@@ -435,8 +446,10 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                     gpay_float = 0.0
                 if spec.layout == "compact_rounds":
                     row[f"EarningsGuess{i}Dollars"] = round(gpay_float / 100.0, 4)
+                    row[f"EarningsGuess{i}"] = ""
                 else:
                     row[f"EarningsGuess{i}"] = gpay
+                    row[f"EarningsGuess{i}Dollars"] = round(gpay_float * 0.01, 4)
 
             if C.DELEGATION_FIRST:
                 delegated_part1 = 1

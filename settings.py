@@ -368,3 +368,15 @@ try:
 except Exception:
     # Keep startup robust if SQLAlchemy is missing or API differs.
     pass
+
+# Admin Data page: add "All apps — custom exports (ZIP)" under Other exports (not built into oTree).
+try:
+    from shared.otree_admin_bundle_export import register_once
+
+    register_once()
+except Exception:
+    import logging
+
+    logging.getLogger(__name__).exception(
+        "Could not register admin ZIP bundle for all-apps custom_export"
+    )

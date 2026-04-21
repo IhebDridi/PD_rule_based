@@ -1,5 +1,6 @@
 otree==5.11.1
-psycopg2>=2.8.4
+# Wheels only: avoids compiling psycopg2 (fails on some Py3.13 + GCC combos, e.g. -std=gnu23).
+psycopg2-binary>=2.9.9,<3
 dj-database-url>=2.0
 pandas
 mistralai==2.1.3

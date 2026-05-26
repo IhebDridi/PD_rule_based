@@ -75,12 +75,14 @@ class GuessDelegation(Page):
                 setattr(future_player, guess_field, guess)
                 future_player.guess_opponent_delegated = guess
 
-            if self.participant.vars.get("matching_group_id", -1) >= 0:
+            if self.participant.vars.get("matching_group_id", -1) >= 0 and guess in ("yes", "no"):
                 if use_cache:
                     actual = bool(cache_3[i - 1].get("other_delegated", False))
                 else:
                     other = get_opponent_in_round(self.player, r)
                     actual = bool(other and other.field_maybe_none("delegate_decision_optional"))
-                future_player.guess_payoff = cu(10) if (guess == "yes") == actual else cu(0)
+                future_player.guess_payoff = (
+                    cu(10) if (guess == "yes") == actual else cu(0)
+                )
 
         self.participant.vars["guess_submitted"] = True

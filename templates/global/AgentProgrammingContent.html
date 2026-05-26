@@ -1,0 +1,259 @@
+{# Shared agent-programming UI. Confirm uses oTree live pattern: button → liveSend → liveRecv → form.submit #}
+<div class="allocation-container">
+    <h1 class="main-title">
+        {% if current_part == 1 or current_part == 2 %}
+            Part {{ part_delegation }}: Set up your AI agent
+        {% elif current_part == 3 and delegate_decision == True %}
+            Part 3: Set up your AI agent
+        {% endif %}
+    </h1>
+
+    <div class="countdown-banner">
+        Time remaining: <span id="countdown-seconds" data-start="{{ countdown_seconds }}">90</span> seconds
+    </div>
+
+    <p class="intro-text">
+        Fill in the table below to specify how your AI agent should make decisions in each of the 10 rounds of play. You can only choose between Option A and Option B. The Table of Earnings in Ecoins is shown below again for your information.
+    </p>
+
+    <p id="agent-programming-error" class="agent-programming-error" style="display: none;"></p>
+
+    <form method="post" class="allocation-form" id="agent-programming-form">
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Round</th>
+                    <th>Decisions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for i in range(1, 11) %}
+                <tr>
+                    <td>{{ i }}</td>
+                    <td>
+                        <label class="choice-option">
+                            <input type="radio" name="agent_decision_mandatory_delegation_round_{{ i }}" value="A" required>
+                            A
+                        </label>
+                        <label class="choice-option">
+                            <input type="radio" name="agent_decision_mandatory_delegation_round_{{ i }}" value="B" required>
+                            B
+                        </label>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="confirmation-text">
+            Once you confirm, the decisions will be final, and the AI agent will use these instructions during the rounds.
+        </p>
+        <button type="button" class="modern-btn" id="agent-programming-confirm-btn" onclick="confirmAgentAllocations()">Confirm</button>
+        <div class="small-instructions">
+            <p class="table-caption">For your convenience, we share the table of earnings again below:</p>
+            <table class="styled-table">
+                <thead>
+                    <tr>
+                        <th>Your Choice \ Other’s Choice</th>
+                        <th>Option A</th>
+                        <th>Option B</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Option A</td>
+                        <td>70</td>
+                        <td>0</td>
+                    </tr>
+                    <tr>
+                        <td>Option B</td>
+                        <td>100</td>
+                        <td>30</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+
+<script>
+    (function startCountdown() {
+        var el = document.getElementById('countdown-seconds');
+        if (!el) { return; }
+        var startAttr = el.getAttribute('data-start');
+        var remaining = parseInt(startAttr || el.textContent || '90', 10);
+        if (isNaN(remaining) || remaining < 0) { remaining = 90; }
+        function render() {
+            if (remaining < 0) { remaining = 0; }
+            el.textContent = remaining;
+        }
+        render();
+        setInterval(function() {
+            remaining -= 1;
+            render();
+        }, 1000);
+    })();
+
+    function collectAllocationData() {
+        var allocationData = {};
+        document.querySelectorAll('#agent-programming-form input[type="radio"]:checked').forEach(function(input) {
+            allocationData[input.name] = input.value;
+        });
+        return allocationData;
+    }
+
+    function showAgentProgrammingError(message) {
+        var box = document.getElementById('agent-programming-error');
+        if (!box) { return; }
+        box.textContent = message || '';
+        box.style.display = message ? 'block' : 'none';
+    }
+
+    function setConfirmBusy(busy) {
+        var btn = document.getElementById('agent-programming-confirm-btn');
+        if (btn) {
+            btn.disabled = !!busy;
+        }
+    }
+
+    function confirmAgentAllocations() {
+        var allocationData = collectAllocationData();
+        var requiredNames = [];
+        for (var i = 1; i <= 10; i += 1) {
+            requiredNames.push('agent_decision_mandatory_delegation_round_' + i);
+        }
+        for (var j = 0; j < requiredNames.length; j += 1) {
+            if (!allocationData[requiredNames[j]]) {
+                showAgentProgrammingError('Please choose A or B for every round before continuing.');
+                return;
+            }
+        }
+        showAgentProgrammingError('');
+        setConfirmBusy(true);
+        liveSend({ allocations: JSON.stringify(allocationData) });
+    }
+
+    function liveRecv(data) {
+        if (!data) {
+            setConfirmBusy(false);
+            return;
+        }
+        if (data.type === 'allocations_saved') {
+            var form = document.getElementById('agent-programming-form');
+            if (form) {
+                form.submit();
+            }
+            return;
+        }
+        if (data.type === 'allocations_error') {
+            showAgentProgrammingError(data.message || 'Could not save choices. Please try again.');
+            setConfirmBusy(false);
+        }
+    }
+</script>
+
+<style>
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+.allocation-container {
+    max-width: 800px;
+    margin: 50px auto;
+    background: #ffffff;
+    padding: 30px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+.main-title {
+    font-size: 28px;
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333333;
+    font-weight: bold;
+    border-bottom: 3px solid #0056b3;
+    padding-bottom: 10px;
+}
+.intro-text, .instructions, .confirmation-text {
+    font-size: 16px;
+    margin-bottom: 20px;
+    text-align: center;
+    color: #555555;
+}
+.agent-programming-error {
+    color: #842029;
+    background: #f8d7da;
+    border: 1px solid #f5c2c7;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin: 0 auto 16px auto;
+    max-width: 600px;
+    text-align: center;
+}
+.styled-table {
+    border-collapse: show;
+    margin: 25px auto;
+    font-size: 15px;
+    font-family: Arial, sans-serif;
+    width: 100%;
+    text-align: center;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.styled-table thead tr {
+    background-color: #0056b3;
+    color: #ffffff;
+    font-weight: bold;
+}
+.styled-table th, .styled-table td {
+    border: 1px solid #c1c1c1;
+    padding: 10px 15px;
+}
+.styled-table tbody tr:nth-of-type(even) {
+    background-color: #f3f3f3;
+}
+.styled-table tbody tr:hover {
+    background-color: #f1f1f1;
+}
+.countdown-banner {
+    margin: 10px auto 20px auto;
+    padding: 8px 12px;
+    max-width: 300px;
+    background-color: #fff3cd;
+    border: 1px solid #ffeeba;
+    border-radius: 6px;
+    color: #856404;
+    font-weight: 500;
+}
+.modern-btn {
+    display: block;
+    width: 100%;
+    max-width: 200px;
+    margin: 20px auto;
+    padding: 12px 20px;
+    font-size: 18px;
+    color: #ffffff;
+    background-color: #0056b3;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    text-align: center;
+}
+.modern-btn:hover:not(:disabled) {
+    background-color: #003d80;
+}
+.modern-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+@media (max-width: 768px) {
+    .allocation-container { padding: 20px; }
+    .main-title { font-size: 24px; }
+    .intro-text, .instructions, .confirmation-text { font-size: 14px; }
+    .styled-table { font-size: 14px; }
+}
+</style>

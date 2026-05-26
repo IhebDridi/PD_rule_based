@@ -142,6 +142,8 @@ def get_opponent_in_round(player, round_number):
         key = f"matching_group_members_part_{part}_{gid}"
         member_ids = player.session.vars.get(key)
         if member_ids and isinstance(member_ids, (list, tuple)) and len(member_ids) >= 3:
+            if me.participant.id_in_session not in member_ids:
+                return None
             round_ss = player.subsession.in_round(round_number)
             # Avoid ORM "IN" queries (oTree doesn't use Django's .objects). Filter in memory from this round's players.
             players = [p for p in round_ss.get_players() if p.participant.id_in_session in member_ids]
@@ -219,44 +221,9 @@ class Subsession(BaseSubsession):
 
 class Group(BaseGroup):
     def set_payoffs(self):
-        """
-        Set payoff for each player in this group. Single-player → 0. For N >= 3: if all share
-        the same matching_group_id >= 0 (released batch), use round-robin and PD matrix; otherwise
-        (waiting group or mixed) set payoff 0 for everyone.
-        """
-        players = self.get_players()
-        if len(players) == 1:
-            players[0].payoff = cu(0)
-            return
-        if len(players) >= 3:
-            # Only run round-robin payoffs if everyone is in the same released batch (matching_group_id >= 0).
-            gids = [p.participant.vars.get("matching_group_id", -1) for p in players]
-            if all(g >= 0 for g in gids) and len(set(gids)) == 1:
-                rnd = self.round_number
-                for p in players:
-                    opp = get_opponent_in_round(p, rnd)
-                    if opp is None:
-                        p.payoff = cu(0)
-                        continue
-                    c1 = p.field_maybe_none("choice")
-                    c2 = opp.field_maybe_none("choice")
-                    if c1 is None or c2 is None:
-                        p.payoff = cu(0)
-                        continue
-                    pay = Constants.PD_PAYOFFS.get((c1, c2))
-                    if pay is not None:
-                        p.payoff = cu(pay[0])
-                    else:
-                        p.payoff = cu(0)
-                return
-            # "Waiting" group (others not yet released): payoff 0 for all.
-            for p in players:
-                p.payoff = cu(0)
-            return
-        players[0].payoff = cu(0)
-        if len(players) > 1:
-            for p in players[1:]:
-                p.payoff = cu(0)
+        from models_classes import set_payoffs_pd_batch_group
+
+        set_payoffs_pd_batch_group(self)
 
 
 
@@ -280,10 +247,11 @@ class Player(BasePlayer):
         blank=True,
     )
     choice = models.StringField(
-    choices=[('A', 'A'), ('B', 'B')],
-    label="Please choose A or B",
+        choices=[('A', 'A'), ('B', 'B')],
+        label="Please choose A or B",
+        blank=True,
     )
-    guess_payoff = models.CurrencyField(initial=0)
+    guess_payoff = models.CurrencyField(blank=True)
     allocation = models.IntegerField(
         min=0,
         max=100,
@@ -301,7 +269,7 @@ class Player(BasePlayer):
     # Tracks the number of failed comprehension attempts
     comprehension_attempts = models.IntegerField(initial=0) #new
     incorrect_answers = models.StringField(blank=True) #new
-    agent_prog_allocation=models.StringField(initial='[]') #new
+    agent_prog_allocation=models.StringField(blank=True) #new
     # Tracks whether the participant is excluded from the study
     is_excluded = models.BooleanField(initial=False)
 
@@ -584,31 +552,15 @@ def _opponent_for_export(pr, r, round_data, rr_cache):
 
 def custom_export(players):
     """CSV custom export (shared implementation in ``shared.delegation_custom_export``)."""
-    from shared.delegation_custom_export import DelegationExportSpec, delegation_custom_export
+    from shared.delegation_custom_export import delegation_custom_export
+    from shared.export_spec_factory import make_delegation_export_spec
 
     yield from delegation_custom_export(
         players,
-        DelegationExportSpec(
-            constants=Constants,
-            compute_rr=compute_round_robin_assignments,
-            game_used=__name__.split("_", 1)[0].upper(),
-            condition_first='goal1st',
-            condition_second='goal2nd',
-            layout='first_person_agents',
-            demographics='standard',
-            round_data_style='standard',
-            per_round_agent_token='goal',
-            summary_agent_fixed='goal',
-            extension='goal',
-            access_mode='normal',
-            opponent_mode='normal',
-            payoff_mode='simple',
-            session_mode='direct',
-            prolific_mode='strict',
-            log_errors_to_stderr=False,
-            custom_opponent_resolver=_opponent_for_export,
-        ),
+        make_delegation_export_spec(__name__, Constants, compute_round_robin_assignments),
     )
+
+
 
 # =============================================================================
 # Lobby release and payoff runner (called from pages.Lobby and BatchWaitForGroup)
@@ -681,10 +633,10 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                 c1 = p.field_maybe_none("choice")
                 c2 = opp.field_maybe_none("choice") if opp else None
                 if c1 is None or c2 is None:
-                    p.payoff = cu(0)
-                else:
-                    pay = Constants.PD_PAYOFFS.get((c1, c2))
-                    p.payoff = cu(pay[0]) if pay is not None else cu(0)
+                    continue
+                pay = Constants.PD_PAYOFFS.get((c1, c2))
+                if pay is not None:
+                    p.payoff = cu(pay[0])
         subsession.session.vars[run_key] = True
         return True
     # Find the group (same 3 players in every round)

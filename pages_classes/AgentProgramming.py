@@ -2,6 +2,8 @@ import json
 
 from otree.api import *
 
+from shared.export_integrity import record_data_error
+
 from .model_bridge import get_constants
 from .page_helpers import _has_left_lobby_for_part, part_vars
 
@@ -12,18 +14,31 @@ class AgentProgramming(Page):
     live_method receives JSON from the front end and stores in participant.vars; before_next_page
     copies those (or form fields for mandatory blocks) into player.in_round(r).choice.
 
-    Intentionally **no** ``template_name`` here: each app supplies its own HTML (e.g.
-    ``AgentProgramming.html`` or ``MistralPage.html``) under ``<app>/templates/<AppName>/``.
+    Confirm button uses oTree live pattern (see templates/global/AgentProgrammingContent.html):
+    type=button → liveSend → liveRecv → form.submit(). Form fields are the primary DB save path.
     """
 
     form_model = 'player'
+    preserve_unsubmitted_inputs = True
 
     @staticmethod
     def live_method(player, data):
-        """Receive allocations from liveSend (table A/B choices) and store in participant.vars (agent_programming_part1/2/3)."""
+        """Receive allocations from liveSend; ack so the client can submit the form safely."""
+        pid = player.id_in_group
+
+        def respond(payload):
+            return {pid: payload}
+
         if not data or 'allocations' not in data:
-            return
-        raw = json.loads(data['allocations'])
+            return respond(
+                dict(type='allocations_error', message='No data received. Please try again.')
+            )
+        try:
+            raw = json.loads(data['allocations'])
+        except (TypeError, json.JSONDecodeError):
+            return respond(
+                dict(type='allocations_error', message='Invalid data. Please try again.')
+            )
         # raw keys may be "agent_decision_mandatory_delegation_round_1" or "1"
         decisions = {}
         for k, v in raw.items():
@@ -40,8 +55,13 @@ class AgentProgramming(Page):
                         decisions[rn] = v
                 except (ValueError, IndexError):
                     pass
-        if not decisions:
-            return
+        if len(decisions) < 10:
+            return respond(
+                dict(
+                    type='allocations_error',
+                    message='Please choose A or B for every round before continuing.',
+                )
+            )
         r = player.round_number
         if r == 1:
             player.participant.vars['agent_programming_part1'] = decisions
@@ -49,6 +69,7 @@ class AgentProgramming(Page):
             player.participant.vars['agent_programming_part2'] = decisions
         elif r == 21:
             player.participant.vars['agent_programming_part3'] = decisions
+        return respond(dict(type='allocations_saved'))
 
     def is_displayed(self):
         Constants = get_constants(self.player)
@@ -81,10 +102,25 @@ class AgentProgramming(Page):
                 f"agent_decision_mandatory_delegation_round_{i}"
                 for i in range(1, 11)
             ]
-        # Part 3 uses participant.vars from live
-        if current_part == 3:
-            return []
+        # Part 3 (round 21): persist via form_fields so oTree writes to DB on submit
+        # (live_method vars are a backup only; see oTree live pages docs on liveSend + next).
+        if current_part == 3 and r == 21:
+            return [
+                f"agent_decision_mandatory_delegation_round_{i}"
+                for i in range(1, 11)
+            ]
         return []
+
+    @staticmethod
+    def error_message(player, values):
+        Constants = get_constants(player)
+        r = player.round_number
+        if r in (1, 11) or (Constants.get_part(r) == 3 and r == 21):
+            for i in range(1, 11):
+                key = f"agent_decision_mandatory_delegation_round_{i}"
+                if values.get(key) not in ("A", "B"):
+                    return "Please choose A or B for every round before continuing."
+        return None
 
     def vars_for_template(self):
         Constants = get_constants(self.player)
@@ -143,14 +179,30 @@ class AgentProgramming(Page):
         # PART 3 — Optional delegation (rounds 21–30)
         # ==========================================
         elif current_part == 3:
-            decisions = self.participant.vars.get(
-                'agent_programming_part3', {}
-            )
+            decisions = dict(self.participant.vars.get("agent_programming_part3", {}))
+            if not decisions:
+                for i in range(1, 11):
+                    decision = self.player.field_maybe_none(
+                        f"agent_decision_mandatory_delegation_round_{i}"
+                    )
+                    if decision in ("A", "B"):
+                        decisions[i] = decision
             start_round = 2 * Constants.rounds_per_part + 1  # 21
+            missing_rounds = []
 
             for i in range(1, 11):
                 round_number = start_round + i - 1
                 decision = decisions.get(i) or decisions.get(str(i))
-                if decision in ('A', 'B'):
+                if decision in ("A", "B"):
                     self.player.in_round(round_number).choice = decision
-            self.participant.vars["agent_programming_done_part3"] = True
+                else:
+                    missing_rounds.append(str(round_number))
+
+            if missing_rounds:
+                record_data_error(
+                    self.participant,
+                    "PART3_AGENT_CHOICES_INCOMPLETE",
+                    ",".join(missing_rounds),
+                )
+            else:
+                self.participant.vars["agent_programming_done_part3"] = True

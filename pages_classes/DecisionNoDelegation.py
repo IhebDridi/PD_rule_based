@@ -1,5 +1,7 @@
 from otree.api import *
 
+from shared.export_integrity import record_data_error
+
 from .model_bridge import get_constants
 from .page_helpers import _has_left_lobby_for_part, part_vars
 
@@ -33,3 +35,18 @@ class DecisionNoDelegation(Page):
             "countdown_seconds": countdown_seconds,
             **part_vars(self.player),
         }
+
+    @staticmethod
+    def error_message(player, values):
+        if values.get("choice") not in ("A", "B"):
+            return "Please choose A or B before continuing."
+        return None
+
+    def before_next_page(self):
+        choice = self.player.field_maybe_none("choice")
+        if choice not in ("A", "B"):
+            record_data_error(
+                self.participant,
+                "CHOICE_MISSING",
+                f"r={self.round_number}",
+            )

@@ -100,11 +100,14 @@ class Results(Page):
             rr = player.in_round(r)
             my_choice = rr.field_maybe_none("choice")
             other_choice = None
-            raw_payoff = getattr(rr.payoff, "amount", rr.payoff) if rr.payoff is not None else 0
-            try:
-                payoff_val = int(raw_payoff)
-            except (TypeError, ValueError):
-                payoff_val = 0
+            payoff_val = None
+            if rr.payoff is not None:
+                raw_payoff = getattr(rr.payoff, "amount", rr.payoff)
+                try:
+                    payoff_val = int(raw_payoff)
+                except (TypeError, ValueError):
+                    payoff_val = None
+            raw_payoff = payoff_val if payoff_val is not None else 0
             if assignments and my_pos and 1 <= my_pos <= len(member_ids):
                 round_in_part = r - part_start
                 opp_idx, _ = assignments[my_pos - 1][round_in_part]
@@ -120,7 +123,7 @@ class Results(Page):
                         try:
                             payoff_val = int(raw_payoff)
                         except (TypeError, ValueError):
-                            payoff_val = 0
+                            payoff_val = None
             rounds_data.append({
                 "round": r - (current_part - 1) * Constants.rounds_per_part,
                 "my_choice": my_choice,

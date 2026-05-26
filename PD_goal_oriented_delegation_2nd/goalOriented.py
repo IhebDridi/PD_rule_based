@@ -37,7 +37,7 @@ class GoalOriented(AgentProgramming):
             player.participant.vars["agent_programming_part3"] = decisions
 
         # Keep a trace for export/debug; does not affect payoff logic.
-        history_raw = player.agent_prog_allocation or "[]"
+        history_raw = player.field_maybe_none("agent_prog_allocation") or "[]"
         try:
             history = json.loads(history_raw)
             if not isinstance(history, list):

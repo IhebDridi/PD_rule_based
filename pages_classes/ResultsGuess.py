@@ -3,6 +3,17 @@ from otree.api import *
 from .model_bridge import app_models
 
 
+def _guess_earnings_display(player) -> str:
+    gpay = player.field_maybe_none("guess_payoff")
+    if gpay is None:
+        return "—"
+    try:
+        amount = float(getattr(gpay, "amount", gpay))
+    except (TypeError, ValueError):
+        return "—"
+    return "0.1" if amount > 0 else "0"
+
+
 class ResultsGuess(Page):
     """Shown after GuessDelegation (round 30). Displays Part 4 guess results (yes/no vs actual delegation, earnings)."""
     template_name = 'global/ResultsGuess.html'
@@ -40,7 +51,7 @@ class ResultsGuess(Page):
                     "round": i,
                     "my_decision": my_decision,
                     "other_decision": "Yes" if other_delegated else "No",
-                    "earnings": "0.1" if (me.guess_payoff or 0) else "0",
+                    "earnings": _guess_earnings_display(me),
                 })
         else:
             _log_cache_miss("ResultsGuess", getattr(self.participant, "id", None), "cache_miss_or_invalid")
@@ -61,7 +72,7 @@ class ResultsGuess(Page):
                         "Yes" if other and other.field_maybe_none("delegate_decision_optional")
                         else ("No" if other else "—")
                     ),
-                    "earnings": "0.1" if (me.guess_payoff or 0) else "0",
+                    "earnings": _guess_earnings_display(me),
                 })
 
         return {"rows": rows}

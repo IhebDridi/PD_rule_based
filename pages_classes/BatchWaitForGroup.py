@@ -2,6 +2,8 @@ import time
 
 from otree.api import *
 
+from shared.export_integrity import record_data_errors_for_participants
+
 from .model_bridge import app_models
 from .page_helpers import BATCH_WAIT_MIN_SECONDS, _has_left_lobby_for_part
 
@@ -227,6 +229,11 @@ class BatchWaitForGroup(WaitPage):
             batch_players = [pl for pl in round_ss.get_players() if pl.participant.id_in_session in first_ids]
             batch_players = sorted(batch_players, key=lambda pl: first_ids.index(pl.participant.id_in_session))
             if len(batch_players) != group_size:
+                record_data_errors_for_participants(
+                    trio,
+                    "GROUP_FORMATION_FAILED",
+                    f"part={current_part} expected={group_size} got={len(batch_players)}",
+                )
                 return
 
             self.session.vars[f'matching_group_members_part_{current_part}_{batch_id}'] = list(first_ids)
@@ -236,6 +243,11 @@ class BatchWaitForGroup(WaitPage):
 
             payoffs_ready = bool(am.run_payoffs_for_matching_group(self.subsession, batch_id))
             if not payoffs_ready:
+                record_data_errors_for_participants(
+                    trio,
+                    "PAYOFFS_OR_RESULTS_NOT_READY",
+                    f"part={current_part} batch_id={batch_id}",
+                )
                 return
 
             for p in trio:

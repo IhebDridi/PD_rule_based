@@ -133,6 +133,8 @@ def get_opponent_in_round(player, round_number):
         key = f"matching_group_members_part_{part}_{gid}"
         member_ids = player.session.vars.get(key)
         if member_ids and isinstance(member_ids, (list, tuple)) and len(member_ids) >= 3:
+            if me.participant.id_in_session not in member_ids:
+                return None
             round_ss = player.subsession.in_round(round_number)
             # Avoid ORM "IN" queries (oTree doesn't use Django's .objects). Filter in memory from this round's players.
             players = [p for p in round_ss.get_players() if p.participant.id_in_session in member_ids]
@@ -268,10 +270,11 @@ class Player(BasePlayer):
         blank=True,
     )
     choice = models.StringField(
-    choices=[('A', 'A'), ('B', 'B')],
-    label="Please choose A or B",
+        choices=[('A', 'A'), ('B', 'B')],
+        label="Please choose A or B",
+        blank=True,
     )
-    guess_payoff = models.CurrencyField(initial=0)
+    guess_payoff = models.CurrencyField(blank=True)
     allocation = models.IntegerField(
         min=0,
         max=100,
@@ -289,7 +292,7 @@ class Player(BasePlayer):
     # Tracks the number of failed comprehension attempts
     comprehension_attempts = models.IntegerField(initial=0) #new
     incorrect_answers = models.StringField(blank=True) #new
-    agent_prog_allocation=models.StringField(initial='[]') #new
+    agent_prog_allocation=models.StringField(blank=True) #new
     # Tracks whether the participant is excluded from the study
     is_excluded = models.BooleanField(initial=False)
 
@@ -790,31 +793,15 @@ def _opponent_for_export(pr, r, round_data, rr_cache):
 
 def custom_export(players):
     """CSV custom export (shared implementation in ``shared.delegation_custom_export``)."""
-    from shared.delegation_custom_export import DelegationExportSpec, delegation_custom_export
+    from shared.delegation_custom_export import delegation_custom_export
+    from shared.export_spec_factory import make_delegation_export_spec
 
     yield from delegation_custom_export(
         players,
-        DelegationExportSpec(
-            constants=Constants,
-            compute_rr=compute_round_robin_assignments,
-            game_used=__name__.split("_", 1)[0].upper(),
-            condition_first='rule1st',
-            condition_second='rule2nd',
-            layout='first_person_agents',
-            demographics='rule_based',
-            round_data_style='rule_based_gid',
-            per_round_agent_token='rule',
-            summary_agent_fixed=None,
-            extension='empty',
-            access_mode='safe',
-            opponent_mode='matching_group_guard',
-            payoff_mode='currency_amount',
-            session_mode='safe',
-            prolific_mode='or_empty',
-            log_errors_to_stderr=True,
-            custom_opponent_resolver=_opponent_for_export,
-        ),
+        make_delegation_export_spec(__name__, Constants, compute_round_robin_assignments),
     )
+
+
 
 # =============================================================================
 # Lobby release and payoff runner (called from pages.Lobby and BatchWaitForGroup)
@@ -945,10 +932,10 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                 c1 = p.field_maybe_none("choice")
                 c2 = opp.field_maybe_none("choice") if opp else None
                 if c1 is None or c2 is None:
-                    p.payoff = cu(0)
-                else:
-                    pay = Constants.PD_PAYOFFS.get((c1, c2))
-                    p.payoff = cu(pay[0]) if pay is not None else cu(0)
+                    continue
+                pay = Constants.PD_PAYOFFS.get((c1, c2))
+                if pay is not None:
+                    p.payoff = cu(pay[0])
 
         # Write results-display cache for the group of 3 (so Results/Debriefing read from cache, not DB).
         try:
@@ -963,6 +950,13 @@ def run_payoffs_for_matching_group(subsession, matching_group_id):
                 p.participant.vars["results_display_cache"] = existing
         except Exception as e:
             _log_cache_miss("run_payoffs_write", getattr(players_start[0].participant, "id", None), str(e), debug_extra=str(e))
+            from shared.export_integrity import record_data_errors_for_participants
+
+            record_data_errors_for_participants(
+                [p.participant for p in players_start],
+                "RESULTS_CACHE_WRITE_FAILED",
+                str(e),
+            )
         subsession.session.vars[run_key] = True
         return True
     # Find the group (same 3 players in every round)

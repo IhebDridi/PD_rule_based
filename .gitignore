@@ -61,3 +61,4 @@ PD_REFACTOR_MAINTENANCE_GUIDE.md
 scripts/
 docs/
 misselanious/
+.venv

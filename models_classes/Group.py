@@ -35,3 +35,10 @@ def set_payoffs_pd_batch_group(group):
             return
         return
     return
+
+
+def set_payoffs_tg_batch_group(group):
+    """TG sequential payoffs for a released batch group (see ``shared.tg_payoffs``)."""
+    from shared.tg_payoffs import set_payoffs_tg_batch_group as _impl
+
+    _impl(group)

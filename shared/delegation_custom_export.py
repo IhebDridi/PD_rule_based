@@ -403,15 +403,33 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
             for pr in rounds:
                 r = pr.round_number
                 other = resolve_opponent(pr, r)
-                choice_val = get_fld(pr, "choice")
-                row[f"Round{r}Decision"] = choice_val if choice_val is not None else ""
+                if spec.game_used == "TG":
+                    first_val = get_fld(pr, "choice_first_mover")
+                    second_val = get_fld(pr, "choice_second_mover")
+                    role_val = get_fld(pr, "role_assigned")
+                    row[f"Round{r}DecisionFirstMover"] = first_val if first_val is not None else ""
+                    row[f"Round{r}DecisionSecondMover"] = second_val if second_val is not None else ""
+                    row[f"Round{r}RoleAssigned"] = role_val if role_val is not None else ""
+                    row[f"Round{r}Decision"] = ""
+                else:
+                    choice_val = get_fld(pr, "choice")
+                    row[f"Round{r}Decision"] = choice_val if choice_val is not None else ""
 
                 pay_float = player_pay_float(pr)
                 row[f"Round{r}Ecoins"] = _export_ecoins_cell(pay_float)
 
                 if other:
-                    oc = get_fld(other, "choice")
-                    row[f"Round{r}CoplayerDecision"] = oc if oc is not None else ""
+                    if spec.game_used == "TG":
+                        oc_first = get_fld(other, "choice_first_mover")
+                        oc_second = get_fld(other, "choice_second_mover")
+                        oc_role = get_fld(other, "role_assigned")
+                        row[f"Round{r}CoplayerDecisionFirstMover"] = oc_first if oc_first is not None else ""
+                        row[f"Round{r}CoplayerDecisionSecondMover"] = oc_second if oc_second is not None else ""
+                        row[f"Round{r}CoplayerRoleAssigned"] = oc_role if oc_role is not None else ""
+                        row[f"Round{r}CoplayerDecision"] = ""
+                    else:
+                        oc = get_fld(other, "choice")
+                        row[f"Round{r}CoplayerDecision"] = oc if oc is not None else ""
                     pos = pvars(other, "matching_group_position")
                     if pos is not None and pos != "" and pos != -1:
                         row[f"Round{r}CoplayerID"] = str(pos)
@@ -579,16 +597,23 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                 row[k] = ""
 
             if spec.extension == "llm":
-                row["LLMchatDelegation"] = (get_fld(deleg_pr, "conversation_history") if deleg_pr else "") or ""
+                def _llm_chat(pr):
+                    if not pr:
+                        return ""
+                    first = get_fld(pr, "conversation_history") or ""
+                    if spec.game_used == "TG":
+                        second = get_fld(pr, "conversation_history_second") or ""
+                        if first and second:
+                            return first + "\n---\n" + second
+                        return first or second
+                    return first
+
+                row["LLMchatDelegation"] = _llm_chat(deleg_pr)
                 row["LLMchatOptional"] = (
-                    (
-                        get_fld(opt_pr, "conversation_history")
-                        if get_fld(opt_pr, "delegate_decision_optional")
-                        else ""
-                    )
-                    if opt_pr
+                    _llm_chat(opt_pr)
+                    if opt_pr and get_fld(opt_pr, "delegate_decision_optional")
                     else ""
-                ) or ""
+                )
             elif spec.extension == "goal":
                 row["GoalListChoicesDelegation"] = strip_allocations_json(
                     (get_fld(deleg_pr, "agent_prog_allocation") if deleg_pr else "") or ""
@@ -624,6 +649,16 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
 
             row["GameUsed"] = spec.game_used
 
+            get_choice = (
+                (lambda pr: (
+                    "tg"
+                    if get_fld(pr, "choice_first_mover") in ("A", "B")
+                    and get_fld(pr, "choice_second_mover") in ("A", "B")
+                    else None
+                ))
+                if spec.game_used == "TG"
+                else (lambda pr: get_fld(pr, "choice"))
+            )
             row["ExportErrors"] = "; ".join(
                 collect_export_integrity_errors(
                     p0.participant,
@@ -631,7 +666,7 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                     C,
                     p0.session,
                     resolve_opponent,
-                    lambda pr: get_fld(pr, "choice"),
+                    get_choice,
                     results_cache_required=spec.results_cache_required,
                 )
             )

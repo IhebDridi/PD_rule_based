@@ -2,7 +2,9 @@ import random
 
 from otree.api import *
 
-from .model_bridge import app_models
+from shared.tg_payoffs import tg_results_row
+
+from .model_bridge import app_models, is_tg_app
 
 
 class Debriefing(Page):
@@ -87,10 +89,17 @@ class Debriefing(Page):
                         display_payoff = int(raw_payoff)
                     except (TypeError, ValueError):
                         display_payoff = 0
+                    if is_tg_app(self.player):
+                        row = tg_results_row(me, other)
+                        my_choice = row.get("my_choice")
+                        other_choice = row.get("other_choice")
+                    else:
+                        my_choice = me.field_maybe_none("choice")
+                        other_choice = other.field_maybe_none("choice") if other else None
                     part_data.append({
                         "round": r - (part - 1) * Constants.rounds_per_part,
-                        "my_choice": me.field_maybe_none("choice"),
-                        "other_choice": other.field_maybe_none("choice") if other else None,
+                        "my_choice": my_choice,
+                        "other_choice": other_choice,
                         "other_delegated": bool(other and other.field_maybe_none("delegate_decision_optional")),
                         "payoff": display_payoff,
                     })
@@ -108,10 +117,17 @@ class Debriefing(Page):
                 other = get_opponent_in_round_cached(
                     self.player, r, round_players_cache
                 )
+                if is_tg_app(self.player):
+                    row = tg_results_row(me, other)
+                    my_choice = row.get("my_choice")
+                    other_choice = row.get("other_choice")
+                else:
+                    my_choice = me.field_maybe_none("choice")
+                    other_choice = other.field_maybe_none("choice") if other else None
                 guess_rounds_data.append({
                     "round": r - 2 * Constants.rounds_per_part,
-                    "my_choice": me.field_maybe_none("choice"),
-                    "other_choice": other.field_maybe_none("choice") if other else None,
+                    "my_choice": my_choice,
+                    "other_choice": other_choice,
                     "other_delegated": bool(other and other.field_maybe_none("delegate_decision_optional")),
                     "payoff": me.field_maybe_none("guess_payoff"),
                 })

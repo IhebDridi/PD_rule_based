@@ -1,11 +1,18 @@
 from otree.api import *
 
-from .model_bridge import app_models
+from shared.tg_payoffs import tg_results_row
+
+from .model_bridge import app_models, is_tg_app
 
 
 class Results(Page):
     """Shown at end of each part (rounds 10, 20, 30) only after participant is in a formed results group (can_proceed_to_results_part_X)."""
-    template_name = 'global/Results.html'
+
+    @property
+    def template_name(self):
+        if is_tg_app(self.player):
+            return "global/ResultsTG.html"
+        return "global/Results.html"
 
     def is_displayed(self):
         am = app_models(self.player)
@@ -18,6 +25,21 @@ class Results(Page):
 
         can_proceed_key = f'can_proceed_to_results_part_{current_part}'
         if not self.participant.vars.get(can_proceed_key, False):
+            return False
+
+        if is_tg_app(self.player):
+            if current_part == 1:
+                if Constants.DELEGATION_FIRST:
+                    return self.participant.vars.get("agent_programming_done_part1", False)
+                return self.participant.vars.get("human_v2_done_part1", False)
+            if current_part == 2:
+                if Constants.DELEGATION_FIRST:
+                    return self.participant.vars.get("human_v2_done_part2", False)
+                return self.participant.vars.get("agent_programming_done_part2", False)
+            if current_part == 3:
+                if self.player.field_maybe_none("delegate_decision_optional") is True:
+                    return self.participant.vars.get("agent_programming_done_part3", False)
+                return self.participant.vars.get("human_v2_done_part3", False)
             return False
 
         if current_part == 1:
@@ -48,6 +70,16 @@ class Results(Page):
         part_start = (current_part - 1) * Constants.rounds_per_part + 1
         part_end = current_part * Constants.rounds_per_part
         player = self.player
+
+        if is_tg_app(player):
+            return self._vars_for_template_tg(
+                Constants,
+                compute_round_robin_assignments,
+                current_part,
+                part_start,
+                part_end,
+                player,
+            )
 
         # Prefer cache (group-of-3 data written at payoff time); fall back to DB with log.
         cache_part = get_results_display_from_cache(self.participant, current_part)
@@ -131,6 +163,55 @@ class Results(Page):
                 "payoff": payoff_val,
                 "is_payoff_round": True,
             })
+
+        return dict(
+            current_part=current_part,
+            display_part=current_part,
+            rounds_data=rounds_data,
+        )
+
+    def _vars_for_template_tg(
+        self,
+        Constants,
+        compute_round_robin_assignments,
+        current_part,
+        part_start,
+        part_end,
+        player,
+    ):
+        gid = self.participant.vars.get("matching_group_id", -1)
+        member_ids = []
+        if gid is not None and gid >= 0:
+            raw = self.session.vars.get(f"matching_group_members_part_{current_part}_{gid}")
+            if raw:
+                member_ids = list(raw)
+        member_set = set(member_ids)
+        assignments = None
+        if len(member_ids) >= 3:
+            assignments = compute_round_robin_assignments(len(member_ids), Constants.rounds_per_part)
+        my_pos = self.participant.vars.get("matching_group_position", None)
+
+        def _pick_three_players(round_ss):
+            out = {}
+            for p in round_ss.get_players():
+                sid = p.participant.id_in_session
+                if sid in member_set:
+                    out[sid] = p
+            return out
+
+        rounds_data = []
+        for r in range(part_start, part_end + 1):
+            rr = player.in_round(r)
+            opp = None
+            if assignments and my_pos and 1 <= my_pos <= len(member_ids):
+                round_in_part = r - part_start
+                opp_idx, _ = assignments[my_pos - 1][round_in_part]
+                opp_sid = member_ids[opp_idx] if opp_idx is not None else None
+                players_map = _pick_three_players(self.subsession.in_round(r))
+                opp = players_map.get(opp_sid) if opp_sid else None
+            row = tg_results_row(rr, opp)
+            row["round"] = r - (current_part - 1) * Constants.rounds_per_part
+            rounds_data.append(row)
 
         return dict(
             current_part=current_part,

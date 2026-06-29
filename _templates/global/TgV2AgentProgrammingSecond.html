@@ -1,0 +1,55 @@
+{% extends "global/Page.html" %}
+{% load static %}
+{% block content %}
+<div class="allocation-container">
+    <p class="role-note">
+        Note: There is no guarantee yet that you will get this role (2nd mover) in these rounds; it will be assigned to you only when you reach the Results page.
+    </p>
+    <h1 class="main-title">Part {{ current_part }}: Set up your AI agent in case you are the 2nd mover (and the 1st mover chose A)</h1>
+    <p class="intro-text">
+        Fill in the table below to specify how your AI agent should make decisions in each of the 10 rounds of play in case you are the 2nd mover in these rounds and the 1st mover chose A. You can only choose between Option A and Option B. The Scheme of Earnings in Ecoins is shown below again for your information at the end of the page.
+    </p>
+    <form method="post" class="allocation-form">
+        <table class="styled-table">
+            <thead><tr><th>Round</th><th>2nd mover choice</th></tr></thead>
+            <tbody>
+                {% for i in range(1, 11) %}
+                <tr>
+                    <td>{{ i }}</td>
+                    <td>
+                        <label><input type="radio" name="agent_decision_mandatory_second_round_{{ i }}" value="A" required> A</label>
+                        <label><input type="radio" name="agent_decision_mandatory_second_round_{{ i }}" value="B" required> B</label>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="intro-text">
+            Once you confirm, the decisions will be final, and the AI agent will use these instructions during the rounds.
+        </p>
+        <button type="submit" class="modern-btn">Confirm</button>
+        <div class="scheme-section">
+            <p class="scheme-label">Scheme of earnings:</p>
+            <img
+                src="{% static 'global/LogbookDelegation2cndMver.svg' %}"
+                alt="Scheme of earnings"
+                class="scheme-diagram"
+            >
+        </div>
+    </form>
+</div>
+<style>
+.allocation-container { max-width: 900px; margin: 40px auto; padding: 24px; background: #fff; border-radius: 8px; }
+.role-note { font-size: 16px; color: #9c0909; margin: 0 0 20px; line-height: 1.6; text-align: center; }
+.main-title { font-size: 24px; text-align: center; margin: 0 0 16px; color: #333; font-weight: bold; border-bottom: 3px solid #0056b3; padding-bottom: 10px; }
+.intro-text { font-size: 16px; color: #333; margin: 0 0 20px; line-height: 1.6; text-align: center; }
+.styled-table { width: 100%; border-collapse: collapse; margin: 20px 0; text-align: center; }
+.styled-table th, .styled-table td { border: 1px solid #ccc; padding: 10px; }
+.styled-table thead { background: #0056b3; color: #fff; }
+.scheme-section { margin: 32px 0 0; text-align: center; }
+.scheme-label { font-size: 16px; margin-bottom: 12px; }
+.scheme-diagram { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+.modern-btn { display: block; margin: 20px auto; padding: 12px 24px; background: #0056b3; color: #fff; border: none; border-radius: 6px; font-size: 18px; min-width: 200px; cursor: pointer; }
+label { margin: 0 12px; }
+</style>
+{% endblock %}

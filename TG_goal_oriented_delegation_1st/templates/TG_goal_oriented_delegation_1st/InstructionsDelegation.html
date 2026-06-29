@@ -7,21 +7,26 @@
 
     <h1 class="main-title">Welcome to Part {{ part_delegation }}: Delegation</h1>
     <p class="intro-text">
-        In this part of the experiment, you will delegate your decisions to an AI agent. This means that instead of making individual decisions in each round yourself, you will provide rule instructions to an AI agent that will make the decisions on your behalf for all 10 rounds in this part.
+        In this part of the experiment, you will delegate your decisions to an AI agent. This means that instead of making individual decisions in each round yourself, you will set a goal based on your preferences for your AI agent to follow. The agent will use this goal to define which decisions to make on your behalf for all 10 rounds in this part.
+    </p>
+    <p class="intro-text">
+        You will <strong>first delegate your decisions in case you are the 1st mover;</strong> and <strong>then delegate your decisions in case you are the 2nd mover and the other player chose A as the 1st mover.</strong> Remember, even though you will be delegating decisions for both roles, your true role in each round will only be determined (randomly for each part) at the end of the 10 rounds.
     </p>
 
     <div class="content-section">
         <div class="content-box">
-            <h2>How This Works</h2>
+            <h2><strong>How This Works</strong></h2>
             <ol>
-                <li><strong>Set Your Rules:</strong> Before the 10 rounds begin, you will decide what you want your agent to choose in each round by filling up a table.</li>
-                <li><strong>Agent Execution:</strong> Based on your instructions, the AI agent will automatically implement these decisions during the rounds. You do not need to interact with the system during these rounds.</li>
+                <li><strong>Set the AI Agent's Goal:</strong> Before the 10 rounds begin, you will use a slider to set up the agent's goal, ranging from prioritizing yourself to prioritizing your co-player in each round. Once the goal satisfies your preferences, click “Generate”. The AI agent will then use your goal to generate decisions that follow your goal.</li>
+                <li><strong>Agent Execution:</strong> The resulting behavior of your AI agent following your goal will be shown in a table on the right side of the screen, with the decisions your agent will make in each round, for each specific role. If you do not want your AI agent to proceed with the behavior you see in this table, you have two options:
+                    <ul>
+                        <li>Choose another goal for your agent to follow, so that your agent follows a new preferred goal.</li>
+                        <li>Ask your agent to generate new behavior based on the same preferred goal.</li>
+                    </ul>
+                </li>
                 <li><strong>Reshuffled co-players:</strong> Once again, you will be matched with a different co-player in each round, meaning that you might have to wait for them to also finalize their answers.</li>
-                <li><strong>Once you are satisfied with your decision:</strong> Click "Confirm" to finalize your agent’s settings. The rule-based AI agent will use your instructions to make decisions for you in all 10 rounds exactly as you planned. Once submitted, you will not be able to adjust the AI agent's decisions during the 10 rounds of play.</li>
-
+                <li><strong>Once you are satisfied with your decision:</strong> click "Confirm" to finalize your agent's settings. The AI agent will use your instructions to make decisions in all 10 rounds according to the table generated based on the goal you chose, <strong>for the role you are assigned to in each round.</strong> Once submitted, you will not be able to adjust the AI agent's decisions once the 10 rounds begin.</li>
             </ol>
-       
-
         </div>
     </div>
 

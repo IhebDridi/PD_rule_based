@@ -205,9 +205,9 @@ class Subsession(BaseSubsession):
 
 class Group(BaseGroup):
     def set_payoffs(self):
-        from models_classes import set_payoffs_pd_batch_group
+        from models_classes import set_payoffs_tg_batch_group
 
-        set_payoffs_pd_batch_group(self)
+        set_payoffs_tg_batch_group(self)
 
 
 
@@ -233,6 +233,21 @@ class Player(BasePlayer):
     choice = models.StringField(
         choices=[('A', 'A'), ('B', 'B')],
         label="Please choose A or B",
+        blank=True,
+    )
+
+    choice_first_mover = models.StringField(
+        choices=[('A', 'A'), ('B', 'B')],
+        label="If you are 1st mover this round, choose A or B",
+        blank=True,
+    )
+    choice_second_mover = models.StringField(
+        choices=[('A', 'A'), ('B', 'B')],
+        label="If you are 2nd mover this round, choose A or B",
+        blank=True,
+    )
+    role_assigned = models.StringField(
+        choices=[('first', '1st mover'), ('second', '2nd mover')],
         blank=True,
     )
     guess_payoff = models.CurrencyField(blank=True)
@@ -305,7 +320,7 @@ class Player(BasePlayer):
     part_3_feedback = models.StringField(
         choices=[
             ('more_fun',   'You just had more fun that way.'),
-            ('faster',        'You felt it would be faster that way'),
+            ('faster',        'You felt it would be faster that way.'),
             ('greedy',     'You thought you would make more money that way.'),
             ('utilitarian',        'You thought you would make better decisions that way.'),
             ('random',   'It was just random'),
@@ -336,11 +351,24 @@ class Player(BasePlayer):
         label="Other reason, specify:",
     )
 
+    used_ai_or_bot = models.StringField(
+        choices=[
+            ('ai_did_everything', "Yes, I didn't even read the text; the AI did everything."),
+            ('ai_advisor', 'Yes, as an advisor on what to do.'),
+            ('ai_translate', 'Yes, to help me translate the task.'),
+            ('no_distracted', 'No, but I was a bit distracted throughout the study.'),
+            ('no_other_tabs', 'No, but I had some other tabs opened while waiting.'),
+            ('no_focused', 'No, and I was fully focused on the study during the entire time.'),
+        ],
+        label="Did you use some type of AI agent or bot to answer our survey (apart from the ones provided to you in the experiment)? (Answer truthfully, your answer here will not impact your earnings.)",
+        widget=widgets.RadioSelect,
+    )
+
 
     feedback = models.LongStringField(
         blank=True,                # optional
         max_length=1000,
-        label="Do you have any suggestions or comments about the experiment that you would like to share with the researchers? If yes, use the box below.",
+        label="Do you have any suggestions or comments about the experiment that you would like to share with the researchers? If yes, use the box below. (Optional)",
     )
 
     # Fields for comprehension test questions
@@ -406,6 +434,16 @@ class Player(BasePlayer):
     agent_decision_mandatory_delegation_round_8 = models.StringField(choices=[('A', 'A'), ('B', 'B')],blank=True)
     agent_decision_mandatory_delegation_round_9 = models.StringField(choices=[('A', 'A'), ('B', 'B')],blank=True)
     agent_decision_mandatory_delegation_round_10 = models.StringField(choices=[('A', 'A'), ('B', 'B')],blank=True)
+    agent_decision_mandatory_second_round_1 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    agent_decision_mandatory_second_round_2 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    agent_decision_mandatory_second_round_3 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    agent_decision_mandatory_second_round_4 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    agent_decision_mandatory_second_round_5 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    agent_decision_mandatory_second_round_6 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    agent_decision_mandatory_second_round_7 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    agent_decision_mandatory_second_round_8 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    agent_decision_mandatory_second_round_9 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    agent_decision_mandatory_second_round_10 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
 
     #Track whether the participant chooses to delegate in Part 3
     delegate_decision_optional = models.BooleanField(
@@ -424,6 +462,16 @@ class Player(BasePlayer):
     human_decision_no_delegation_round_8 = models.StringField(choices=[('A', 'A'), ('B', 'B')],blank=True)
     human_decision_no_delegation_round_9 = models.StringField(choices=[('A', 'A'), ('B', 'B')],blank=True)
     human_decision_no_delegation_round_10 = models.StringField(choices=[('A', 'A'), ('B', 'B')],blank=True)
+    human_second_no_delegation_round_1 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    human_second_no_delegation_round_2 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    human_second_no_delegation_round_3 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    human_second_no_delegation_round_4 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    human_second_no_delegation_round_5 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    human_second_no_delegation_round_6 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    human_second_no_delegation_round_7 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    human_second_no_delegation_round_8 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    human_second_no_delegation_round_9 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
+    human_second_no_delegation_round_10 = models.StringField(choices=[('A', 'A'), ('B', 'B')], blank=True)
     # Optional delegation (Part 3)
     decision_optional_delegation_round_1 = models.StringField(choices=[('A', 'A'), ('B', 'B')],blank=True)
     decision_optional_delegation_round_2 = models.StringField(choices=[('A', 'A'), ('B', 'B')],blank=True)
@@ -542,117 +590,12 @@ def custom_export(players):
 
 
 def run_payoffs_for_matching_group(subsession, matching_group_id):
-    """
-    Run Group.set_payoffs for every round in the current part, but only for the group whose
-    players all have the given matching_group_id. Waits until all 3 players have submitted
-    choices for all rounds in the part before running payoffs (avoids None opponent choices
-    when many bots/participants run concurrently).
-    """
-    rnd = subsession.round_number
-    current_part = Constants.get_part(rnd)
-    if current_part == 1:
-        start, end = 1, 10
-    elif current_part == 2:
-        start, end = 11, 20
-    elif current_part == 3:
-        start, end = 21, 30
-    else:
-        return
-    run_key = f"payoffs_run_matching_group_{matching_group_id}_part_{current_part}"
-    if subsession.session.vars.get(run_key):
-        return True
-    allow_incomplete_choices = (current_part == 3 and rnd == 30)
-    # Fast path: if we have the 3 member ids stored, compute payoffs directly without rewriting group matrix.
-    key = f"matching_group_members_part_{current_part}_{matching_group_id}"
-    member_ids = subsession.session.vars.get(key)
-    if member_ids and isinstance(member_ids, (list, tuple)) and len(member_ids) >= 3:
-        # Identify the 3 Player objects once (from the first round of the part).
-        first_round_ss = subsession.in_round(start)
-        players_start = [p for p in first_round_ss.get_players() if p.participant.id_in_session in member_ids]
-        if len(players_start) != 3:
-            return
-        players_start = sorted(players_start, key=lambda p: p.participant.vars.get("matching_group_position", 0))
+    """TG sequential payoffs for a released matching batch (grouping unchanged from PD)."""
+    from shared.tg_payoffs import run_payoffs_for_matching_group_tg
 
-        def _all_choices_ready_for_three():
-            """Check only the 3 relevant players (avoid scanning 500 players each round)."""
-            for r in range(start, end + 1):
-                for p0 in players_start:
-                    pr = p0.in_round(r)
-                    if pr.field_maybe_none("choice") is None:
-                        return False
-            return True
-
-        if (not _all_choices_ready_for_three()) and (not allow_incomplete_choices):
-            return False
-
-        # Compute payoffs round-by-round using round-robin within these 3 players.
-        N = len(member_ids)
-        if N not in _ROUND_ROBIN_CACHE:
-            _ROUND_ROBIN_CACHE[N] = compute_round_robin_assignments(N, Constants.rounds_per_part)
-        assignments = _ROUND_ROBIN_CACHE[N]
-        for r in range(start, end + 1):
-            part_start = (current_part - 1) * Constants.rounds_per_part + 1
-            round_in_part = r - part_start
-            # Fetch just these 3 players for round r.
-            players_r = [p0.in_round(r) for p0 in players_start]
-            for i, p in enumerate(players_r):
-                opp_idx, _ = assignments[i][round_in_part]
-                opp = players_r[opp_idx] if opp_idx is not None else None
-                c1 = p.field_maybe_none("choice")
-                c2 = opp.field_maybe_none("choice") if opp else None
-                if c1 is None or c2 is None:
-                    continue
-                pay = Constants.PD_PAYOFFS.get((c1, c2))
-                if pay is not None:
-                    p.payoff = cu(pay[0])
-        subsession.session.vars[run_key] = True
-        return True
-    # Find the group (same 3 players in every round)
-    round_ss = subsession.in_round(start)
-    all_players = list(round_ss.get_players())
-    by_group = defaultdict(list)
-    for p in all_players:
-        by_group[p.group_id].append(p)
-    players_in_group = None
-    group = None
-    for group_id, players in by_group.items():
-        if len(players) < 3:
-            continue
-        if not all(p.participant.vars.get('matching_group_id') == matching_group_id for p in players):
-            continue
-        players_in_group = players
-        group = players[0].group
-        break
-    if not players_in_group or not group:
-        return
-    participants = [p.participant for p in players_in_group]
-    required = 3 * (end - start + 1)  # 3 players × 10 rounds
-
-    def _all_choices_ready():
-        """Readiness check for 3 players only (avoid scanning whole round player lists)."""
-        players_start = sorted(players_in_group, key=lambda p: p.participant.vars.get("matching_group_position", 0))
-        for r in range(start, end + 1):
-            for p0 in players_start:
-                pr = p0.in_round(r)
-                if pr.field_maybe_none("choice") is None:
-                    return False
-        return True
-
-    if (not _all_choices_ready()) and (not allow_incomplete_choices):
-        return False
-    for r in range(start, end + 1):
-        round_ss = subsession.in_round(r)
-        all_players_r = list(round_ss.get_players())
-        by_group_r = defaultdict(list)
-        for p in all_players_r:
-            by_group_r[p.group_id].append(p)
-        for group_id, players in by_group_r.items():
-            if len(players) < 3:
-                continue
-            if not all(p.participant.vars.get('matching_group_id') == matching_group_id for p in players):
-                continue
-            players[0].group.set_payoffs()
-            break
-    subsession.session.vars[run_key] = True
-    return True
-
+    return run_payoffs_for_matching_group_tg(
+        subsession,
+        matching_group_id,
+        Constants,
+        compute_round_robin_assignments,
+    )

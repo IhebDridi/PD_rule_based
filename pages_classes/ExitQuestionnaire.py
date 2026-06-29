@@ -10,6 +10,9 @@ class ExitQuestionnaire(Page):
         if values.get('part_3_feedback') == 'part_3_other':
             if not values.get('part_3_feedback_other'):
                 return "Please specify your reason if you selected 'Other'."
+        if values.get('part_4_feedback') == 'part_4_other':
+            if not values.get('part_4_feedback_other'):
+                return "Please specify your reason if you selected 'Other'."
     def before_next_page(self):
         # Bot attention check: hidden instruction suggests bots will mention ice cream flavor.
         fb = (self.player.feedback or "").strip()
@@ -18,20 +21,21 @@ class ExitQuestionnaire(Page):
             self.participant.vars["bot_suspected"] = True
             self.participant.vars["bot_detection_reason"] = "exit_questionnaire_hidden_attention_check"
     form_model = 'player'
-    form_fields = [
-        'gender',           # Male / Female / Non-binary / Prefer not to say
-        'age',              # 18 – 100
-        'occupation',       # free text ≤ 100 chars
-        'ai_use',           # frequency scale
-        'task_difficulty',  # difficulty scale
-        'part_3_feedback',
-        'part_3_feedback_other',
-        'part_4_feedback',
-        'part_4_feedback_other',
-        'used_ai_or_bot',   # AI/bot use outside experiment
-        'feedback',         # optional free text ≤ 1000 chars
 
-    ]
+    def get_form_fields(self):
+        return [
+            'gender',
+            'age',
+            'occupation',
+            'ai_use',
+            'task_difficulty',
+            'part_3_feedback',
+            'part_3_feedback_other',
+            'part_4_feedback',
+            'part_4_feedback_other',
+            'used_ai_or_bot',
+            'feedback',
+        ]
 
     def is_displayed(self):
         return self.round_number == get_constants(self.player).num_rounds

@@ -1,6 +1,8 @@
 from otree.api import *
 
-from .model_bridge import app_models
+from shared.tg_payoffs import tg_results_row
+
+from .model_bridge import app_models, is_tg_app
 
 
 class GuessDelegation(Page):
@@ -30,24 +32,44 @@ class GuessDelegation(Page):
             for i in range(1, 11):
                 entry = cache_3[i - 1]
                 me = self.player.in_round(start + i - 1)
-                rows.append({
+                tg_row = tg_results_row(me, None) if is_tg_app(self.player) else None
+                row = {
                     "round": i,
-                    "my_choice": entry.get("my_choice") or me.field_maybe_none("choice"),
+                    "my_choice": entry.get("my_choice") or (
+                        tg_row.get("my_choice")
+                        if tg_row
+                        else me.field_maybe_none("choice")
+                    ),
                     "other_choice": entry.get("other_choice"),
                     "field_name": f"guess_round_{i}",
-                })
+                }
+                if is_tg_app(self.player):
+                    row["role_assigned"] = entry.get("role_assigned") or tg_row.get("role_assigned", "")
+                rows.append(row)
         else:
             _log_cache_miss("GuessDelegation", getattr(self.participant, "id", None), "cache_miss_or_invalid")
             for i in range(1, 11):
                 r = start + i - 1
                 me = self.player.in_round(r)
                 other = get_opponent_in_round(self.player, r)
-                rows.append({
+                if is_tg_app(self.player):
+                    row = tg_results_row(me, other)
+                    my_choice = row.get("my_choice")
+                    other_choice = row.get("other_choice")
+                    role_assigned = row.get("role_assigned")
+                else:
+                    my_choice = me.field_maybe_none("choice")
+                    other_choice = other.field_maybe_none("choice") if other else None
+                    role_assigned = None
+                row_data = {
                     "round": i,
-                    "my_choice": me.field_maybe_none("choice"),
-                    "other_choice": other.field_maybe_none("choice") if other else None,
+                    "my_choice": my_choice,
+                    "other_choice": other_choice,
                     "field_name": f"guess_round_{i}",
-                })
+                }
+                if is_tg_app(self.player):
+                    row_data["role_assigned"] = role_assigned or ""
+                rows.append(row_data)
 
         return {"rows": rows, "countdown_seconds": 90}
 

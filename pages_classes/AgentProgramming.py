@@ -4,8 +4,37 @@ from otree.api import *
 
 from shared.export_integrity import record_data_error
 
-from .model_bridge import get_constants
+from .model_bridge import get_constants, is_tg_app
 from .page_helpers import _has_left_lobby_for_part, part_vars
+
+
+def _tg_agent_form_fields():
+    fields = []
+    for i in range(1, 11):
+        fields.append(f"agent_decision_mandatory_delegation_round_{i}")
+        fields.append(f"agent_decision_mandatory_second_round_{i}")
+    return fields
+
+
+def _tg_agent_decisions_complete(values):
+    for i in range(1, 11):
+        if values.get(f"agent_decision_mandatory_delegation_round_{i}") not in ("A", "B"):
+            return False
+        if values.get(f"agent_decision_mandatory_second_round_{i}") not in ("A", "B"):
+            return False
+    return True
+
+
+def _copy_tg_choices_to_rounds(player, start_round, first_by_round, second_by_round):
+    for i in range(1, 11):
+        rn = start_round + i - 1
+        pr = player.in_round(rn)
+        first = first_by_round.get(i) or first_by_round.get(str(i))
+        second = second_by_round.get(i) or second_by_round.get(str(i))
+        if first in ("A", "B"):
+            pr.choice_first_mover = first
+        if second in ("A", "B"):
+            pr.choice_second_mover = second
 
 
 class AgentProgramming(Page):
@@ -20,6 +49,12 @@ class AgentProgramming(Page):
 
     form_model = 'player'
     preserve_unsubmitted_inputs = True
+
+    @property
+    def template_name(self):
+        if is_tg_app(self.player):
+            return "global/AgentProgrammingTG.html"
+        return "global/AgentProgramming.html"
 
     @staticmethod
     def live_method(player, data):
@@ -39,6 +74,31 @@ class AgentProgramming(Page):
             return respond(
                 dict(type='allocations_error', message='Invalid data. Please try again.')
             )
+        if is_tg_app(player):
+            if not _tg_agent_decisions_complete(raw):
+                return respond(
+                    dict(
+                        type='allocations_error',
+                        message='Please choose A or B for every 1st-mover and 2nd-mover cell.',
+                    )
+                )
+            decisions_first = {
+                i: raw.get(f"agent_decision_mandatory_delegation_round_{i}")
+                for i in range(1, 11)
+            }
+            decisions_second = {
+                i: raw.get(f"agent_decision_mandatory_second_round_{i}")
+                for i in range(1, 11)
+            }
+            payload = {"first": decisions_first, "second": decisions_second}
+            r = player.round_number
+            if r == 1:
+                player.participant.vars['agent_programming_part1'] = payload
+            elif r == 11:
+                player.participant.vars['agent_programming_part2'] = payload
+            elif r == 21:
+                player.participant.vars['agent_programming_part3'] = payload
+            return respond(dict(type='allocations_saved'))
         # raw keys may be "agent_decision_mandatory_delegation_round_1" or "1"
         decisions = {}
         for k, v in raw.items():
@@ -72,6 +132,8 @@ class AgentProgramming(Page):
         return respond(dict(type='allocations_saved'))
 
     def is_displayed(self):
+        if is_tg_app(self.player):
+            return False
         Constants = get_constants(self.player)
         r = self.round_number
         current_part = Constants.get_part(r)
@@ -96,6 +158,8 @@ class AgentProgramming(Page):
         Constants = get_constants(self.player)
         r = self.round_number
         current_part = Constants.get_part(r)
+        if is_tg_app(self.player) and (r in (1, 11) or (current_part == 3 and r == 21)):
+            return _tg_agent_form_fields()
         # Mandatory delegation block (round 1 or 11): form saves to player
         if r in (1, 11):
             return [
@@ -111,11 +175,14 @@ class AgentProgramming(Page):
             ]
         return []
 
-    @staticmethod
-    def error_message(player, values):
-        Constants = get_constants(player)
-        r = player.round_number
+    def error_message(self, values):
+        Constants = get_constants(self.player)
+        r = self.round_number
         if r in (1, 11) or (Constants.get_part(r) == 3 and r == 21):
+            if is_tg_app(self.player):
+                if not _tg_agent_decisions_complete(values):
+                    return "Please choose A or B for every 1st-mover and 2nd-mover cell."
+                return None
             for i in range(1, 11):
                 key = f"agent_decision_mandatory_delegation_round_{i}"
                 if values.get(key) not in ("A", "B"):
@@ -143,60 +210,117 @@ class AgentProgramming(Page):
         # Mandatory delegation Part 1 (rounds 1–10) — when DELEGATION_FIRST
         # ==========================================
         if r == 1 and Constants.DELEGATION_FIRST:
-            decisions = self.participant.vars.get('agent_programming_part1', {})
-            if not decisions:
+            if is_tg_app(self.player):
+                payload = self.participant.vars.get('agent_programming_part1', {})
+                first = payload.get('first', {}) if isinstance(payload, dict) else {}
+                second = payload.get('second', {}) if isinstance(payload, dict) else {}
+                if not first:
+                    first = {
+                        i: self.player.field_maybe_none(f"agent_decision_mandatory_delegation_round_{i}")
+                        for i in range(1, 11)
+                    }
+                if not second:
+                    second = {
+                        i: self.player.field_maybe_none(f"agent_decision_mandatory_second_round_{i}")
+                        for i in range(1, 11)
+                    }
+                _copy_tg_choices_to_rounds(self.player, 1, first, second)
+            else:
+                decisions = self.participant.vars.get('agent_programming_part1', {})
+                if not decisions:
+                    for i in range(1, 11):
+                        decision = self.player.field_maybe_none(
+                            f"agent_decision_mandatory_delegation_round_{i}"
+                        )
+                        if decision:
+                            decisions[i] = decision
                 for i in range(1, 11):
-                    decision = self.player.field_maybe_none(
-                        f"agent_decision_mandatory_delegation_round_{i}"
-                    )
-                    if decision:
-                        decisions[i] = decision
-            for i in range(1, 11):
-                decision = decisions.get(i) or decisions.get(str(i))
-                if decision in ('A', 'B'):
-                    self.player.in_round(i).choice = decision
+                    decision = decisions.get(i) or decisions.get(str(i))
+                    if decision in ('A', 'B'):
+                        self.player.in_round(i).choice = decision
             self.participant.vars["agent_programming_done_part1"] = True
 
         # ==========================================
         # Mandatory delegation Part 2 (rounds 11–20) — when not DELEGATION_FIRST
         # ==========================================
         elif r == 11 and not Constants.DELEGATION_FIRST:
-            decisions = self.participant.vars.get('agent_programming_part2', {})
-            if not decisions:
+            if is_tg_app(self.player):
+                payload = self.participant.vars.get('agent_programming_part2', {})
+                first = payload.get('first', {}) if isinstance(payload, dict) else {}
+                second = payload.get('second', {}) if isinstance(payload, dict) else {}
+                if not first:
+                    first = {
+                        i: self.player.field_maybe_none(f"agent_decision_mandatory_delegation_round_{i}")
+                        for i in range(1, 11)
+                    }
+                if not second:
+                    second = {
+                        i: self.player.field_maybe_none(f"agent_decision_mandatory_second_round_{i}")
+                        for i in range(1, 11)
+                    }
+                _copy_tg_choices_to_rounds(self.player, 11, first, second)
+            else:
+                decisions = self.participant.vars.get('agent_programming_part2', {})
+                if not decisions:
+                    for i in range(1, 11):
+                        decision = self.player.field_maybe_none(
+                            f"agent_decision_mandatory_delegation_round_{i}"
+                        )
+                        if decision:
+                            decisions[i] = decision
                 for i in range(1, 11):
-                    decision = self.player.field_maybe_none(
-                        f"agent_decision_mandatory_delegation_round_{i}"
-                    )
-                    if decision:
-                        decisions[i] = decision
-            for i in range(1, 11):
-                decision = decisions.get(i) or decisions.get(str(i))
-                if decision in ('A', 'B'):
-                    self.player.in_round(10 + i).choice = decision
+                    decision = decisions.get(i) or decisions.get(str(i))
+                    if decision in ('A', 'B'):
+                        self.player.in_round(10 + i).choice = decision
             self.participant.vars["agent_programming_done_part2"] = True
 
         # ==========================================
         # PART 3 — Optional delegation (rounds 21–30)
         # ==========================================
         elif current_part == 3:
-            decisions = dict(self.participant.vars.get("agent_programming_part3", {}))
-            if not decisions:
-                for i in range(1, 11):
-                    decision = self.player.field_maybe_none(
-                        f"agent_decision_mandatory_delegation_round_{i}"
-                    )
-                    if decision in ("A", "B"):
-                        decisions[i] = decision
             start_round = 2 * Constants.rounds_per_part + 1  # 21
             missing_rounds = []
+            if is_tg_app(self.player):
+                payload = dict(self.participant.vars.get("agent_programming_part3", {}))
+                first = payload.get('first', {}) if isinstance(payload, dict) else {}
+                second = payload.get('second', {}) if isinstance(payload, dict) else {}
+                if not first:
+                    first = {
+                        i: self.player.field_maybe_none(f"agent_decision_mandatory_delegation_round_{i}")
+                        for i in range(1, 11)
+                    }
+                if not second:
+                    second = {
+                        i: self.player.field_maybe_none(f"agent_decision_mandatory_second_round_{i}")
+                        for i in range(1, 11)
+                    }
+                for i in range(1, 11):
+                    rn = start_round + i - 1
+                    f = first.get(i) or first.get(str(i))
+                    s = second.get(i) or second.get(str(i))
+                    if f in ("A", "B") and s in ("A", "B"):
+                        pr = self.player.in_round(rn)
+                        pr.choice_first_mover = f
+                        pr.choice_second_mover = s
+                    else:
+                        missing_rounds.append(str(rn))
+            else:
+                decisions = dict(self.participant.vars.get("agent_programming_part3", {}))
+                if not decisions:
+                    for i in range(1, 11):
+                        decision = self.player.field_maybe_none(
+                            f"agent_decision_mandatory_delegation_round_{i}"
+                        )
+                        if decision in ("A", "B"):
+                            decisions[i] = decision
 
-            for i in range(1, 11):
-                round_number = start_round + i - 1
-                decision = decisions.get(i) or decisions.get(str(i))
-                if decision in ("A", "B"):
-                    self.player.in_round(round_number).choice = decision
-                else:
-                    missing_rounds.append(str(round_number))
+                for i in range(1, 11):
+                    round_number = start_round + i - 1
+                    decision = decisions.get(i) or decisions.get(str(i))
+                    if decision in ("A", "B"):
+                        self.player.in_round(round_number).choice = decision
+                    else:
+                        missing_rounds.append(str(round_number))
 
             if missing_rounds:
                 record_data_error(

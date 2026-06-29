@@ -14,8 +14,6 @@ from pages_classes import (
     InstructionsDelegation as _InstructionsDelegation,
     InstructionsOptional as _InstructionsOptional,
     DelegationDecision as _DelegationDecision,
-    DecisionNoDelegation as _DecisionNoDelegation,
-    AgentProgramming as _AgentProgramming,
     BatchWaitForGroup as _BatchWaitForGroup,
     TimeOutquit as _TimeOutquit,
     Results as _Results,
@@ -26,6 +24,13 @@ from pages_classes import (
     ExitQuestionnaire as _ExitQuestionnaire,
     Thankyou as _Thankyou
 )
+from pages_classes.tg_v2_pages import (
+    TgV2AgentProgrammingFirst,
+    TgV2AgentProgrammingSecond,
+    TgV2HumanDecisionsFirst,
+    TgV2HumanDecisionsSecond,
+)
+
 
 
 def _tpl(name: str) -> str:
@@ -68,14 +73,6 @@ class DelegationDecision(_DelegationDecision):
     template_name = _tpl("DelegationDecision")
 
 
-class DecisionNoDelegation(_DecisionNoDelegation):
-    template_name = _tpl("DecisionNoDelegation")
-
-
-class AgentProgramming(_AgentProgramming):
-    template_name = "global/AgentProgramming.html"
-
-
 class BatchWaitForGroup(_BatchWaitForGroup):
     @property
     def template_name(self):
@@ -87,7 +84,8 @@ class TimeOutquit(_TimeOutquit):
 
 
 class Results(_Results):
-    template_name = _tpl("Results")
+    pass
+
 
 
 class InstructionsGuessingGame(_InstructionsGuessingGame):
@@ -124,8 +122,10 @@ page_sequence = [
     InstructionsDelegation,
     InstructionsOptional,
     DelegationDecision,
-    DecisionNoDelegation,
-    AgentProgramming,
+    TgV2AgentProgrammingFirst,
+    TgV2AgentProgrammingSecond,
+    TgV2HumanDecisionsFirst,
+    TgV2HumanDecisionsSecond,
     BatchWaitForGroup,
     TimeOutquit,
     Results,
@@ -134,6 +134,6 @@ page_sequence = [
     ResultsGuess,
     Debriefing,
     ExitQuestionnaire,
+    BotDetection,
     Thankyou,
-    BotDetection
 ]

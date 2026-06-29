@@ -1,0 +1,44 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+<div class="modern-decision-container">
+    <h1 class="main-title">Round {{ round_number }} of Part {{ current_part }} — {{ role_label }}</h1>
+
+    <div class="countdown-banner" align="center">
+        Time remaining: <span id="countdown-seconds" data-start="{{ countdown_seconds }}">{{ countdown_seconds }}</span> seconds
+    </div>
+
+    <p class="intro-text">
+        <strong>If you are the {{ role_label }}</strong> in this round, what do you choose: A or B?
+    </p>
+    <p class="warning-text">
+        Note: There is no guarantee yet that you will get this role in this round; it will be assigned
+        only when you reach the Results page.
+    </p>
+
+    <form method="post" class="decision-form" id="decision-form">
+        <div class="choice-container">
+            <label class="choice-option">
+                <input type="radio" name="choice_first_mover" value="A" required>
+                A
+            </label>
+            <label class="choice-option">
+                <input type="radio" name="choice_first_mover" value="B" required>
+                B
+            </label>
+        </div>
+        <div class="otree-hidden-errors">{{ formfield_errors 'choice_first_mover' }}</div>
+        <button type="submit" class="modern-btn">Confirm</button>
+    </form>
+</div>
+
+<style>
+.modern-decision-container { max-width: 700px; margin: 40px auto; padding: 24px; background: #fff; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+.main-title { text-align: center; font-size: 24px; border-bottom: 3px solid #0056b3; padding-bottom: 10px; }
+.intro-text, .warning-text { text-align: center; margin: 12px 0; }
+.warning-text { color: #b45309; font-weight: bold; }
+.choice-container { text-align: center; margin: 24px 0; }
+.choice-option { display: inline-block; margin: 0 20px; font-size: 18px; }
+.modern-btn { display: block; margin: 20px auto; padding: 12px 24px; background: #0056b3; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+</style>
+{% endblock %}

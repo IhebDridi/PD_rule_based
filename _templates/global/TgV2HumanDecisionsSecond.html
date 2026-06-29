@@ -1,0 +1,114 @@
+{% extends "global/Page.html" %}
+{% load static %}
+{% block content %}
+<div class="allocation-container">
+    <form method="post" class="allocation-form">
+        {% for i in range(1, 11) %}
+        <section class="round-block">
+            <h1 class="main-title">Decision if you are the 2nd mover (and the 1st mover chose A): Round {{ i }} of Part {{ current_part }}</h1>
+            <p class="role-note">
+                Note: There is no guarantee yet that you will get this role (2nd mover) in this round; it will be assigned to you only when you reach the Results page.
+            </p>
+            <p class="question-text">What option do you want to choose: A or B?</p>
+            <div class="choice-row">
+                <label><input type="radio" name="human_second_no_delegation_round_{{ i }}" value="A" required> A</label>
+                <label><input type="radio" name="human_second_no_delegation_round_{{ i }}" value="B" required> B</label>
+            </div>
+        </section>
+        {% if i < 10 %}
+        <hr class="round-divider">
+        {% endif %}
+        {% endfor %}
+
+        <div class="scheme-section">
+            <p class="scheme-label"><strong>Scheme of earnings:</strong></p>
+            <img
+                src="{% static 'global/LogbookDelegation2cndMver.svg' %}"
+                alt="Scheme of earnings"
+                class="scheme-diagram"
+            >
+        </div>
+
+        <button type="submit" class="modern-btn">Confirm</button>
+    </form>
+</div>
+<style>
+.allocation-container {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 24px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+.round-block {
+    margin-bottom: 8px;
+}
+.main-title {
+    font-size: 24px;
+    text-align: center;
+    margin: 0 0 16px;
+    color: #333;
+    font-weight: bold;
+    border-bottom: 3px solid #0056b3;
+    padding-bottom: 10px;
+}
+.role-note {
+    font-size: 16px;
+    color: #9c0909;
+    margin: 0 0 20px;
+    line-height: 1.6;
+    text-align: center;
+}
+.question-text {
+    font-size: 16px;
+    color: #333;
+    margin: 0 0 12px;
+    text-align: center;
+}
+.choice-row {
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    margin-bottom: 8px;
+}
+.choice-row label {
+    font-size: 16px;
+    cursor: pointer;
+}
+.round-divider {
+    border: none;
+    border-top: 1px solid #e0e0e0;
+    margin: 28px 0;
+}
+.scheme-section {
+    margin: 32px 0 24px;
+    text-align: center;
+}
+.scheme-label {
+    font-size: 16px;
+    margin-bottom: 12px;
+}
+.scheme-diagram {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+.modern-btn {
+    display: block;
+    margin: 20px auto 0;
+    padding: 12px 24px;
+    font-size: 18px;
+    background: #0056b3;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    min-width: 200px;
+}
+.modern-btn:hover {
+    background: #003d80;
+}
+</style>
+{% endblock %}

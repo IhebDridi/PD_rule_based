@@ -10,58 +10,59 @@
     </div>
 
     <p class="intro-text">
-        Fill in the table below to specify whether you think your co-player delegated or not in each of the 10 rounds of play. To do that, you only need to choose between “Yes” or “No” under the column “Did they delegate?”.
+        Fill in the table below to specify whether you think your co-player delegated or not in each of the 10 rounds of play. To do that, you only need to choose between &ldquo;Yes&rdquo; or &ldquo;No&rdquo; under the column &ldquo;Did they delegate?&rdquo;.
     </p>
     <p class="intro-text">
-        Remember that you always faced different players in each round, and that for each correct answer, you get a 0.1$ extra bonus. 
+        Remember that you always faced different players in each round, and that for each correct answer, you get a 0.1$ extra bonus.
+    </p>
     <p class="intro-text">
-        Once you are happy with your guesses, click “Confirm” to go to the next page and check the Results.
-
-    <table class="styled-table">
-        <thead>
-            <tr>
-                <th>Round</th>
-                <th>You Chose</th>
-                <th>Opponent Chose</th>
-                <th>Did they delegate?</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in rows %}
-            <tr>
-                <td>{{ row.round }}</td>
-                <td>{{ row.my_choice }}</td>
-                <td>{{ row.other_choice }}</td>
-                <td>
-                    <label class="choice-option">
-                        <input
-                            type="radio"
-                            name="{{ row.field_name }}"
-                            value="yes"
-                            required
-                        >
-                        Yes
-                    </label>
-                    <label class="choice-option">
-                        <input
-                            type="radio"
-                            name="{{ row.field_name }}"
-                            value="no"
-                            required
-                        >
-                        No
-                    </label>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+        Once you are happy with your guesses, click &ldquo;Confirm&rdquo; to go to the next page and check the Results.
+    </p>
 
     <form method="post">
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Round</th>
+                    <th>Your assigned role</th>
+                    <th>Your choice</th>
+                    <th>Opponent choice</th>
+                    <th>Did they delegate?</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                <tr>
+                    <td>{{ row.round }}</td>
+                    <td>{{ row.role_assigned }}</td>
+                    <td>{{ row.my_choice }}</td>
+                    <td>{{ row.other_choice }}</td>
+                    <td>
+                        <label class="choice-option">
+                            <input
+                                type="radio"
+                                name="{{ row.field_name }}"
+                                value="yes"
+                                required
+                            >
+                            Yes
+                        </label>
+                        <label class="choice-option">
+                            <input
+                                type="radio"
+                                name="{{ row.field_name }}"
+                                value="no"
+                                required
+                            >
+                            No
+                        </label>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
-        <button type="submit" class="modern-btn">
-            Continue
-        </button>
+        <button type="submit" class="modern-btn">Confirm</button>
     </form>
 </div>
 
@@ -86,7 +87,7 @@
 
 <style>
 .modern-container {
-    max-width: 700px;
+    max-width: 900px;
     margin: 50px auto;
     background: #ffffff;
     padding: 30px;
@@ -105,19 +106,21 @@
 
 .intro-text {
     font-size: 16px;
-    margin-bottom: 30px;
+    margin-bottom: 20px;
     color: #555;
+    line-height: 1.6;
+    text-align: left;
 }
 
-.question-container {
-    margin-bottom: 30px;
+.choice-option {
+    margin: 0 8px;
 }
 
 .modern-btn {
     display: block;
     width: 100%;
     max-width: 200px;
-    margin: 0 auto;
+    margin: 20px auto 0;
     padding: 12px 20px;
     font-size: 18px;
     color: #ffffff;
@@ -130,11 +133,11 @@
 .modern-btn:hover {
     background-color: #003d80;
 }
-/* Table Styling */
+
 .styled-table {
-    border-collapse: show;
+    border-collapse: collapse;
     margin: 25px auto;
-    font-size: 15px;
+    font-size: 14px;
     font-family: Arial, sans-serif;
     width: 100%;
     text-align: center;
@@ -151,7 +154,7 @@
 
 .styled-table th, .styled-table td {
     border: 1px solid #c1c1c1;
-    padding: 10px 15px;
+    padding: 10px 12px;
 }
 
 .styled-table tbody tr:nth-of-type(even) {

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Iterable, List, Optional, Sequence, Set
 
+from shared.tg_data_helpers import get_tg_results_display_from_cache
+
 
 def record_data_error(participant: Any, code: str, detail: str = "") -> None:
     """Append a stable error code on the participant (shown again in custom export)."""
@@ -45,8 +47,10 @@ def _part_has_choices(rounds: Sequence[Any], part: int, rounds_per_part: int, ge
     start = (part - 1) * rounds_per_part + 1
     end = part * rounds_per_part
     for pr in rounds:
-        if start <= pr.round_number <= end and get_choice(pr) in ("A", "B"):
-            return True
+        if start <= pr.round_number <= end:
+            ch = get_choice(pr)
+            if ch in ("A", "B", "tg"):
+                return True
     return False
 
 
@@ -102,7 +106,7 @@ def collect_export_integrity_errors(
             if r < start or r > end:
                 continue
             choice = get_choice(pr)
-            if choice not in ("A", "B"):
+            if not choice:
                 errors.append(f"R{r}_CHOICE_MISSING")
                 continue
             opp = resolve_opponent(pr, r)

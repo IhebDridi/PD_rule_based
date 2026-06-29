@@ -45,14 +45,17 @@ _TREATMENT = {
 
 def _treatment_key(module_name: str) -> str:
     base = module_name.rsplit(".", 1)[0]
-    m = re.search(r"_(rule_based|goal_oriented|supervised_learning|llm)_delegation_", base)
+    m = re.search(
+        r"_(rule_based|goal_oriented|supervised_learning|llm)_delegation_(v2_)?",
+        base,
+    )
     return m.group(1) if m else "rule_based"
 
 
 def _game_used(module_name: str) -> str:
     base = module_name.rsplit(".", 1)[0]
     if base.startswith("TG_"):
-        return "PD"
+        return "TG"
     return base.split("_", 1)[0].upper()
 
 

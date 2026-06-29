@@ -32,40 +32,54 @@
 
     <div class="content-section">
         <h2>How the Interactive Tasks Work (Parts 1–3)</h2>
-        <p>In each round, you and another participant will make decisions simultaneously. </p>
-        <p>Your earnings depend on both your choice and the other participant's choice. 
-           The numbers in the table below indicate how much you and your co-player earn depending on the options you choose. 
-           Specifically each pair between brackets represents <strong>[your earnings, other participant's earnings]</strong>, 
-           and these are the result of <strong>you choosing the Option on the left column of that bracket pair and your opponent choosing 
-            the Option on top</strong>.</p>
-        <p>These earnings appear in Experimental Coins (Ecoins), but they will be exchanged for dollars at a rate of <strong>10 Ecoins = 1 cent</strong>.</p>
-        <table class="styled-table">
-            <thead>
-                <tr>
-                    <th>Your Choice (shown below:) \ Other’s Choice (shown on the right:)</th>
-                    <th>Option A</th>
-                    <th>Option B</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>Option A</td>
-                    <td>[70, 70]</td>
-                    <td>[0, 100]</td>
-                </tr>
-                <tr>
-                    <td>Option B</td>
-                    <td>[100, 0]</td>
-                    <td>[30, 30]</td>
-                </tr>
-            </tbody>
-        </table>
+        <p>In each round, you and another participant will make decisions that affect each other's bonus payments, according to the scheme below. </p>
+        <p>Specifically, in this task, there are two roles:
+           <strong>the 1st mover and the 2nd mover. You will only know the role that was attributed to you at the end of each Part 1, 2 and 3,</strong>
+           when you will also get to know the other participants' decisions and your resulting bonus payment for each round in Ecoins. 
+
+        <p>The earnings in Ecoins will be exchanged for dollars at a rate of <strong>10 Ecoins = 1 cent</strong>.</p>
+        <p><strong>Scheme of earnings:</strong></p>
+        <img
+    src="{% static 'global/LogbookDelegation.svg' %}"
+    alt="Scheme of earnings"
+    class="scheme-diagram"
+    style="max-width: 100%; height: 50; display: block;">
+        <div class="">
+            <p>The way to interpret this scheme is the following: </p>
+            <ul>
+                <li><p>The <strong>1st mover can choose either A or B:</strong></p>
+                    <ul>
+                    
+                    <li>
+                        <p><strong>If</strong> the <strong>1st mover chooses B, both players get 30 Ecoins.</strong></p>
+                    </li>
+                    <li>
+                        <p><strong>If</strong> the <strong>1st mover chooses A, then the 2nd mover can choose either A or B:</strong></p>
+                    </li>
+                   <ul>
+                        
+                        <li>
+                        <p><strong>If</strong> the <strong>2nd mover chooses A, both players get 70 Ecoins.</strong></p>
+                        </li>
+                        <li>
+                        <p><strong>If</strong> the <strong>2nd mover chooses B, the 1st mover gets 0 Ecoins</strong> and the <strong>2nd mover gets 100 Ecoins.</strong></p>
+                        </li>
+                    </ul>
+                </li>
+                    </ul>
+            </ul>
+            <p><strong>All participants will be asked to make decisions in both cases for each round: as the 1st mover and as the 2nd mover.</strong> However, as stated above, their true role in the game will be assigned randomly, and they will only learn it at the end of Parts 1, 2, and 3, when they also learn the decisions made by the other participants in those rounds and the resulting bonus payments. </p>
+            <p>For your convenience, <strong>the scheme of earnings will be shown to you at the end of the page, every time you have to make decisions in the game.</strong></p>
+        </div>
+
+
+
                 <div class="content-box">
             <p><strong>Important:</strong></p>
             <ul>
                 <li><strong>Your answers will remain anonymous to your co-players throughout this experiment.</strong></li>
-                <li>After each interactive task part (1-3), you will see your cumulative earnings from that part in Ecoins.</li>
-                <li><strong>Only one of these parts (10 rounds) will be randomly selected</strong> at the end to determine your bonus payment for the interactive tasks.</li>
+                <li>After each Part 1, 2, and 3, you will see your cumulative earnings from that part in Ecoins.</li>
+                <li><strong>One part (10 rounds) will be randomly selected</strong> at the end to determine your bonus payment for the interactive tasks.</li>
                 <li>In each round, you can earn up to 100 Ecoins (10 cents). Since one part (10 rounds) will be selected for payment, you can earn up to <strong>$1</strong> from the interactive tasks.</li>
             </ul>
         </div>
@@ -75,18 +89,18 @@
 
     <div class="content-section">
         <h2>Guessing Game (Part 4)</h2>
-        <p>After the interactive tasks, you will answer questions about others' choices in Part 3. 
-            Your earnings in this part depend on the accuracy of your answers and can add up to <strong>$1</strong> extra to your total bonus.</p>
+        <p>After the interactive tasks, you will answer questions about others' choices in Part 3.
+            Your earnings in this part depend on the accuracy of your answers and can add up to <strong>$1 extra</strong> to your total bonus.</p>
     </div>
 
     <div class="content-section">
         <h2>Summary of Earnings</h2>
         <div class="content-box">
             <ul>
-                <li><strong>Base payment</strong>: $3 (fixed).</li>
+                <li><strong>Base payment</strong>: $4 (fixed).</li>
                 <li><strong>Bonus from interactive tasks</strong>: Up to $1 (based on the randomly selected part).</li>
                 <li><strong>Bonus from Guessing Game</strong>: Up to $1 (based on your answers).</li>
-                <li><strong>Total possible earnings: $3 + up to $2 in bonuses.</strong></li>
+                <li><strong>Total possible earnings: $4 + up to $2 in bonuses.</strong></li>
             </ul>
         </div>
     </div>
@@ -95,7 +109,7 @@
         <h2>What to Do Next</h2>
         <div class="content-box">
             <ol type="1">
-                <li>You will first complete a comprehension test to ensure you understand the instructions.</li>
+                <li>You will first complete a <strong>comprehension test</strong> to ensure you understand the instructions.</li>
                 <li>After passing, you will begin <strong>Part 1</strong> of the interactive tasks.</li>
                 <li>Follow the on-screen instructions for each part.</li>
             </ol>

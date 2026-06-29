@@ -1,0 +1,159 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+<div class="modern-decision-container">
+    <h1 class="main-title">Decision: Round {{ round_number }} of Part {{ current_part }}</h1>
+
+    <div class="countdown-banner" align="center">
+        Time remaining: <span id="countdown-seconds" data-start="{{ countdown_seconds }}">{{ countdown_seconds }}</span> seconds
+    </div>
+
+    <p class="intro-text">
+        For this round you will make <strong>two</strong> decisions: one as if you were the
+        <strong>1st mover</strong>, and one as if you were the <strong>2nd mover</strong>.
+    </p>
+    <p class="warning-text">
+        Note: There is no guarantee yet that you will get either role in this round; your role
+        will be assigned only when you reach the Results page.
+    </p>
+
+    <form method="post" class="decision-form" id="decision-form">
+        <div class="decision-block">
+            <h2 class="section-title">Decision as 1st mover</h2>
+            <p class="section-hint">If you are the 1st mover, what do you choose?</p>
+            <div class="choice-container">
+                <label class="choice-option">
+                    <input type="radio" name="choice_first_mover" value="A">
+                    A
+                </label>
+                <label class="choice-option">
+                    <input type="radio" name="choice_first_mover" value="B">
+                    B
+                </label>
+            </div>
+            <div class="otree-hidden-errors">{{ formfield_errors 'choice_first_mover' }}</div>
+        </div>
+
+        <div class="decision-block">
+            <h2 class="section-title">Decision as 2nd mover</h2>
+            <p class="section-hint">If you are the 2nd mover, what do you choose?</p>
+            <div class="choice-container">
+                <label class="choice-option">
+                    <input type="radio" name="choice_second_mover" value="A">
+                    A
+                </label>
+                <label class="choice-option">
+                    <input type="radio" name="choice_second_mover" value="B">
+                    B
+                </label>
+            </div>
+            <div class="otree-hidden-errors">{{ formfield_errors 'choice_second_mover' }}</div>
+        </div>
+
+        <div id="choice-error" class="choice-error" style="display:none;">
+            Please choose A or B for both the 1st-mover and 2nd-mover decisions.
+        </div>
+
+        <button type="submit" class="modern-btn">Confirm</button>
+
+        <div class="small-instructions">
+            <p class="table-caption">Sequential game payoffs (Ecoins):</p>
+            <table class="styled-table">
+                <thead>
+                    <tr>
+                        <th>1st mover</th>
+                        <th>2nd mover</th>
+                        <th>1st mover earns</th>
+                        <th>2nd mover earns</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>B</td>
+                        <td>(not used)</td>
+                        <td>30</td>
+                        <td>30</td>
+                    </tr>
+                    <tr>
+                        <td>A</td>
+                        <td>A</td>
+                        <td>70</td>
+                        <td>70</td>
+                    </tr>
+                    <tr>
+                        <td>A</td>
+                        <td>B</td>
+                        <td>0</td>
+                        <td>100</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </form>
+
+    <script>
+    (function() {
+        var el = document.getElementById('countdown-seconds');
+        if (!el) { return; }
+        var remaining = parseInt(el.getAttribute('data-start') || el.textContent || '15', 10);
+        if (isNaN(remaining) || remaining < 0) { remaining = 15; }
+        function render() {
+            if (remaining < 0) { remaining = 0; }
+            el.textContent = remaining;
+        }
+        render();
+        setInterval(function() {
+            remaining -= 1;
+            render();
+        }, 1000);
+    })();
+
+    (function () {
+        var form = document.getElementById('decision-form');
+        if (!form) return;
+        var errorEl = document.getElementById('choice-error');
+        form.addEventListener('submit', function (e) {
+            var first = form.querySelector('input[name="choice_first_mover"]:checked');
+            var second = form.querySelector('input[name="choice_second_mover"]:checked');
+            if (!first || !second) {
+                e.preventDefault();
+                if (errorEl) { errorEl.style.display = 'block'; }
+            } else if (errorEl) {
+                errorEl.style.display = 'none';
+            }
+        });
+    })();
+    </script>
+
+    <style>
+    .choice-container { margin: 20px 0; text-align: center; }
+    .choice-option { display: inline-block; margin: 0 25px; font-size: 18px; cursor: pointer; }
+    .choice-option input { margin-right: 8px; }
+    .choice-error { margin-top: 10px; text-align: center; color: #d9534f; font-weight: bold; }
+    .decision-block { margin: 28px 0; padding: 16px; border: 1px solid #ddd; border-radius: 8px; }
+    .section-title { font-size: 20px; text-align: center; margin-bottom: 8px; }
+    .section-hint { text-align: center; color: #555; }
+    .modern-decision-container {
+        max-width: 700px; margin: 50px auto; background: #fff; padding: 30px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1); border-radius: 8px;
+    }
+    .main-title {
+        font-size: 28px; text-align: center; margin-bottom: 20px; font-weight: bold;
+        border-bottom: 3px solid #0056b3; padding-bottom: 10px;
+    }
+    .intro-text, .warning-text { font-size: 16px; margin-bottom: 15px; text-align: center; }
+    .warning-text { color: #b45309; font-weight: bold; }
+    .modern-btn {
+        display: block; width: 100%; max-width: 200px; margin: 20px auto; padding: 12px 20px;
+        font-size: 18px; color: #fff; background-color: #0056b3; border: none; border-radius: 6px; cursor: pointer;
+    }
+    .styled-table { border-collapse: collapse; margin: 25px auto; width: 100%; text-align: center; font-size: 15px; }
+    .styled-table thead tr { background-color: #0056b3; color: #fff; }
+    .styled-table th, .styled-table td { border: 1px solid #c1c1c1; padding: 10px 15px; }
+    .small-instructions {
+        font-size: 13px; color: #555; margin-top: 40px; background-color: #f4f4f4;
+        padding: 20px; border-radius: 6px; border: 1px solid #ddd;
+    }
+    </style>
+</div>
+{% endblock %}

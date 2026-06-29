@@ -237,6 +237,20 @@ SESSION_CONFIGS = [
         use_browser_bots=False,
     ),
     dict(
+        name='TG_rule_based_delegation_v2_1st',
+        display_name='TG_rule_based_delegation_v2_1st',
+        app_sequence=['TG_rule_based_delegation_v2_1st'],
+        num_demo_participants=10,
+        use_browser_bots=False,
+    ),
+    dict(
+        name='TG_rule_based_delegation_v2_2nd',
+        display_name='TG_rule_based_delegation_v2_2nd',
+        app_sequence=['TG_rule_based_delegation_v2_2nd'],
+        num_demo_participants=10,
+        use_browser_bots=False,
+    ),
+    dict(
         name='TG_supervised_learning_delegation_1st',
         display_name='TG_supervised_learning_delegation_1st',
         app_sequence=['TG_supervised_learning_delegation_1st'],

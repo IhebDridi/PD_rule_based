@@ -395,7 +395,7 @@ class Player(BasePlayer):
     feedback = models.LongStringField(
         blank=True,                # optional
         max_length=1000,
-        label="Do you have any suggestions or comments about the experiment that you would like to share with the researchers? If yes, use the box below.",
+        label="Do you have any suggestions or comments about the experiment that you would like to share with the researchers? If yes, use the box below. (Optional)",
     )
 
     # Fields for comprehension test questions

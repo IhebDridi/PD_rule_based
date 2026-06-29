@@ -11,6 +11,8 @@ import importlib
 import types
 from typing import Any
 
+from shared.tg_data_helpers import get_tg_results_display_from_cache
+
 
 def get_models_module(obj: Any):
     """Return the app's ``models`` module (same module that defines ``Constants``, ``Player``, …)."""
@@ -24,6 +26,15 @@ def get_models_module(obj: Any):
 def get_constants(obj: Any):
     """Return this app's ``Constants`` class."""
     return get_models_module(obj).Constants
+
+
+def is_tg_app(obj: Any) -> bool:
+    """True when the player belongs to a TG_* oTree app."""
+    from shared.tg_payoffs import is_tg_module
+
+    cls = obj if isinstance(obj, type) else type(obj)
+    mod_name = getattr(cls, "__module__", "") or ""
+    return is_tg_module(mod_name)
 
 
 def app_package_name(obj: Any) -> str:
@@ -45,14 +56,21 @@ def app_models(player) -> types.SimpleNamespace:
         "get_opponent_in_round_cached",
         lambda pl, rn, cache: m.get_opponent_in_round(pl, rn),
     )
+    if is_tg_app(player):
+        rounds_per_part = m.Constants.rounds_per_part
+
+        def _tg_cache(participant, part):
+            return get_tg_results_display_from_cache(participant, part, rounds_per_part)
+
+        cache_fn = _tg_cache
+    else:
+        cache_fn = getattr(m, "get_results_display_from_cache", lambda participant, part: None)
     return types.SimpleNamespace(
         Constants=m.Constants,
         compute_round_robin_assignments=m.compute_round_robin_assignments,
         run_payoffs_for_matching_group=m.run_payoffs_for_matching_group,
         get_opponent_in_round=m.get_opponent_in_round,
         get_opponent_in_round_cached=get_opp_cached,
-        get_results_display_from_cache=getattr(
-            m, "get_results_display_from_cache", lambda participant, part: None
-        ),
+        get_results_display_from_cache=cache_fn,
         _log_cache_miss=getattr(m, "_log_cache_miss", lambda *a, **k: None),
     )

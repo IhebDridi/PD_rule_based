@@ -1,0 +1,176 @@
+{# TG agent programming: two contingent A/B choices per round (1st and 2nd mover). #}
+<div class="allocation-container">
+    <h1 class="main-title">
+        {% if current_part == 1 or current_part == 2 %}
+            Part {{ part_delegation }}: Set up your AI agent
+        {% elif current_part == 3 and delegate_decision == True %}
+            Part 3: Set up your AI agent
+        {% endif %}
+    </h1>
+
+    <div class="countdown-banner">
+        Time remaining: <span id="countdown-seconds" data-start="{{ countdown_seconds }}">90</span> seconds
+    </div>
+
+    <p class="intro-text">
+        For each of the 10 rounds, specify how your AI agent should choose if it is the
+        <strong>1st mover</strong> and if it is the <strong>2nd mover</strong>. Roles are
+        assigned only at the Results page.
+    </p>
+
+    <p id="agent-programming-error" class="agent-programming-error" style="display: none;"></p>
+
+    <form method="post" class="allocation-form" id="agent-programming-form">
+        <table class="styled-table">
+            <thead>
+                <tr>
+                    <th>Round</th>
+                    <th>As 1st mover</th>
+                    <th>As 2nd mover</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for i in range(1, 11) %}
+                <tr>
+                    <td>{{ i }}</td>
+                    <td>
+                        <label class="choice-option">
+                            <input type="radio" name="agent_decision_mandatory_delegation_round_{{ i }}" value="A" required>
+                            A
+                        </label>
+                        <label class="choice-option">
+                            <input type="radio" name="agent_decision_mandatory_delegation_round_{{ i }}" value="B" required>
+                            B
+                        </label>
+                    </td>
+                    <td>
+                        <label class="choice-option">
+                            <input type="radio" name="agent_decision_mandatory_second_round_{{ i }}" value="A" required>
+                            A
+                        </label>
+                        <label class="choice-option">
+                            <input type="radio" name="agent_decision_mandatory_second_round_{{ i }}" value="B" required>
+                            B
+                        </label>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <p class="confirmation-text">
+            Once you confirm, these instructions are final for the AI agent in this part.
+        </p>
+        <button type="button" class="modern-btn" id="agent-programming-confirm-btn" onclick="confirmAgentAllocations()">Confirm</button>
+        <div class="small-instructions">
+            <p class="table-caption">Sequential game payoffs (Ecoins):</p>
+            <table class="styled-table">
+                <thead>
+                    <tr>
+                        <th>1st mover</th>
+                        <th>2nd mover</th>
+                        <th>1st earns</th>
+                        <th>2nd earns</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>B</td><td>(not used)</td><td>30</td><td>30</td></tr>
+                    <tr><td>A</td><td>A</td><td>70</td><td>70</td></tr>
+                    <tr><td>A</td><td>B</td><td>0</td><td>100</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+
+<script>
+    (function startCountdown() {
+        var el = document.getElementById('countdown-seconds');
+        if (!el) { return; }
+        var remaining = parseInt(el.getAttribute('data-start') || el.textContent || '90', 10);
+        if (isNaN(remaining) || remaining < 0) { remaining = 90; }
+        function render() {
+            if (remaining < 0) { remaining = 0; }
+            el.textContent = remaining;
+        }
+        render();
+        setInterval(function() { remaining -= 1; render(); }, 1000);
+    })();
+
+    function collectAllocationData() {
+        var allocationData = {};
+        document.querySelectorAll('#agent-programming-form input[type="radio"]:checked').forEach(function(input) {
+            allocationData[input.name] = input.value;
+        });
+        return allocationData;
+    }
+
+    function showAgentProgrammingError(message) {
+        var box = document.getElementById('agent-programming-error');
+        if (!box) { return; }
+        box.textContent = message || '';
+        box.style.display = message ? 'block' : 'none';
+    }
+
+    function setConfirmBusy(busy) {
+        var btn = document.getElementById('agent-programming-confirm-btn');
+        if (btn) { btn.disabled = !!busy; }
+    }
+
+    function confirmAgentAllocations() {
+        var allocationData = collectAllocationData();
+        for (var i = 1; i <= 10; i += 1) {
+            if (!allocationData['agent_decision_mandatory_delegation_round_' + i] ||
+                !allocationData['agent_decision_mandatory_second_round_' + i]) {
+                showAgentProgrammingError('Please choose A or B for every 1st-mover and 2nd-mover cell.');
+                return;
+            }
+        }
+        showAgentProgrammingError('');
+        setConfirmBusy(true);
+        liveSend({ allocations: JSON.stringify(allocationData) });
+    }
+
+    function liveRecv(data) {
+        if (!data) { setConfirmBusy(false); return; }
+        if (data.type === 'allocations_saved') {
+            var form = document.getElementById('agent-programming-form');
+            if (form) { form.submit(); }
+            return;
+        }
+        if (data.type === 'allocations_error') {
+            showAgentProgrammingError(data.message || 'Could not save choices. Please try again.');
+            setConfirmBusy(false);
+        }
+    }
+</script>
+
+<style>
+body { font-family: Arial, sans-serif; background-color: #f9f9f9; color: #333; }
+.allocation-container {
+    max-width: 900px; margin: 50px auto; background: #fff; padding: 30px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1); border-radius: 8px;
+}
+.main-title {
+    font-size: 28px; text-align: center; margin-bottom: 20px; font-weight: bold;
+    border-bottom: 3px solid #0056b3; padding-bottom: 10px;
+}
+.intro-text, .confirmation-text { font-size: 16px; margin-bottom: 20px; text-align: center; color: #555; }
+.agent-programming-error {
+    color: #842029; background: #f8d7da; border: 1px solid #f5c2c7; border-radius: 6px;
+    padding: 10px 14px; margin: 0 auto 16px auto; max-width: 600px; text-align: center;
+}
+.styled-table {
+    border-collapse: collapse; margin: 25px auto; font-size: 15px; width: 100%; text-align: center;
+}
+.styled-table thead tr { background-color: #0056b3; color: #fff; font-weight: bold; }
+.styled-table th, .styled-table td { border: 1px solid #c1c1c1; padding: 10px 15px; }
+.countdown-banner {
+    margin: 10px auto 20px auto; padding: 8px 12px; max-width: 300px;
+    background-color: #fff3cd; border: 1px solid #ffeeba; border-radius: 6px; color: #856404;
+}
+.modern-btn {
+    display: block; width: 100%; max-width: 200px; margin: 20px auto; padding: 12px 20px;
+    font-size: 18px; color: #fff; background-color: #0056b3; border: none; border-radius: 6px; cursor: pointer;
+}
+.choice-option { display: inline-block; margin: 0 8px; }
+</style>

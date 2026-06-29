@@ -1,5 +1,6 @@
 from otree.api import *
 
+from .model_bridge import is_tg_app
 from .page_helpers import comprehension_payoff_correct_letters, part_vars
 
 
@@ -13,6 +14,11 @@ class ComprehensionTest(Page):
     form_model = 'player'
     form_fields = ['q1', 'q2', 'q6', 'q7', 'q8', 'q9', 'q10']
 
+    def get_form_fields(self):
+        if is_tg_app(self.player):
+            return ['q1', 'q2', 'q6', 'q7', 'q8', 'q9', 'q5', 'q10']
+        return self.form_fields
+
     def is_displayed(self):
         return self.round_number == 1 and not self.player.is_excluded
 
@@ -25,12 +31,32 @@ class ComprehensionTest(Page):
         }
 
     def error_message(self, values):
-        correct_answers = {
-            "q1": "c",
-            "q2": "b",
-            **comprehension_payoff_correct_letters(self.player),
-            "q10": "b",
-        }
+        if is_tg_app(self.player):
+            correct_answers = {
+                "q1": "c",
+                "q2": "b",
+                "q6": "c",
+                "q7": "a",
+                "q8": "d",
+                "q9": "c",
+                "q5": "d",
+                "q10": "b",
+            }
+            field_to_display = {
+                'q1': 'q1', 'q2': 'q2', 'q6': 'q3', 'q7': 'q4', 'q8': 'q5',
+                'q9': 'q6', 'q5': 'q7', 'q10': 'q8',
+            }
+        else:
+            correct_answers = {
+                "q1": "c",
+                "q2": "b",
+                **comprehension_payoff_correct_letters(self.player),
+                "q10": "b",
+            }
+            field_to_display = {
+                'q1': 'q1', 'q2': 'q2', 'q6': 'q3', 'q7': 'q4', 'q8': 'q5',
+                'q9': 'q6', 'q10': 'q7',
+            }
 
         incorrect = [
             q for q, correct in correct_answers.items()
@@ -46,15 +72,19 @@ class ComprehensionTest(Page):
         self.player.comprehension_attempts += 1
         attempts_left = 3 - self.player.comprehension_attempts
 
-        # Display as q1–q7 in the error message (q1→q1, q2→q2, q6→q3, q7→q4, q8→q5, q9→q6, q10→q7)
-        field_to_display = {'q1': 'q1', 'q2': 'q2', 'q6': 'q3', 'q7': 'q4', 'q8': 'q5', 'q9': 'q6', 'q10': 'q7'}
         display_incorrect = [field_to_display.get(q, q) for q in incorrect]
 
         if attempts_left > 0:
-            msg = (
-                f"You have failed questions {', '.join(display_incorrect)}. "
-                f"You have {attempts_left} attempt(s) remaining."
-            )
+            if is_tg_app(self.player):
+                msg = (
+                    f"You failed questions {', '.join(display_incorrect)}. "
+                    f"You now only have {attempts_left} more attempt(s)."
+                )
+            else:
+                msg = (
+                    f"You have failed questions {', '.join(display_incorrect)}. "
+                    f"You have {attempts_left} attempt(s) remaining."
+                )
             self.participant.vars["comp_error_message"] = msg
             return msg
 

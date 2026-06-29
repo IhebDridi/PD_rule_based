@@ -1,0 +1,9 @@
+{% extends "global/Page.html" %}
+{% load otree %}
+
+{% block title %}Redirecting…{% endblock %}
+
+{% block content %}
+    <p>Taking you back to Prolific to collect your show-up fee.</p>
+    <p>If you are not redirected automatically, <a href="{{ prolific_showup_url }}">click here</a>.</p>
+{% endblock %}

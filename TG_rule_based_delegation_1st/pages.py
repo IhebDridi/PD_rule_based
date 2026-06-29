@@ -27,8 +27,8 @@ from pages_classes import (
 from pages_classes.tg_v2_pages import (
     TgV2AgentProgrammingFirst,
     TgV2AgentProgrammingSecond,
-    TgV2HumanDecisionsFirst,
-    TgV2HumanDecisionsSecond,
+    TG_V2_HUMAN_DECISIONS_FIRST_PAGES,
+    TG_V2_HUMAN_DECISIONS_SECOND_PAGES,
 )
 
 
@@ -124,8 +124,8 @@ page_sequence = [
     DelegationDecision,
     TgV2AgentProgrammingFirst,
     TgV2AgentProgrammingSecond,
-    TgV2HumanDecisionsFirst,
-    TgV2HumanDecisionsSecond,
+    *TG_V2_HUMAN_DECISIONS_FIRST_PAGES,
+    *TG_V2_HUMAN_DECISIONS_SECOND_PAGES,
     BatchWaitForGroup,
     TimeOutquit,
     Results,

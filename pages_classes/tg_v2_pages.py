@@ -60,6 +60,14 @@ def _part_human_keys(part: int) -> tuple:
     )
 
 
+def _human_first_step_key(part: int) -> str:
+    return f"human_v2_first_step_part{part}"
+
+
+def _human_second_step_key(part: int) -> str:
+    return f"human_v2_second_step_part{part}"
+
+
 def _first_human_fields():
     return [f"human_decision_no_delegation_round_{i}" for i in range(1, 11)]
 
@@ -89,11 +97,18 @@ def _copy_v2_human_to_rounds(player, start_round: int, first_map: dict, second_m
 
 
 class TgV2HumanDecisionsFirst(Page):
-    """All 10 contingent 1st-mover human decisions before any 2nd-mover decisions."""
+    """One contingent 1st-mover human decision per page visit (10 visits per no-delegation part)."""
 
     template_name = "global/TgV2HumanDecisionsFirst.html"
     form_model = "player"
     preserve_unsubmitted_inputs = True
+
+    def _part_and_step(self):
+        Constants = get_constants(self.player)
+        block_r = _human_block_round(self.player) or self.round_number
+        part = Constants.get_part(block_r)
+        step = self.participant.vars.get(_human_first_step_key(part), 0)
+        return part, step
 
     def is_displayed(self):
         block_r = _human_block_round(self.player)
@@ -104,26 +119,32 @@ class TgV2HumanDecisionsFirst(Page):
         if not _has_left_lobby_for_part(self.participant, part):
             return False
         first_done_key, done_key, _ = _part_human_keys(part)
-        return not self.participant.vars.get(first_done_key, False) and not self.participant.vars.get(
-            done_key, False
-        )
+        if self.participant.vars.get(first_done_key, False) or self.participant.vars.get(done_key, False):
+            return False
+        step = self.participant.vars.get(_human_first_step_key(part), 0)
+        return step < 10
 
     def get_form_fields(self):
-        if self.is_displayed():
-            return _first_human_fields()
-        return []
+        if not self.is_displayed():
+            return []
+        _, step = self._part_and_step()
+        return [f"human_decision_no_delegation_round_{step + 1}"]
 
     def vars_for_template(self):
         Constants = get_constants(self.player)
         block_r = _human_block_round(self.player) or self.round_number
+        part, step = self._part_and_step()
         return {
-            "current_part": Constants.get_part(block_r),
+            "current_part": part,
+            "decision_round": step + 1,
             **part_vars(self.player),
         }
 
     def error_message(self, values):
-        if not _first_human_complete(values):
-            return "Please choose A or B for every round (as 1st mover) before continuing."
+        _, step = self._part_and_step()
+        field = f"human_decision_no_delegation_round_{step + 1}"
+        if values.get(field) not in ("A", "B"):
+            return "Please choose A or B (as 1st mover) before continuing."
         return None
 
     def before_next_page(self):
@@ -131,20 +152,32 @@ class TgV2HumanDecisionsFirst(Page):
         block_r = _human_block_round(self.player) or self.round_number
         part = Constants.get_part(block_r)
         first_done_key, _, vars_key = _part_human_keys(part)
-        decisions = {
-            i: self.player.field_maybe_none(f"human_decision_no_delegation_round_{i}")
-            for i in range(1, 11)
-        }
+        step_key = _human_first_step_key(part)
+        step = self.participant.vars.get(step_key, 0)
+        round_i = step + 1
+        decisions = dict(self.participant.vars.get(vars_key, {}))
+        decisions[round_i] = self.player.field_maybe_none(
+            f"human_decision_no_delegation_round_{round_i}"
+        )
         self.participant.vars[vars_key] = decisions
-        self.participant.vars[first_done_key] = True
+        self.participant.vars[step_key] = round_i
+        if round_i >= 10:
+            self.participant.vars[first_done_key] = True
 
 
 class TgV2HumanDecisionsSecond(Page):
-    """All 10 contingent 2nd-mover human decisions (after the 1st-mover block)."""
+    """One contingent 2nd-mover human decision per page visit (10 visits after the 1st-mover block)."""
 
     template_name = "global/TgV2HumanDecisionsSecond.html"
     form_model = "player"
     preserve_unsubmitted_inputs = True
+
+    def _part_and_step(self):
+        Constants = get_constants(self.player)
+        block_r = _human_block_round(self.player) or self.round_number
+        part = Constants.get_part(block_r)
+        step = self.participant.vars.get(_human_second_step_key(part), 0)
+        return part, step
 
     def is_displayed(self):
         block_r = _human_block_round(self.player)
@@ -155,26 +188,30 @@ class TgV2HumanDecisionsSecond(Page):
         if not _has_left_lobby_for_part(self.participant, part):
             return False
         first_done_key, done_key, _ = _part_human_keys(part)
-        return self.participant.vars.get(first_done_key, False) and not self.participant.vars.get(
-            done_key, False
-        )
+        if not self.participant.vars.get(first_done_key, False) or self.participant.vars.get(done_key, False):
+            return False
+        step = self.participant.vars.get(_human_second_step_key(part), 0)
+        return step < 10
 
     def get_form_fields(self):
-        if self.is_displayed():
-            return _second_human_fields()
-        return []
+        if not self.is_displayed():
+            return []
+        _, step = self._part_and_step()
+        return [f"human_second_no_delegation_round_{step + 1}"]
 
     def vars_for_template(self):
-        Constants = get_constants(self.player)
-        block_r = _human_block_round(self.player) or self.round_number
+        part, step = self._part_and_step()
         return {
-            "current_part": Constants.get_part(block_r),
+            "current_part": part,
+            "decision_round": step + 1,
             **part_vars(self.player),
         }
 
     def error_message(self, values):
-        if not _second_human_complete(values):
-            return "Please choose A or B for every round (as 2nd mover) before continuing."
+        _, step = self._part_and_step()
+        field = f"human_second_no_delegation_round_{step + 1}"
+        if values.get(field) not in ("A", "B"):
+            return "Please choose A or B (as 2nd mover) before continuing."
         return None
 
     def before_next_page(self):
@@ -182,6 +219,12 @@ class TgV2HumanDecisionsSecond(Page):
         block_r = _human_block_round(self.player) or self.round_number
         part = Constants.get_part(block_r)
         _, done_key, vars_key = _part_human_keys(part)
+        step_key = _human_second_step_key(part)
+        step = self.participant.vars.get(step_key, 0)
+        round_i = step + 1
+        self.participant.vars[step_key] = round_i
+        if round_i < 10:
+            return
         first_map = merge_block_map(
             self.participant, vars_key, self.player, read_human_first_map_from_player
         )
@@ -205,6 +248,11 @@ class TgV2HumanDecisionsSecond(Page):
             return
         _copy_v2_human_to_rounds(self.player, start_round, first_map, second_map)
         self.participant.vars[done_key] = True
+
+
+HUMAN_DECISIONS_PER_ROLE = 10
+TG_V2_HUMAN_DECISIONS_FIRST_PAGES = [TgV2HumanDecisionsFirst] * HUMAN_DECISIONS_PER_ROLE
+TG_V2_HUMAN_DECISIONS_SECOND_PAGES = [TgV2HumanDecisionsSecond] * HUMAN_DECISIONS_PER_ROLE
 
 
 # Legacy per-round pages (superseded by block pages above).

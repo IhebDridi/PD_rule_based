@@ -9,11 +9,15 @@ from otree.bots.bot import Submission
 from shared.tg_bot_forms import (
     tg_agent_first_form,
     tg_agent_second_form,
-    tg_human_first_form,
-    tg_human_second_form,
+    tg_human_first_form_round,
+    tg_human_second_form_round,
 )
 
 from .models import Constants
+from pages_classes.tg_v2_pages import (
+    TgV2HumanDecisionsFirst,
+    TgV2HumanDecisionsSecond,
+)
 from .pages import (
     BatchWaitForGroup,
     ComprehensionTest,
@@ -33,8 +37,6 @@ from .pages import (
     Thankyou,
     TgV2AgentProgrammingFirst,
     TgV2AgentProgrammingSecond,
-    TgV2HumanDecisionsFirst,
-    TgV2HumanDecisionsSecond,
 )
 
 os.environ.setdefault("OTREE_SKIP_CSRF", "1")
@@ -83,8 +85,10 @@ class PlayerBot(Bot):
                 yield TgV2AgentProgrammingSecond, tg_agent_second_form("B")
             else:
                 yield InstructionsNoDelegation
-                yield TgV2HumanDecisionsFirst, tg_human_first_form("A")
-                yield TgV2HumanDecisionsSecond, tg_human_second_form("B")
+                for i in range(1, 11):
+                    yield TgV2HumanDecisionsFirst, tg_human_first_form_round("A", i)
+                for i in range(1, 11):
+                    yield TgV2HumanDecisionsSecond, tg_human_second_form_round("B", i)
 
         if rnd == 10:
             yield Results
@@ -92,8 +96,10 @@ class PlayerBot(Bot):
         if rnd == 11:
             if DELEGATION_FIRST:
                 yield InstructionsNoDelegation
-                yield TgV2HumanDecisionsFirst, tg_human_first_form("A")
-                yield TgV2HumanDecisionsSecond, tg_human_second_form("B")
+                for i in range(1, 11):
+                    yield TgV2HumanDecisionsFirst, tg_human_first_form_round("A", i)
+                for i in range(1, 11):
+                    yield TgV2HumanDecisionsSecond, tg_human_second_form_round("B", i)
             else:
                 yield InstructionsDelegation
                 yield TgV2AgentProgrammingFirst, tg_agent_first_form("A")

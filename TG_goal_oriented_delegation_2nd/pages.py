@@ -29,8 +29,8 @@ from pages_classes.tg_treatment_pages import (
     TgGoalOrientedSecond,
 )
 from pages_classes.tg_v2_pages import (
-    TgV2HumanDecisionsFirst,
-    TgV2HumanDecisionsSecond,
+    TG_V2_HUMAN_DECISIONS_FIRST_PAGES,
+    TG_V2_HUMAN_DECISIONS_SECOND_PAGES,
 )
 
 
@@ -126,8 +126,8 @@ page_sequence = [
     DelegationDecision,
     TgGoalOrientedFirst,
     TgGoalOrientedSecond,
-    TgV2HumanDecisionsFirst,
-    TgV2HumanDecisionsSecond,
+    *TG_V2_HUMAN_DECISIONS_FIRST_PAGES,
+    *TG_V2_HUMAN_DECISIONS_SECOND_PAGES,
     BatchWaitForGroup,
     TimeOutquit,
     Results,

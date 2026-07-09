@@ -9,6 +9,7 @@ import random
 from otree.api import *
 
 from shared.export_integrity import record_data_error
+from shared.tg_block_validation import validate_tg_block_maps
 from shared.tg_data_helpers import merge_block_map, read_agent_first_map_from_player
 
 from .MistralPage import ChatGPTPage, _parse_strict_ten_ab
@@ -51,6 +52,21 @@ def _write_agent_second_fields(player, decisions: dict) -> None:
         d = decisions.get(i) or decisions.get(str(i))
         if d in ("A", "B"):
             setattr(player, f"agent_decision_mandatory_second_round_{i}", d)
+
+
+def _agent_block_finalize_error(participant, player, second_map: dict):
+    Constants = get_constants(player)
+    block_r = _agent_block_round(player) or player.round_number
+    part = Constants.get_part(block_r)
+    _, _, vars_key = _part_agent_keys(part)
+    first_map = merge_block_map(
+        participant, vars_key, player, read_agent_first_map_from_player
+    )
+    start_round = (part - 1) * Constants.rounds_per_part + 1
+    block_err = validate_tg_block_maps(first_map, second_map, start_round)
+    if block_err:
+        record_data_error(participant, "PART_AGENT_CHOICES_INCOMPLETE", block_err)
+    return block_err
 
 
 class _TgAgentBlockFirst(Page):
@@ -117,6 +133,9 @@ class _TgAgentBlockSecond(Page):
             **part_vars(self.player),
         }
 
+    def _block_finalize_error_message(self, second_map: dict):
+        return _agent_block_finalize_error(self.participant, self.player, second_map)
+
     def _finalize_agent_block(self, second_map: dict) -> None:
         Constants = get_constants(self.player)
         block_r = _agent_block_round(self.player) or self.round_number
@@ -127,17 +146,12 @@ class _TgAgentBlockSecond(Page):
         )
         _write_agent_second_fields(self.player, second_map)
         start_round = (part - 1) * Constants.rounds_per_part + 1
-        missing = []
-        for i in range(1, 11):
-            f = first_map.get(i) or first_map.get(str(i))
-            s = second_map.get(i) or second_map.get(str(i))
-            if f not in ("A", "B") or s not in ("A", "B"):
-                missing.append(str(start_round + i - 1))
-        if missing:
+        block_err = validate_tg_block_maps(first_map, second_map, start_round)
+        if block_err:
             record_data_error(
                 self.participant,
                 "PART_AGENT_CHOICES_INCOMPLETE",
-                ",".join(missing),
+                block_err,
             )
             return
         _copy_v2_agent_to_rounds(self.player, start_round, first_map, second_map)
@@ -180,6 +194,19 @@ class TgGoalOrientedFirst(_TgAgentBlockFirst):
         decisions_str = ",".join(decisions[i] for i in range(1, 11))
         return {player.id_in_group: {"response": allocations_str, "decisions": decisions_str}}
 
+    def error_message(self, values):
+        Constants = get_constants(self.player)
+        block_r = _agent_block_round(self.player) or self.round_number
+        part = Constants.get_part(block_r)
+        _, _, vars_key = _part_agent_keys(part)
+        decisions = dict(self.participant.vars.get(vars_key, {}))
+        if len([d for d in decisions.values() if d in ("A", "B")]) < 10:
+            record_data_error(
+                self.participant, "GOAL_AGENT_FIRST_INCOMPLETE", f"part={part}"
+            )
+            return "Please complete all 10 agent decisions (1st mover) before continuing."
+        return None
+
     def before_next_page(self):
         Constants = get_constants(self.player)
         block_r = _agent_block_round(self.player) or self.round_number
@@ -221,6 +248,17 @@ class TgGoalOrientedSecond(_TgAgentBlockSecond):
         allocations_str = ",".join(str(x) for x in allocations)
         decisions_str = ",".join(decisions[i] for i in range(1, 11))
         return {player.id_in_group: {"response": allocations_str, "decisions": decisions_str}}
+
+    def error_message(self, values):
+        second_map = dict(self.participant.vars.get("_tg_agent_second_pending", {}) or {})
+        if len([d for d in second_map.values() if d in ("A", "B")]) < 10:
+            record_data_error(
+                self.participant,
+                "GOAL_AGENT_SECOND_INCOMPLETE",
+                f"r={self.round_number}",
+            )
+            return "Please complete all 10 agent decisions (2nd mover) before continuing."
+        return self._block_finalize_error_message(second_map)
 
     def before_next_page(self):
         second_map = dict(self.participant.vars.pop("_tg_agent_second_pending", {}) or {})
@@ -416,7 +454,10 @@ class TgSupervisedAgentSecond(_TgAgentBlockSecond):
         parts = [p.strip().upper() for p in csv_val.split(",") if p.strip()]
         if len(parts) != 10 or not all(p in ("A", "B") for p in parts):
             return "Please select a dataset, click Generate, then Confirm."
-        return None
+        second_map = dict(self.participant.vars.get("_tg_agent_second_pending", {}) or {})
+        if len(second_map) < 10:
+            second_map = {i + 1: parts[i] for i in range(10)}
+        return self._block_finalize_error_message(second_map)
 
     def before_next_page(self):
         second_map = dict(self.participant.vars.pop("_tg_agent_second_pending", {}) or {})
@@ -471,6 +512,17 @@ class TgLlmAgentFirst(ChatGPTPage):
             if choices:
                 return {i: ch for i, ch in enumerate(choices, start=1)}
         return {}
+
+    def error_message(self, values):
+        if not is_tg_app(self.player):
+            return None
+        decisions = self.get_final_assistant_response()
+        if not decisions or any(decisions.get(i) not in ("A", "B") for i in range(1, 11)):
+            record_data_error(
+                self.participant, "LLM_AGENT_FIRST_INCOMPLETE", f"r={self.round_number}"
+            )
+            return "Please obtain a complete 10-round A/B plan from the assistant before continuing."
+        return None
 
     def before_next_page(self):
         if not is_tg_app(self.player):
@@ -535,6 +587,15 @@ class TgLlmAgentSecond(ChatGPTPage):
                 return {i: ch for i, ch in enumerate(choices, start=1)}
         return {}
 
+    def error_message(self, values):
+        second_map = self.get_final_assistant_response()
+        if not second_map or any(second_map.get(i) not in ("A", "B") for i in range(1, 11)):
+            record_data_error(
+                self.participant, "LLM_AGENT_SECOND_INCOMPLETE", f"r={self.round_number}"
+            )
+            return "Please obtain a complete 10-round A/B plan from the assistant before continuing."
+        return _agent_block_finalize_error(self.participant, self.player, second_map)
+
     def before_next_page(self):
         second_map = self.get_final_assistant_response()
         if not second_map or any(second_map.get(i) not in ("A", "B") for i in range(1, 11)):
@@ -549,18 +610,7 @@ class TgLlmAgentSecond(ChatGPTPage):
         )
         _write_agent_second_fields(self.player, second_map)
         start_round = (part - 1) * Constants.rounds_per_part + 1
-        missing = []
-        for i in range(1, 11):
-            f = first_map.get(i) or first_map.get(str(i))
-            s = second_map.get(i)
-            if f not in ("A", "B") or s not in ("A", "B"):
-                missing.append(str(start_round + i - 1))
-        if missing:
-            record_data_error(
-                self.participant,
-                "PART_AGENT_CHOICES_INCOMPLETE",
-                ",".join(missing),
-            )
+        if _agent_block_finalize_error(self.participant, self.player, second_map):
             return
         _copy_v2_agent_to_rounds(self.player, start_round, first_map, second_map)
         self.participant.vars[done_key] = True

@@ -3,6 +3,7 @@
 from otree.api import *
 
 from shared.export_integrity import record_data_error
+from shared.tg_block_validation import validate_tg_block_maps
 from shared.tg_data_helpers import (
     merge_block_map,
     read_agent_first_map_from_player,
@@ -212,6 +213,29 @@ class TgV2HumanDecisionsSecond(Page):
         field = f"human_second_no_delegation_round_{step + 1}"
         if values.get(field) not in ("A", "B"):
             return "Please choose A or B (as 2nd mover) before continuing."
+        if step + 1 < 10:
+            return None
+        Constants = get_constants(self.player)
+        block_r = _human_block_round(self.player) or self.round_number
+        part = Constants.get_part(block_r)
+        _, _, vars_key = _part_human_keys(part)
+        first_map = merge_block_map(
+            self.participant, vars_key, self.player, read_human_first_map_from_player
+        )
+        second_map = {
+            i: values.get(f"human_second_no_delegation_round_{i}")
+            or self.player.field_maybe_none(f"human_second_no_delegation_round_{i}")
+            for i in range(1, 11)
+        }
+        start_round = (part - 1) * Constants.rounds_per_part + 1
+        block_err = validate_tg_block_maps(first_map, second_map, start_round)
+        if block_err:
+            record_data_error(
+                self.participant,
+                "HUMAN_CHOICES_INCOMPLETE",
+                block_err,
+            )
+            return block_err
         return None
 
     def before_next_page(self):
@@ -462,6 +486,27 @@ class TgV2AgentProgrammingSecond(Page):
     def error_message(self, values):
         if not _second_agent_complete(values):
             return "Please choose A or B for every round (as 2nd mover) before continuing."
+        Constants = get_constants(self.player)
+        block_r = _agent_block_round(self.player) or self.round_number
+        part = Constants.get_part(block_r)
+        _, _, vars_key = _part_agent_keys(part)
+        first_map = merge_block_map(
+            self.participant, vars_key, self.player, read_agent_first_map_from_player
+        )
+        second_map = {
+            i: values.get(f"agent_decision_mandatory_second_round_{i}")
+            or self.player.field_maybe_none(f"agent_decision_mandatory_second_round_{i}")
+            for i in range(1, 11)
+        }
+        start_round = (part - 1) * Constants.rounds_per_part + 1
+        block_err = validate_tg_block_maps(first_map, second_map, start_round)
+        if block_err:
+            record_data_error(
+                self.participant,
+                "PART_AGENT_CHOICES_INCOMPLETE",
+                block_err,
+            )
+            return block_err
         return None
 
     def before_next_page(self):

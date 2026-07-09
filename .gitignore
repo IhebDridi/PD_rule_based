@@ -1,64 +1,47 @@
-### came with the app
-
-staticfiles
+### oTree / Python
+staticfiles/
 __pycache__/
-
-### below added by chatgpt
-__pycache__/
-*.pyc
-*.pyo
+*.py[cod]
 venv/
-.vscode/
+.venv/
+
+### Local DB (never push)
 db.sqlite3
 db.sqlite3.bak
-prolific_export_20260224_071136.csv
-Data/dictator_game_2025-01-17.csv
-players_data/123456789012345678901234.csv
-EXPORT_ANALYSIS_REPORT.md
-Logbook Delegation-1.pdf
-Logbook Delegation.docx
-Logbook Delegation.md
-Logbook Delegation.txt
-MATCHING_AND_GROUPS.md
-prisoners_dilemma_custom_export_2026-03-01.csv
-test_30_full.txt
-test_30_output.txt
-test_36_output.txt
-TESTING_AND_DATA.md
-VALIDATION_REPORT_LOGBOOK.md
-prisoners_dilemma/BUGFIX_LOBBY_MATCHING_GROUP_ID.md
-prisoners_dilemma/GROUPING_AND_TIMEOUTS.md
-prisoners_dilemma/GROUPS_AND_PARTICIPANTS.md
-prisoners_dilemma/TEST_30_FAILURE_REPORT.md
-prisoners_dilemma/TEST_BATCH_README.md
-OTREE_DOCS_ALTERNATIVES.md
-FLOW_TRACE_10_PARTICIPANTS.md
-check_wide_payoffs.py
-prisoners_dilemma/PAYOFF_TRACE.md
-check_export.py
-test_payoff_20participants.py
-run_otree_test.py
 ddd.sqlite3
-check_export.py
-CODE_REFERENCE.md
-DOC_QUICK_SWITCH_GAME.md
-DOC_SWITCH_GAME_DETAILED.md
-check_export.py
-DOC_MATCHING_FLOW_GROUPS_OF_3.md
-DOC_PAGES_REFERENCE.md
-DOC_MODELS_REFERENCE.md
-DOC_ROUND_ROBIN_AND_PAYOFFS.md
-.gitignore
-DOC_LLM_INTEGRATION_CHATGPTPAGE.md
-DOC_COLLEAGUE_EXTENDING_APP.md
-DOC_SESSION_AND_CUSTOM_EXPORT_PD_RULE_BASED_DELEGATION_2ND.md
-backfill_wide_export_session.py
-PD_CLOUD_HARDENING_NOTES.md
-PD_REFACTOR_CHANGES.md
-PD_REFACTOR_MAINTENANCE_GUIDE.md
+*.sqlite3
 
-# Local-only: not used by live oTree server
+### Secrets / env
+.env
+.env.*
+
+### IDE / editor
+.vscode/
+.cursor/
+
+### Notes & docs (local only)
+*.md
+
+### Local data exports & scratch
+prolific_export_*.csv
+prisoners_dilemma_custom_export_*.csv
+Data/
+players_data/
+test_*_output.txt
+test_30_full.txt
+pastcontext.txt
+
+### Local-only PDFs / office docs
+*.pdf
+*.docx
+Logbook Delegation.txt
+
+### Local-only scripts & one-off tools (not used by live server)
 scripts/
 docs/
 misselanious/
-.venv
+check_wide_payoffs.py
+check_export.py
+test_payoff_20participants.py
+run_otree_test.py
+backfill_wide_export_session.py

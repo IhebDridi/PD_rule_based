@@ -1,6 +1,7 @@
 from otree.api import *
 
 from shared.tg_payoffs import tg_results_row
+from shared.tg_results_debug import build_tg_results_debug
 
 from .model_bridge import app_models, is_tg_app
 
@@ -179,42 +180,34 @@ class Results(Page):
         part_end,
         player,
     ):
-        gid = self.participant.vars.get("matching_group_id", -1)
-        member_ids = []
-        if gid is not None and gid >= 0:
-            raw = self.session.vars.get(f"matching_group_members_part_{current_part}_{gid}")
-            if raw:
-                member_ids = list(raw)
-        member_set = set(member_ids)
-        assignments = None
-        if len(member_ids) >= 3:
-            assignments = compute_round_robin_assignments(len(member_ids), Constants.rounds_per_part)
-        my_pos = self.participant.vars.get("matching_group_position", None)
-
-        def _pick_three_players(round_ss):
-            out = {}
-            for p in round_ss.get_players():
-                sid = p.participant.id_in_session
-                if sid in member_set:
-                    out[sid] = p
-            return out
+        am = app_models(self.player)
+        get_opponent_in_round = am.get_opponent_in_round
 
         rounds_data = []
         for r in range(part_start, part_end + 1):
             rr = player.in_round(r)
-            opp = None
-            if assignments and my_pos and 1 <= my_pos <= len(member_ids):
-                round_in_part = r - part_start
-                opp_idx, _ = assignments[my_pos - 1][round_in_part]
-                opp_sid = member_ids[opp_idx] if opp_idx is not None else None
-                players_map = _pick_three_players(self.subsession.in_round(r))
-                opp = players_map.get(opp_sid) if opp_sid else None
+            opp = get_opponent_in_round(player, r)
             row = tg_results_row(rr, opp)
             row["round"] = r - (current_part - 1) * Constants.rounds_per_part
             rounds_data.append(row)
 
-        return dict(
+        out = dict(
             current_part=current_part,
             display_part=current_part,
             rounds_data=rounds_data,
         )
+        tg_debug = build_tg_results_debug(
+            player,
+            part_start,
+            part_end,
+            current_part,
+            get_opponent_in_round,
+            rounds_per_part=Constants.rounds_per_part,
+        )
+        if tg_debug is not None:
+            out["tg_results_debug"] = {
+                "part": tg_debug["part"],
+                "rounds": tg_debug["rounds"],
+            }
+            out.update(tg_debug["summary_vars"])
+        return out

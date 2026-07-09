@@ -13,7 +13,12 @@ from shared.tg_data_helpers import (
     tg_part_has_choices,
     write_tg_results_display_cache,
 )
-from shared.tg_payoffs import apply_tg_payoffs_for_pair, compute_tg_payoffs, tg_choices_ready
+from shared.tg_payoffs import (
+    apply_tg_payoffs_for_pair,
+    compute_tg_payoffs,
+    tg_choices_ready,
+    tg_results_row,
+)
 
 
 class _FakeFieldPlayer:
@@ -78,6 +83,126 @@ class TgDataFlowTests(unittest.TestCase):
         not_ready = _FakeFieldPlayer(choice_first_mover="A", choice_second_mover=None)
         self.assertTrue(tg_choices_ready(ready))
         self.assertFalse(tg_choices_ready(not_ready))
+
+    def test_tg_results_row_second_mover_consistent_with_payoffs(self):
+        """2nd mover display: opponent column is 1st-mover contingent; payoff matches game."""
+        me = _FakeFieldPlayer(
+            role_assigned="second",
+            choice_first_mover="A",
+            choice_second_mover="B",
+            payoff=100,
+        )
+        opp = _FakeFieldPlayer(
+            role_assigned="first",
+            choice_first_mover="A",
+            choice_second_mover="B",
+        )
+        row = tg_results_row(me, opp)
+        self.assertEqual(row["role_assigned"], "2nd mover")
+        self.assertEqual(row["my_choice"], "B")
+        self.assertEqual(row["other_choice"], "A")
+        self.assertEqual(row["payoff"], 100)
+
+    def test_tg_results_row_first_mover_b_ignores_second(self):
+        me = _FakeFieldPlayer(
+            role_assigned="first",
+            choice_first_mover="B",
+            choice_second_mover="A",
+            payoff=30,
+        )
+        opp = _FakeFieldPlayer(
+            role_assigned="second",
+            choice_first_mover="A",
+            choice_second_mover="B",
+        )
+        row = tg_results_row(me, opp)
+        self.assertEqual(row["my_choice"], "B")
+        self.assertEqual(row["other_choice"], "B")
+        self.assertEqual(row["payoff"], 30)
+
+    def test_tg_results_row_opponent_role_mismatch_still_displays_correctly(self):
+        """Player-relative opponent column even if opponent.role_assigned is wrong."""
+        me = _FakeFieldPlayer(
+            role_assigned="second",
+            choice_first_mover="A",
+            choice_second_mover="B",
+            payoff=100,
+        )
+        opp = _FakeFieldPlayer(
+            role_assigned="second",
+            choice_first_mover="A",
+            choice_second_mover="B",
+        )
+        row = tg_results_row(me, opp)
+        self.assertEqual(row["other_choice"], "A")
+        self.assertEqual(row["payoff"], 100)
+
+    def test_part3_style_rows_all_consistent(self):
+        """Regression: user-reported Part 3 table rows after display fix."""
+        cases = [
+            ("second", "B", "B", "A", 100),
+            ("second", "B", "B", "B", 30),
+            ("first", "B", "A", "A", 30),
+        ]
+        for my_role, my_first, my_second, opp_first, expected_pay in cases:
+            opp_second = "A"
+            me = _FakeFieldPlayer(
+                role_assigned=my_role,
+                choice_first_mover=my_first,
+                choice_second_mover=my_second,
+            )
+            opp = _FakeFieldPlayer(
+                role_assigned="first" if my_role == "second" else "second",
+                choice_first_mover=opp_first,
+                choice_second_mover=opp_second,
+            )
+            row = tg_results_row(me, opp)
+            self.assertEqual(row["payoff"], expected_pay, msg=(my_role, opp_first))
+
+    def test_tg_results_debug_builds_compare_rows(self):
+        from unittest.mock import patch
+
+        from shared.tg_results_debug import build_tg_results_debug
+
+        class P:
+            def __init__(self, **f):
+                self._f = f
+                self.payoff = f.get("payoff")
+                self.participant = SimpleNamespace(
+                    id_in_session=2, vars={"matching_group_position": 2}
+                )
+
+            def field_maybe_none(self, k):
+                return self._f.get(k)
+
+        player = SimpleNamespace()
+
+        def in_round(r):
+            return P(
+                role_assigned="second",
+                choice_first_mover="A",
+                choice_second_mover="B",
+                payoff=100,
+            )
+
+        player.in_round = in_round
+        opp = P(
+            role_assigned="first",
+            choice_first_mover="A",
+            choice_second_mover="B",
+            payoff=0,
+        )
+        opp.participant.vars["matching_group_position"] = 1
+
+        with patch("shared.tg_results_debug._otree_debug_mode", return_value=True):
+            d = build_tg_results_debug(
+                player, 21, 21, 3, lambda p, r: opp, rounds_per_part=10
+            )
+        self.assertTrue(d["summary_vars"]["tg_debug_all_ok"])
+        self.assertEqual(d["summary_vars"]["tg_debug_mismatch_count"], 0)
+        self.assertEqual(d["summary_vars"]["tg_debug_R1_flag"], "ok")
+        self.assertEqual(d["rounds"][0]["display"]["payoff"], 100)
+        self.assertEqual(d["rounds"][0]["db"]["payoff"], 100)
 
     def test_results_cache_round_trip(self):
         assignments = [

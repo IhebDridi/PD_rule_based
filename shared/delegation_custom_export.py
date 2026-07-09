@@ -30,6 +30,37 @@ def coarse_agent_from_condition_app(condition: str, app_name: str) -> str:
     return "no-agent"
 
 
+def supervised_list_choices_export(pr: Any, get_fld: Callable[[Any, str], Any]) -> str:
+    """Supervised TG/PD agent blocks: history shown + confirmed CSV (not agent_prog_allocation)."""
+    if not pr:
+        return ""
+    payload: dict = {}
+    history = get_fld(pr, "supervised_history")
+    if history:
+        try:
+            payload["history"] = json.loads(history) if isinstance(history, str) else history
+        except Exception:
+            payload["history_raw"] = history
+    csv_confirmed = get_fld(pr, "supervised_last_generated_csv")
+    if csv_confirmed:
+        payload["confirmed_csv"] = csv_confirmed
+    mean = get_fld(pr, "supervised_mean")
+    if mean is not None and mean != "":
+        payload["supervised_mean"] = mean
+    if not payload:
+        return ""
+    return json.dumps(payload)
+
+
+def _tg_effective_choice(role: Any, first_val: Any, second_val: Any) -> str:
+    """Role-selected contingent choice actually played in a TG round."""
+    if role == "first" and first_val in ("A", "B"):
+        return first_val
+    if role == "second" and second_val in ("A", "B"):
+        return second_val
+    return ""
+
+
 def strip_allocations_json(raw_value: Any) -> str:
     if not raw_value or raw_value == "[]":
         return ""
@@ -149,6 +180,7 @@ def canonical_delegation_export_header() -> List[str]:
     """
     header: List[str] = [
         "Condition",
+        "AppName",
         "ProlificID",
         "Session",
         "Group",
@@ -170,8 +202,16 @@ def canonical_delegation_export_header() -> List[str]:
     for r in range(1, 31):
         header += [
             f"Round{r}Decision",
+            f"Round{r}DecisionFirstMover",
+            f"Round{r}DecisionSecondMover",
+            f"Round{r}RoleAssigned",
+            f"Round{r}EffectiveDecision",
             f"Round{r}CoplayerID",
             f"Round{r}CoplayerDecision",
+            f"Round{r}CoplayerDecisionFirstMover",
+            f"Round{r}CoplayerDecisionSecondMover",
+            f"Round{r}CoplayerRoleAssigned",
+            f"Round{r}CoplayerEffectiveDecision",
             f"Round{r}Ecoins",
             f"Round{r}PlayerAgent",
             f"Round{r}CoPlayerAgent",
@@ -368,6 +408,8 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
             row = dict.fromkeys(header, "")
 
             row["Condition"] = spec.condition_first if C.DELEGATION_FIRST else spec.condition_second
+            app_name_val = get_fld(p0, "app_name")
+            row["AppName"] = app_name_val if app_name_val is not None else ""
             if spec.prolific_mode == "or_empty":
                 row["ProlificID"] = "SIMULATED" if is_simulated else (prolific_id or "")
             else:
@@ -410,6 +452,9 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                     row[f"Round{r}DecisionFirstMover"] = first_val if first_val is not None else ""
                     row[f"Round{r}DecisionSecondMover"] = second_val if second_val is not None else ""
                     row[f"Round{r}RoleAssigned"] = role_val if role_val is not None else ""
+                    row[f"Round{r}EffectiveDecision"] = _tg_effective_choice(
+                        role_val, first_val, second_val
+                    )
                     row[f"Round{r}Decision"] = ""
                 else:
                     choice_val = get_fld(pr, "choice")
@@ -426,6 +471,9 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                         row[f"Round{r}CoplayerDecisionFirstMover"] = oc_first if oc_first is not None else ""
                         row[f"Round{r}CoplayerDecisionSecondMover"] = oc_second if oc_second is not None else ""
                         row[f"Round{r}CoplayerRoleAssigned"] = oc_role if oc_role is not None else ""
+                        row[f"Round{r}CoplayerEffectiveDecision"] = _tg_effective_choice(
+                            oc_role, oc_first, oc_second
+                        )
                         row[f"Round{r}CoplayerDecision"] = ""
                     else:
                         oc = get_fld(other, "choice")
@@ -445,16 +493,26 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                     if C.is_mandatory_delegation_round(r):
                         agent_self = label
                     elif r > 2 * C.rounds_per_part:
-                        agent_self = label if get_fld(pr, "delegate_decision_optional") else "no-agent"
+                        deleg_self = get_fld(pr, "delegate_decision_optional")
+                        if deleg_self is True:
+                            agent_self = label
+                        elif deleg_self is False:
+                            agent_self = "no-agent"
+                        else:
+                            agent_self = ""
                     else:
                         agent_self = "no-agent"
                     if other is not None:
                         if C.is_mandatory_delegation_round(r):
                             agent_other = label
                         elif r > 2 * C.rounds_per_part:
-                            agent_other = (
-                                label if get_fld(other, "delegate_decision_optional") else "no-agent"
-                            )
+                            deleg_other = get_fld(other, "delegate_decision_optional")
+                            if deleg_other is True:
+                                agent_other = label
+                            elif deleg_other is False:
+                                agent_other = "no-agent"
+                            else:
+                                agent_other = ""
                         else:
                             agent_other = "no-agent"
                     else:
@@ -539,16 +597,18 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
             part_chosen = get_fld(p_last, "random_payoff_part")
             if isinstance(part_chosen, str) and part_chosen.strip().isdigit():
                 part_chosen = int(part_chosen.strip())
-            _float = lambda x: float(x) if x is not None else 0.0
             if pvars(p0, "quit_to_prolific"):
                 row["PartChosenBonus"] = "quit"
                 row["TotalEarningsParts123Dollars"] = 0.0
                 row["TotalEarningsPart4Dollars"] = 0.0
                 row["BonusPaymentTotal"] = 1.0
             elif part_chosen in (1, 2, 3):
-                ecoins = _float(part_totals[part_chosen - 1])
+                if part_has_payoff[part_chosen - 1]:
+                    ecoins = float(part_totals[part_chosen - 1])
+                    row["TotalEarningsParts123Dollars"] = round(ecoins * 0.001, 4)
+                else:
+                    row["TotalEarningsParts123Dollars"] = ""
                 row["PartChosenBonus"] = part_chosen
-                row["TotalEarningsParts123Dollars"] = round(ecoins * 0.001, 4)
                 if spec.layout == "compact_rounds":
                     part4_dollars = _sum_export_numeric_cells(
                         row, [f"EarningsGuess{j}Dollars" for j in range(1, 11)]
@@ -560,13 +620,16 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                 row["TotalEarningsPart4Dollars"] = (
                     round(part4_dollars, 4) if part4_dollars is not None else ""
                 )
-                part4_val = part4_dollars if part4_dollars is not None else 0.0
-                row["BonusPaymentTotal"] = round(
-                    row["TotalEarningsParts123Dollars"] + part4_val, 4
-                )
+                parts123 = row["TotalEarningsParts123Dollars"]
+                if parts123 != "" or part4_dollars is not None:
+                    parts123_val = float(parts123) if parts123 != "" else 0.0
+                    part4_val = part4_dollars if part4_dollars is not None else 0.0
+                    row["BonusPaymentTotal"] = round(parts123_val + part4_val, 4)
+                else:
+                    row["BonusPaymentTotal"] = ""
             else:
                 row["PartChosenBonus"] = part_chosen if part_chosen is not None else ""
-                row["TotalEarningsParts123Dollars"] = 0.0
+                row["TotalEarningsParts123Dollars"] = ""
                 if spec.layout == "compact_rounds":
                     part4_dollars = _sum_export_numeric_cells(
                         row, [f"EarningsGuess{j}Dollars" for j in range(1, 11)]
@@ -578,8 +641,9 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                 row["TotalEarningsPart4Dollars"] = (
                     round(part4_dollars, 4) if part4_dollars is not None else ""
                 )
-                part4_val = part4_dollars if part4_dollars is not None else 0.0
-                row["BonusPaymentTotal"] = round(part4_val, 4)
+                row["BonusPaymentTotal"] = (
+                    round(part4_dollars, 4) if part4_dollars is not None else ""
+                )
 
             delegation_round = 1 if C.DELEGATION_FIRST else 11
             deleg_pr = rounds[delegation_round - 1] if len(rounds) >= delegation_round else None
@@ -631,20 +695,13 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                     or ""
                 )
             elif spec.extension == "supervised":
-                row["SupervisedListChoicesDelegation"] = strip_allocations_json(
-                    (get_fld(deleg_pr, "agent_prog_allocation") if deleg_pr else "") or ""
+                row["SupervisedListChoicesDelegation"] = supervised_list_choices_export(
+                    deleg_pr, get_fld
                 )
-                row["SupervisedListChoicesOptional"] = strip_allocations_json(
-                    (
-                        (
-                            get_fld(opt_pr, "agent_prog_allocation")
-                            if get_fld(opt_pr, "delegate_decision_optional")
-                            else ""
-                        )
-                        if opt_pr
-                        else ""
-                    )
-                    or ""
+                row["SupervisedListChoicesOptional"] = (
+                    supervised_list_choices_export(opt_pr, get_fld)
+                    if opt_pr and get_fld(opt_pr, "delegate_decision_optional") is True
+                    else ""
                 )
 
             row["GameUsed"] = spec.game_used

@@ -192,10 +192,9 @@ def get_opponent_in_round(player, round_number):
 
 class Subsession(BaseSubsession):
     def creating_session(self):
-        """Run once per subsession. Round 1 only: set matching_group_id = -1 so everyone is 'not yet released'."""
-        if self.round_number == 1:
-            for p in self.get_players():
-                p.participant.vars['matching_group_id'] = -1
+        """Round 1: lobby flag + treatment-specific app_name on all Player rows."""
+        from shared.tg_app_names import tg_creating_session
+        tg_creating_session(self)
 
 
 
@@ -218,8 +217,8 @@ class Group(BaseGroup):
 
 class Player(BasePlayer):
     """One row per participant per round. choice = A/B for PD; agent/human fields for delegation parts."""
-    app_name = models.StringField(initial='rulebased_del1st')
-    delegate_decision_optional_final = models.BooleanField()
+    app_name = models.StringField(blank=True)
+    delegate_decision_optional_final = models.BooleanField(blank=True)
 
     #NEW
     guess_opponent_delegated = models.StringField(
@@ -261,18 +260,18 @@ class Player(BasePlayer):
     final_allocations = models.LongStringField()
     prolific_id = models.StringField()
     # Bot detection flag (written to DB). Set when attention checks indicate automated participation.
-    bot_detected = models.BooleanField(initial=False)
+    bot_detected = models.BooleanField(blank=True)
     random_decisions = models.BooleanField(blank=True)
     random_payoff_part=models.IntegerField( blank=True, min=1, max=3 )
 
     # Tracks the number of failed comprehension attempts
-    comprehension_attempts = models.IntegerField(initial=0) #new
+    comprehension_attempts = models.IntegerField(blank=True)
     incorrect_answers = models.StringField(blank=True) #new
     agent_prog_allocation=models.StringField(blank=True) #new
     conversation_history = models.LongStringField(blank=True)
     conversation_history_second = models.LongStringField(blank=True)
     # Tracks whether the participant is excluded from the study
-    is_excluded = models.BooleanField(initial=False)
+    is_excluded = models.BooleanField(blank=True)
 
     gender = models.StringField(
         choices=[

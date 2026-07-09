@@ -33,9 +33,13 @@ class Debriefing(Page):
         cache_2 = get_results_display_from_cache(self.participant, 2)
         cache_3 = get_results_display_from_cache(self.participant, 3)
         use_cache = (
-            cache_1 is not None and len(cache_1) == Constants.rounds_per_part
-            and cache_2 is not None and len(cache_2) == Constants.rounds_per_part
-            and cache_3 is not None and len(cache_3) == Constants.rounds_per_part
+            not is_tg_app(self.player)
+            and cache_1 is not None
+            and len(cache_1) == Constants.rounds_per_part
+            and cache_2 is not None
+            and len(cache_2) == Constants.rounds_per_part
+            and cache_3 is not None
+            and len(cache_3) == Constants.rounds_per_part
         )
 
         if use_cache:
@@ -84,18 +88,19 @@ class Debriefing(Page):
                     other = get_opponent_in_round_cached(
                         self.player, r, round_players_cache
                     )
-                    raw_payoff = getattr(me.payoff, "amount", me.payoff) if me.payoff is not None else 0
-                    try:
-                        display_payoff = int(raw_payoff)
-                    except (TypeError, ValueError):
-                        display_payoff = 0
                     if is_tg_app(self.player):
                         row = tg_results_row(me, other)
                         my_choice = row.get("my_choice")
                         other_choice = row.get("other_choice")
+                        display_payoff = row.get("payoff") or 0
                     else:
                         my_choice = me.field_maybe_none("choice")
                         other_choice = other.field_maybe_none("choice") if other else None
+                        raw_payoff = getattr(me.payoff, "amount", me.payoff) if me.payoff is not None else 0
+                        try:
+                            display_payoff = int(raw_payoff)
+                        except (TypeError, ValueError):
+                            display_payoff = 0
                     part_data.append({
                         "round": r - (part - 1) * Constants.rounds_per_part,
                         "my_choice": my_choice,
@@ -103,7 +108,7 @@ class Debriefing(Page):
                         "other_delegated": bool(other and other.field_maybe_none("delegate_decision_optional")),
                         "payoff": display_payoff,
                     })
-                    total += raw_payoff or 0
+                    total += display_payoff
                 results_by_part[part] = {
                     "rounds": part_data,
                     "total_payoff": int(total) if total is not None else 0,

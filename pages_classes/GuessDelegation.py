@@ -28,48 +28,39 @@ class GuessDelegation(Page):
         start = 2 * Constants.rounds_per_part + 1  # round 21
         rows = []
 
-        if cache_3 is not None and len(cache_3) == Constants.rounds_per_part:
+        if is_tg_app(self.player):
+            for i in range(1, 11):
+                r = start + i - 1
+                me = self.player.in_round(r)
+                other = get_opponent_in_round(self.player, r)
+                row_data = tg_results_row(me, other)
+                row_data["round"] = i
+                row_data["field_name"] = f"guess_round_{i}"
+                rows.append(row_data)
+        elif cache_3 is not None and len(cache_3) == Constants.rounds_per_part:
             for i in range(1, 11):
                 entry = cache_3[i - 1]
                 me = self.player.in_round(start + i - 1)
-                tg_row = tg_results_row(me, None) if is_tg_app(self.player) else None
-                row = {
+                rows.append({
                     "round": i,
-                    "my_choice": entry.get("my_choice") or (
-                        tg_row.get("my_choice")
-                        if tg_row
-                        else me.field_maybe_none("choice")
-                    ),
+                    "my_choice": entry.get("my_choice") or me.field_maybe_none("choice"),
                     "other_choice": entry.get("other_choice"),
                     "field_name": f"guess_round_{i}",
-                }
-                if is_tg_app(self.player):
-                    row["role_assigned"] = entry.get("role_assigned") or tg_row.get("role_assigned", "")
-                rows.append(row)
+                })
         else:
             _log_cache_miss("GuessDelegation", getattr(self.participant, "id", None), "cache_miss_or_invalid")
             for i in range(1, 11):
                 r = start + i - 1
                 me = self.player.in_round(r)
                 other = get_opponent_in_round(self.player, r)
-                if is_tg_app(self.player):
-                    row = tg_results_row(me, other)
-                    my_choice = row.get("my_choice")
-                    other_choice = row.get("other_choice")
-                    role_assigned = row.get("role_assigned")
-                else:
-                    my_choice = me.field_maybe_none("choice")
-                    other_choice = other.field_maybe_none("choice") if other else None
-                    role_assigned = None
-                row_data = {
+                my_choice = me.field_maybe_none("choice")
+                other_choice = other.field_maybe_none("choice") if other else None
+                rows.append({
                     "round": i,
                     "my_choice": my_choice,
                     "other_choice": other_choice,
                     "field_name": f"guess_round_{i}",
-                }
-                if is_tg_app(self.player):
-                    row_data["role_assigned"] = role_assigned or ""
-                rows.append(row_data)
+                })
 
         return {"rows": rows, "countdown_seconds": 90}
 
@@ -93,9 +84,8 @@ class GuessDelegation(Page):
             guess_field = f"guess_round_{i}"
             guess = getattr(self.player, guess_field)
 
-            if self.participant.vars.get("matching_group_id", -1) >= 0:
-                setattr(future_player, guess_field, guess)
-                future_player.guess_opponent_delegated = guess
+            setattr(future_player, guess_field, guess)
+            future_player.guess_opponent_delegated = guess
 
             if self.participant.vars.get("matching_group_id", -1) >= 0 and guess in ("yes", "no"):
                 if use_cache:

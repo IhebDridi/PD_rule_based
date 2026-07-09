@@ -1,0 +1,96 @@
+
+{# spaces to make debug info less distracting #}
+<br/>
+<br/>
+<br/>
+
+
+<div class="card debug-info"> {# .debug-info so it's visible in inspector #}
+    <h5 class="card-header">Debug info</h5>
+
+    {% include 'otree/includes/hidden_form_errors.html' %}
+
+{% if is_defined('tg_results_debug') and tg_results_debug %}
+    <div class="card-body">
+        <h6 class="card-title">TG Results Part {{ tg_results_debug.part }} — display vs DB</h6>
+        <p class="small text-muted mb-2">
+            <strong>Display</strong> = what the results table shows (<code>tg_results_row</code>).
+            <strong>DB</strong> = raw <code>Player</code> fields for you and your batch opponent.
+            Integrity flags are listed separately under <code>vars_for_template</code> below.
+        </p>
+        <div class="scrollable">
+            <table class="table table-sm table-hover table-debug">
+                <thead>
+                    <tr>
+                        <th>R</th>
+                        <th colspan="4" class="text-center" style="background:#e8f4e8;">Display (screen)</th>
+                        <th colspan="8" class="text-center" style="background:#e8eef8;">DB (your row + opponent)</th>
+                    </tr>
+                    <tr>
+                        <th></th>
+                        <th>role</th>
+                        <th>you</th>
+                        <th>opp</th>
+                        <th>pay</th>
+                        <th>role</th>
+                        <th>c1</th>
+                        <th>c2</th>
+                        <th>pay</th>
+                        <th>opp#</th>
+                        <th>o.role</th>
+                        <th>o.c1</th>
+                        <th>o.c2</th>
+                        <th>o.pay</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in tg_results_debug.rounds %}
+                    <tr{% if row.warn %} class="table-warning"{% endif %}>
+                        <td>{{ row.round }}</td>
+                        <td>{{ row.display.role_assigned }}</td>
+                        <td><strong>{{ row.display.my_choice }}</strong></td>
+                        <td>{{ row.display.other_choice }}</td>
+                        <td><strong>{{ row.display.payoff }}</strong></td>
+                        <td><code>{{ row.db.role_assigned }}</code></td>
+                        <td><code>{{ row.db.choice_first_mover }}</code></td>
+                        <td><code>{{ row.db.choice_second_mover }}</code></td>
+                        <td><code>{{ row.db.payoff }}</code></td>
+                        <td><code>{{ row.db.opponent_pos }}</code></td>
+                        <td><code>{{ row.db.opponent_role_assigned }}</code></td>
+                        <td><code>{{ row.db.opponent_choice_first_mover }}</code></td>
+                        <td><code>{{ row.db.opponent_choice_second_mover }}</code></td>
+                        <td><code>{{ row.db.opponent_payoff }}</code></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <p class="small text-muted mb-0">
+            oTree round = part round + offset (see <code>db.otree_round</code> in export).
+            c1/c2 = <code>choice_first_mover</code> / <code>choice_second_mover</code>.
+        </p>
+    </div>
+{% endif %}
+
+{% if is_defined('view.debug_tables') %}
+  {% for table in view.debug_tables %}
+      <div class="card-body">
+          <h6 class="card-title">{{ table.title }}</h6>
+          <div class="scrollable">
+              <table class="table table-hover table-debug">
+                  {% for k, v in table.rows %}
+                      {% if k != 'tg_results_debug' %}
+                      <tr>
+                          <td class="debug-var-name">{{ k }}</td>
+                          <td class="debug-var-value">
+                              <code>{{ v }}</code>
+                          </td>
+                      </tr>
+                      {% endif %}
+                  {% endfor %}
+              </table>
+          </div>
+      </div>
+  {% endfor %}
+{% endif %}
+</div>

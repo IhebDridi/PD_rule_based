@@ -85,7 +85,7 @@ def build_tg_results_cache_for_part(
                 "round": round_in_part + 1,
                 "my_choice": row.get("my_choice"),
                 "other_choice": row.get("other_choice"),
-                "payoff": row.get("payoff") if row.get("payoff") is not None else 0,
+                "payoff": row.get("payoff"),
                 "role_assigned": row.get("role_assigned"),
             }
             if current_part == 3:

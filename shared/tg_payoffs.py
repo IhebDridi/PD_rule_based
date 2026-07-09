@@ -128,7 +128,6 @@ def run_payoffs_for_matching_group_tg(
     if subsession.session.vars.get(run_key):
         return True
 
-    allow_incomplete = current_part == 3 and rnd == 30
     key = f"matching_group_members_part_{current_part}_{matching_group_id}"
     member_ids = subsession.session.vars.get(key)
     if not member_ids or not isinstance(member_ids, (list, tuple)) or len(member_ids) < 3:
@@ -151,7 +150,7 @@ def run_payoffs_for_matching_group_tg(
                     return False
         return True
 
-    if not _all_ready() and not allow_incomplete:
+    if not _all_ready():
         return False
 
     N = len(member_ids)
@@ -196,29 +195,74 @@ def _opponent_effective_choice(opponent, opp_role: Optional[str]) -> Optional[st
     return opponent.field_maybe_none("choice_second_mover")
 
 
+def _tg_opponent_display_choice(player, opponent) -> Optional[str]:
+    """
+    Opponent's contingent choice in the role the player did not play this round.
+
+    Uses the player's assigned role (not the opponent's), so display stays correct even
+    if opponent.role_assigned is missing or inconsistent on the opponent row.
+    """
+    my_role = player.field_maybe_none("role_assigned")
+    if opponent is None or my_role not in ("first", "second"):
+        return None
+    if my_role == "first":
+        return opponent.field_maybe_none("choice_second_mover")
+    return opponent.field_maybe_none("choice_first_mover")
+
+
+def _tg_game_moves(player, opponent) -> Tuple[Optional[str], Optional[str]]:
+    """Return (1st-mover move, 2nd-mover move) actually played in the pair this round."""
+    my_role = player.field_maybe_none("role_assigned")
+    if my_role == "first":
+        first_move = player.field_maybe_none("choice_first_mover")
+        second_move = (
+            opponent.field_maybe_none("choice_second_mover") if opponent else None
+        )
+    elif my_role == "second":
+        first_move = (
+            opponent.field_maybe_none("choice_first_mover") if opponent else None
+        )
+        second_move = player.field_maybe_none("choice_second_mover")
+    else:
+        return None, None
+    return first_move, second_move
+
+
+def _tg_payoff_from_db(player) -> Optional[int]:
+    if player.payoff is None:
+        return None
+    raw = getattr(player.payoff, "amount", player.payoff)
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def tg_results_row(player, opponent, *, role: Optional[str] = None) -> dict:
-    """Build one Results-table row for TG (role assigned at payoff, then effective choices)."""
+    """Build one Results-table row for TG (role, choices, payoff — always mutually consistent)."""
     assigned = role or player.field_maybe_none("role_assigned")
     role_label = ""
     if assigned == "first":
         role_label = "1st mover"
-        my_choice = player.field_maybe_none("choice_first_mover")
     elif assigned == "second":
         role_label = "2nd mover"
-        my_choice = player.field_maybe_none("choice_second_mover")
+
+    first_move, second_move = _tg_game_moves(player, opponent)
+    if assigned == "first":
+        my_choice = first_move
+    elif assigned == "second":
+        my_choice = second_move
     else:
         my_choice = None
 
-    opp_role = opponent.field_maybe_none("role_assigned") if opponent else None
-    other_choice = _opponent_effective_choice(opponent, opp_role)
+    other_choice = _tg_opponent_display_choice(player, opponent)
 
     payoff_val = None
-    if player.payoff is not None:
-        raw = getattr(player.payoff, "amount", player.payoff)
-        try:
-            payoff_val = int(raw)
-        except (TypeError, ValueError):
-            payoff_val = None
+    if first_move in ("A", "B") and second_move in ("A", "B"):
+        pay_first, pay_second = compute_tg_payoffs(first_move, second_move)
+        payoff_val = pay_first if assigned == "first" else pay_second
+    else:
+        payoff_val = _tg_payoff_from_db(player)
 
     return {
         "role_assigned": role_label,

@@ -2,6 +2,7 @@ from otree.api import *
 
 from shared.tg_payoffs import tg_results_row
 from shared.tg_results_debug import build_tg_results_debug
+from shared.tg_results_diagrams import build_tg_round_diagrams
 
 from .model_bridge import app_models, is_tg_app
 
@@ -191,10 +192,20 @@ class Results(Page):
             row["round"] = r - (current_part - 1) * Constants.rounds_per_part
             rounds_data.append(row)
 
+        diagrams = build_tg_round_diagrams(
+            player,
+            part_start,
+            part_end,
+            current_part,
+            get_opponent_in_round,
+            rounds_per_part=Constants.rounds_per_part,
+        )
         out = dict(
             current_part=current_part,
             display_part=current_part,
             rounds_data=rounds_data,
+            group_overview=diagrams["overview"],
+            round_diagrams=diagrams["rounds"],
         )
         tg_debug = build_tg_results_debug(
             player,

@@ -204,6 +204,64 @@ class TgDataFlowTests(unittest.TestCase):
         self.assertEqual(d["rounds"][0]["display"]["payoff"], 100)
         self.assertEqual(d["rounds"][0]["db"]["payoff"], 100)
 
+    def test_tg_results_debug_mismatch_shows_screen_vs_db_choice(self):
+        from unittest.mock import patch
+
+        from shared.tg_results_debug import build_tg_results_debug
+
+        class P:
+            def __init__(self, **f):
+                self._f = f
+                self.payoff = f.get("payoff")
+                self.participant = SimpleNamespace(
+                    id_in_session=1, vars={"matching_group_position": 1}
+                )
+
+            def field_maybe_none(self, k):
+                return self._f.get(k)
+
+        player = SimpleNamespace()
+
+        def in_round(r):
+            return P(
+                role_assigned="first",
+                choice_first_mover="A",
+                choice_second_mover="B",
+                payoff=30,
+            )
+
+        player.in_round = in_round
+        opp = P(
+            role_assigned="second",
+            choice_first_mover="B",
+            choice_second_mover="A",
+            payoff=30,
+        )
+        opp.participant.vars["matching_group_position"] = 2
+
+        with patch("shared.tg_results_debug._otree_debug_mode", return_value=True):
+            with patch(
+                "shared.tg_results_debug.tg_results_row",
+                return_value={
+                    "role_assigned": "1st mover",
+                    "my_choice": "B",
+                    "other_choice": "A",
+                    "payoff": 70,
+                },
+            ):
+                d = build_tg_results_debug(
+                    player, 1, 1, 1, lambda p, r: opp, rounds_per_part=10
+                )
+
+        self.assertFalse(d["summary_vars"]["tg_debug_all_ok"])
+        self.assertIn("my_choice_mismatch", d["rounds"][0]["flags"])
+        self.assertIn("payoff_mismatch", d["rounds"][0]["flags"])
+        self.assertEqual(d["rounds"][0]["mismatch"]["choice_screen"], "B")
+        self.assertEqual(d["rounds"][0]["mismatch"]["choice_db"], "A")
+        self.assertEqual(d["summary_vars"]["tg_debug_R1_choice_screen"], "B")
+        self.assertEqual(d["summary_vars"]["tg_debug_R1_choice_db"], "A")
+        self.assertIn("choice — screen: 'B'", d["summary_vars"]["tg_debug_R1_mismatch_detail"])
+
     def test_results_cache_round_trip(self):
         assignments = [
             [(1, None), (2, None)] * 5,

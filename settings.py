@@ -294,8 +294,17 @@ ROOMS = [
 
 # if 10 points = 0.1 dollars then 1 point = 0.01 dollars
 SESSION_CONFIG_DEFAULTS = dict(
-    real_world_currency_per_point=0.01, participation_fee=6, doc=""
+    real_world_currency_per_point=0.01,
+    participation_fee=6,
+    doc="",
+    # Dev-branch UI theme. Set False (or OTREE_THEME=classic) before merging to main.
+    use_midnight_teal=environ.get("OTREE_THEME", "midnight-teal") == "midnight-teal",
 )
+
+# Mirror of session default (docs / quick toggle). Prefer OTREE_THEME env var.
+#   OTREE_THEME=midnight-teal  → dark teal theme (dev default)
+#   OTREE_THEME=classic        → original Bootstrap / page-inline styles
+USE_MIDNIGHT_TEAL = SESSION_CONFIG_DEFAULTS["use_midnight_teal"]
 
 PARTICIPANT_FIELDS = []
 SESSION_FIELDS = []

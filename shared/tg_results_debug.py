@@ -32,6 +32,51 @@ def _opp_pos(opponent) -> str:
     return str(getattr(opponent.participant, "id_in_session", "") or "")
 
 
+def _db_effective_choice(db: dict) -> Optional[str]:
+    """Contingent choice in DB that applies to the stored role for this round."""
+    role = db.get("role_assigned")
+    if role == "first":
+        return db.get("choice_first_mover")
+    if role == "second":
+        return db.get("choice_second_mover")
+    return None
+
+
+def _build_mismatch_detail(display: dict, db: dict, flags: List[str]) -> Optional[dict]:
+    """Side-by-side screen vs DB values when this round has integrity flags."""
+    if not flags:
+        return None
+
+    screen_choice = display.get("my_choice")
+    db_choice = _db_effective_choice(db)
+    screen_payoff = display.get("payoff")
+    db_payoff = db.get("payoff")
+
+    messages: List[str] = []
+    if "my_choice_mismatch" in flags:
+        messages.append(
+            f"choice — screen: {screen_choice!r}, DB (role={db.get('role_assigned')!r}): {db_choice!r}"
+        )
+    if "my_choice_without_role" in flags:
+        messages.append(
+            f"choice — screen: {screen_choice!r}, DB: no role (c1={db.get('choice_first_mover')!r}, "
+            f"c2={db.get('choice_second_mover')!r})"
+        )
+    if "payoff_mismatch" in flags:
+        messages.append(f"payoff — screen: {screen_payoff!r}, DB: {db_payoff!r}")
+
+    return {
+        "choice_screen": screen_choice,
+        "choice_db": db_choice,
+        "choice_db_first": db.get("choice_first_mover"),
+        "choice_db_second": db.get("choice_second_mover"),
+        "payoff_screen": screen_payoff,
+        "payoff_db": db_payoff,
+        "messages": messages,
+        "summary": " | ".join(messages),
+    }
+
+
 def build_tg_results_debug(
     player,
     part_start: int,
@@ -86,6 +131,7 @@ def build_tg_results_debug(
             flags.append("my_choice_without_role")
 
         flags_str = ", ".join(flags) if flags else "ok"
+        mismatch = _build_mismatch_detail(display, db, flags)
 
         rows.append(
             {
@@ -97,7 +143,10 @@ def build_tg_results_debug(
                     "payoff": display.get("payoff"),
                 },
                 "db": db,
+                "db_effective_choice": _db_effective_choice(db),
                 "warn": bool(flags),
+                "flags": flags,
+                "mismatch": mismatch,
             }
         )
         flags_by_round[display_round] = flags_str
@@ -110,6 +159,15 @@ def build_tg_results_debug(
     }
     for rnd, flag in flags_by_round.items():
         summary_vars[f"tg_debug_R{rnd}_flag"] = flag
+        row = next((x for x in rows if x["round"] == rnd), None)
+        if row and row.get("mismatch"):
+            m = row["mismatch"]
+            summary_vars[f"tg_debug_R{rnd}_choice_screen"] = m.get("choice_screen")
+            summary_vars[f"tg_debug_R{rnd}_choice_db"] = m.get("choice_db")
+            if m.get("payoff_screen") != m.get("payoff_db"):
+                summary_vars[f"tg_debug_R{rnd}_payoff_screen"] = m.get("payoff_screen")
+                summary_vars[f"tg_debug_R{rnd}_payoff_db"] = m.get("payoff_db")
+            summary_vars[f"tg_debug_R{rnd}_mismatch_detail"] = m.get("summary")
 
     return {
         "part": current_part,

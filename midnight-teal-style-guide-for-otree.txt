@@ -1,0 +1,451 @@
+Midnight Teal UI — style guide for oTree (and similar server-rendered apps)
+=============================================================================
+
+Purpose
+-------
+Apply the same visual design used in Kokoro Reader (local FastAPI + React app)
+to an oTree experiment. The look is: dark, calm, glassy panels, teal accent,
+subtle indigo glow, rounded corners, minimal chrome.
+
+Source reference: kokoro-reader/frontend/src/index.css and index.html
+
+Do NOT copy React component structure — only colors, typography, spacing,
+and component styling. Adapt to oTree templates + custom CSS.
+
+
+Design name & vibe
+------------------
+- Name: Midnight Teal (informal)
+- Mood: focused, modern, low-glare, “local tool” not “corporate dashboard”
+- Avoid: bright white backgrounds, Bootstrap default blue, heavy shadows,
+  sharp 4px corners, dense all-caps labels everywhere
+
+
+Color tokens (CSS custom properties)
+------------------------------------
+Put these on :root and use variables everywhere — never hard-code hex in
+component rules except in the token block.
+
+  --bg-deep:        #0a0e17;                         /* page background */
+  --bg-panel:       rgba(18, 24, 38, 0.72);          /* sidebar / cards */
+  --bg-elevated:    rgba(28, 36, 56, 0.85);        /* inputs, progress */
+  --border:         rgba(255, 255, 255, 0.08);
+  --text:           #e8edf5;
+  --text-muted:     #8b95a8;
+  --accent:         #5eead4;                         /* teal — primary accent */
+  --accent-dim:     rgba(94, 234, 212, 0.15);
+  --accent-glow:    rgba(94, 234, 212, 0.35);
+  --danger:         #f87171;
+  --warning:        #fbbf24;
+  --success:        #34d399;
+  --radius:         16px;
+  --secondary-glow: #6366f1;                           /* indigo — gradient partner */
+
+Secondary accent: indigo (#6366f1) pairs with teal in gradients only
+(logos, primary buttons, progress bars). Do not use indigo as the main
+interactive color.
+
+
+Typography
+----------
+Load from Google Fonts (same as Kokoro):
+
+  DM Sans       — UI, labels, buttons, body in forms (400–700)
+  Literata      — headings, long reading text, page titles (400–600)
+  JetBrains Mono — percentages, codes, technical hints (400–500)
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet" />
+
+Usage:
+  - font-family: "DM Sans", system-ui, sans-serif  → default body
+  - font-family: "Literata", Georgia, serif         → h1/h2, instructions prose
+  - font-family: "JetBrains Mono", monospace        → timers, step counts, codes
+
+Scale (approximate):
+  - Page title (h2): 1.65rem, Literata, weight 500, letter-spacing -0.02em
+  - Eyebrow / section label: 0.65–0.68rem, uppercase, letter-spacing 0.08em, muted
+  - Body: 0.85–1.08rem, line-height 1.55–1.75 for instructions
+  - Small meta / hints: 0.72–0.8rem, --text-muted
+  - Button text: 0.85rem, weight 600
+
+
+Page background
+---------------
+Solid base + fixed pseudo-element gradients (no image assets):
+
+  body {
+    background: var(--bg-deep);
+    color: var(--text);
+    font-family: var(--font);
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 80% 60% at 15% 5%, rgba(94, 234, 212, 0.08), transparent),
+      radial-gradient(ellipse 55% 45% at 90% 85%, rgba(99, 102, 241, 0.06), transparent),
+      var(--bg-deep);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .otree-body, main, .container { position: relative; z-index: 1; }
+
+
+Layout patterns
+---------------
+- Max content width for instructions: ~720–1100px; center long text.
+- Sidebar-style panels: --bg-panel + backdrop-filter: blur(12px) + border-right 1px var(--border)
+- Main content padding: 1.5rem 2rem (desktop), 1rem (mobile)
+- Section headers: flex row, title left, controls/status right, bottom border var(--border)
+- Grid forms: repeat(auto-fit, minmax(140px, 1fr)) for parameter rows
+- Gap rhythm: 0.35rem tight, 0.75rem within sections, 1.25rem between sections
+
+
+Core components (class names to reuse or map in oTree)
+-------------------------------------------------------
+
+1) Primary button (.primary-btn)
+   - padding: 0.7rem 1.2rem
+   - border-radius: 12px
+   - border: none
+   - background: linear-gradient(135deg, var(--accent), #6366f1)
+   - color: #0a0e17 (dark text on bright gradient)
+   - font-weight: 600
+   - hover: transform translateY(-1px)
+   - disabled: opacity 0.4
+   - Map to oTree: style the main "Next" / submit button; override Bootstrap .btn-primary
+
+2) Ghost / secondary button (.ghost-btn)
+   - background: none
+   - border: 1px solid var(--border)
+   - color: var(--text-muted)
+   - border-radius: 8px
+   - padding: 0.3rem 0.55rem (small) or scale up for larger actions
+   - hover: border-color var(--accent); color var(--accent)
+   - Map to oTree: secondary actions, "Back" if you restyle it
+
+3) Status pill (.pill, .pill.ok, .pill.warn, .pill.err)
+   - inline-flex, gap 0.35rem
+   - padding 0.3rem 0.65rem, border-radius 999px
+   - background var(--bg-elevated), border 1px var(--border)
+   - font-size 0.7rem, weight 500, muted text
+   - .dot child: 7×7px circle; .ok → success + glow; .warn → warning; .err → danger
+   - Use for: connection status, phase labels, timer state
+
+4) Tab switcher (.app-tab, .app-tab.active)
+   - border 1px var(--border), transparent bg, muted text
+   - border-radius 10px, padding ~0.45rem 0.6rem
+   - active: color accent, border accent-ish, background accent-dim
+   - hover: lighter text, accent border tint
+   - Use if experiment has multiple views/modes
+
+5) Form controls (.control, .control-block)
+   - Label: 0.68rem, muted, above field
+   - select / input / textarea:
+       background rgba(8, 12, 20, 0.55) or var(--bg-elevated)
+       border 1px var(--border)
+       border-radius 10px (textarea/select) or 8px (number)
+       color var(--text)
+       focus: border-color var(--accent) only — no thick outline ring
+   - range inputs: accent-color var(--accent)
+   - checkboxes: accent-color var(--accent)
+
+6) Error banner (.error-banner)
+   - background rgba(248, 113, 113, 0.12)
+   - border rgba(248, 113, 113, 0.3)
+   - color var(--danger)
+   - border-radius var(--radius)
+   - Use for validation messages, oTree form errors
+
+7) Progress block (.synth-progress) — IMPORTANT for long waits
+   - Panel: elevated bg, border, radius 16px, padding 0.85rem 1rem
+   - Meta row: message left, percent right (.synth-percent, mono, accent)
+   - Track: 4px height, pill shape, rgba(255,255,255,0.06) bg
+   - Fill: gradient accent→indigo, glow shadow, width animated 0.25s
+   - Show descriptive messages ("Loading checkpoint…", "Step 2/4") not just "Loading…"
+
+8) Empty state (.empty-state)
+   - centered column, muted, max-width ~420px
+   - optional large muted accent icon
+   - h2 in normal text color, weight 500
+
+9) Section label (.section-label, .eyebrow)
+   - uppercase tiny labels above grouped content
+   - eyebrow sits above page title in header
+
+
+Motion
+------
+Keep subtle — no bouncy easing.
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+Apply fadeUp 0.3–0.35s to: error banners, progress panels, new content blocks.
+
+Hover transitions: 0.15s color/border/background; buttons 0.2s opacity.
+
+Progress indeterminate (if percent unknown): bar width 40%, slide animation 1.2s.
+
+
+Scrollbars (WebKit)
+-------------------
+  width: 6px
+  thumb: var(--border), border-radius 3px
+
+
+Responsive
+----------
+@media (max-width: 980px):
+  - stack sidebar above main
+  - reader/experiment header: column, align stretch
+  - reduce padding to 1rem
+
+
+oTree integration checklist
+---------------------------
+1. Add custom CSS file under _static/ (e.g. _static/midnight-teal.css).
+
+2. In templates, extend global layout or each Page template:
+     {% block styles %}
+       <link rel="stylesheet" href="{% static 'midnight-teal.css' %}">
+     {% endblock %}
+
+3. Override Bootstrap defaults aggressively — oTree ships Bootstrap:
+   - Set .container / .card backgrounds transparent or to --bg-panel
+   - Replace .btn-primary with gradient primary-btn rules
+   - Form controls: dark bg, light text, subtle borders
+   - .alert-danger → error-banner styling
+   - Hide or restyle default navbar if it clashes (dark navbar or minimal header)
+
+4. Wrap page content in a structure like:
+     <div class="experiment-shell">
+       <header class="reader-header">…</header>
+       <div class="reader-scroll">… instructions + form …</div>
+     </div>
+
+5. Instructions text: wrap in Literata, line-height 1.75, max-width 720px.
+
+6. Timers / round numbers: JetBrains Mono, accent color.
+
+7. Do not depend on React — pure CSS + minimal HTML class hooks.
+
+8. Test contrast: primary button uses dark text (#0a0e17) on teal gradient;
+   body text #e8edf5 on #0a0e17 passes for normal sizes.
+
+
+Starter CSS (paste into _static/midnight-teal.css)
+---------------------------------------------------
+/* --- tokens --- */
+:root {
+  --bg-deep: #0a0e17;
+  --bg-panel: rgba(18, 24, 38, 0.72);
+  --bg-elevated: rgba(28, 36, 56, 0.85);
+  --border: rgba(255, 255, 255, 0.08);
+  --text: #e8edf5;
+  --text-muted: #8b95a8;
+  --accent: #5eead4;
+  --accent-dim: rgba(94, 234, 212, 0.15);
+  --accent-glow: rgba(94, 234, 212, 0.35);
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --success: #34d399;
+  --radius: 16px;
+  --font: "DM Sans", system-ui, sans-serif;
+  --mono: "JetBrains Mono", monospace;
+  --serif: "Literata", Georgia, serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg-deep);
+  color: var(--text);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 5%, rgba(94, 234, 212, 0.08), transparent),
+    radial-gradient(ellipse 55% 45% at 90% 85%, rgba(99, 102, 241, 0.06), transparent),
+    var(--bg-deep);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.otree-body, .container { position: relative; z-index: 1; }
+
+/* Bootstrap overrides */
+.container, .card, .panel {
+  background: transparent;
+  border: none;
+  color: var(--text);
+}
+
+.card, .panel-body {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  backdrop-filter: blur(12px);
+}
+
+.form-control, select, textarea, input[type="text"], input[type="number"] {
+  background: rgba(8, 12, 20, 0.55) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  border-radius: 10px !important;
+}
+
+.form-control:focus {
+  border-color: var(--accent) !important;
+  box-shadow: none !important;
+}
+
+.btn-primary, button[type="submit"].btn-primary {
+  padding: 0.7rem 1.2rem;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(135deg, var(--accent), #6366f1) !important;
+  color: #0a0e17 !important;
+  font-weight: 600;
+}
+
+.btn-primary:hover { transform: translateY(-1px); }
+
+.btn-default, .btn-secondary {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 8px;
+}
+
+.btn-default:hover, .btn-secondary:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.alert-danger {
+  background: rgba(248, 113, 113, 0.12);
+  border: 1px solid rgba(248, 113, 113, 0.3);
+  color: var(--danger);
+  border-radius: var(--radius);
+}
+
+/* Kokoro component classes (use in templates) */
+.reader-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.eyebrow {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.reader-header h2, h1.page-title {
+  font-family: var(--serif);
+  font-size: 1.65rem;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.muted { color: var(--text-muted); font-size: 0.8rem; }
+
+.primary-btn { /* same as .btn-primary above */ }
+.ghost-btn { /* same as .btn-default above */ }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.pill .dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-muted);
+}
+.pill.ok .dot { background: var(--success); box-shadow: 0 0 6px var(--success); }
+
+.synth-progress {
+  margin-bottom: 0.85rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+}
+
+.synth-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  margin-bottom: 0.55rem;
+}
+
+.synth-percent {
+  font-family: var(--mono);
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.synth-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.synth-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), #6366f1);
+  box-shadow: 0 0 12px var(--accent-glow);
+  transition: width 0.25s ease;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+
+What NOT to do
+--------------
+- Do not use light gray Bootstrap page background (#f8f9fa).
+- Do not use pure white cards or black text on white.
+- Do not add emoji icons unless the experiment explicitly needs them.
+- Do not over-bold everything — hierarchy comes from size, serif vs sans, muted labels.
+- Do not skip descriptive progress text for multi-second waits.
+
+
+Agent task summary (one paragraph)
+----------------------------------
+Restyle the oTree experiment to Midnight Teal: dark navy base with teal/indigo
+gradients, DM Sans + Literata + JetBrains Mono, glassy panels, rounded inputs,
+gradient primary buttons with dark label text, ghost secondary buttons, status
+pills with dot indicators, and descriptive progress bars. Override Bootstrap
+via _static/midnight-teal.css. Keep oTree logic unchanged; only templates/CSS.

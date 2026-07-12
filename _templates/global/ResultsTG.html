@@ -36,6 +36,82 @@
         Note that, even though the 2nd mover decision does not count if the 1st mover chose B, we still show it for transparency.
     </p>
 
+    {% if round_diagrams %}
+    <section class="round-diagrams-section">
+        <h2 class="diagrams-title">Round-by-round matching diagrams</h2>
+        {% if group_overview %}
+        <p class="diagrams-intro">
+            Your trio this part:
+            {% for lab in group_overview.member_labels %}
+                <span class="trio-pill{% if forloop.counter0 == 0 %}{% endif %}">{{ lab }}</span>{% if not forloop.last %} · {% endif %}
+            {% empty %}
+                (group members unavailable)
+            {% endfor %}
+            {% if group_overview.my_position %}
+            — your position in the trio: <strong>{{ group_overview.my_position }}</strong>
+            {% endif %}
+        </p>
+        {% endif %}
+
+        {% for d in round_diagrams %}
+        <article class="round-diagram">
+            <header class="round-diagram-header">
+                <span class="round-badge">Round {{ d.round }}</span>
+                {% if d.outcome_note %}<span class="outcome-note">{{ d.outcome_note }}</span>{% endif %}
+            </header>
+
+            <div class="match-row">
+                <div class="player-node {% if d.you.is_first %}is-first{% else %}is-second{% endif %} you-node">
+                    <div class="node-label">{{ d.you.label }}</div>
+                    <div class="node-role">{{ d.you.role }}</div>
+                    <div class="node-choice">Choice: <strong>{{ d.you.choice }}</strong></div>
+                    <div class="node-payoff">Earns: <strong>{{ d.you.payoff }}</strong></div>
+                </div>
+
+                <div class="match-arrow" aria-hidden="true">
+                    <div class="arrow-line"></div>
+                    <div class="arrow-caption">matched</div>
+                </div>
+
+                <div class="player-node {% if d.opponent.is_first %}is-first{% else %}is-second{% endif %} opp-node">
+                    <div class="node-label">{{ d.opponent.label }}</div>
+                    <div class="node-role">{{ d.opponent.role }}</div>
+                    <div class="node-choice">Choice: <strong>{{ d.opponent.choice }}</strong></div>
+                    <div class="node-payoff">Earns: <strong>{{ d.opponent.payoff }}</strong></div>
+                </div>
+            </div>
+
+            {% if d.third %}
+            <div class="third-row">
+                {% for t in d.third %}
+                <div class="player-node third-node">
+                    <div class="node-label">{{ t.label }}</div>
+                    <div class="node-role">{{ t.role }}</div>
+                    <div class="node-choice">vs {{ t.opponent_label }} · Choice: <strong>{{ t.choice }}</strong></div>
+                    <div class="node-payoff">Earns: <strong>{{ t.payoff }}</strong></div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <details class="member-details">
+                <summary>All trio members this round</summary>
+                <ul>
+                    {% for m in d.members %}
+                    <li>
+                        <strong>{{ m.label }}</strong>
+                        — {{ m.role }}, vs {{ m.opponent_label }},
+                        choice {{ m.my_choice }}, earns {{ m.payoff }}
+                        (contingent: 1st={{ m.choice_first }}, 2nd={{ m.choice_second }})
+                    </li>
+                    {% endfor %}
+                </ul>
+            </details>
+        </article>
+        {% endfor %}
+    </section>
+    {% endif %}
+
     <form method="post" class="form-container">
         <button type="submit" class="modern-btn">Continue</button>
     </form>
@@ -71,6 +147,138 @@
     .modern-btn {
         display: block; width: 100%; max-width: 200px; margin: 20px auto; padding: 12px 20px;
         font-size: 18px; color: #fff; background-color: #0056b3; border: none; border-radius: 6px; cursor: pointer;
+    }
+
+    .round-diagrams-section {
+        margin: 2rem 0 1rem;
+        padding-top: 1.25rem;
+        border-top: 2px solid #c1c1c1;
+    }
+    .diagrams-title {
+        font-size: 22px;
+        text-align: center;
+        margin-bottom: 0.75rem;
+    }
+    .diagrams-intro {
+        font-size: 15px;
+        line-height: 1.5;
+        margin-bottom: 1.25rem;
+        text-align: center;
+    }
+    .trio-pill {
+        font-weight: 600;
+    }
+    .round-diagram {
+        border: 1px solid #c1c1c1;
+        border-radius: 8px;
+        padding: 1rem 1.1rem;
+        margin-bottom: 1rem;
+        background: #fafafa;
+    }
+    .round-diagram-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 0.75rem;
+        margin-bottom: 0.85rem;
+    }
+    .round-badge {
+        display: inline-block;
+        font-weight: 700;
+        font-size: 0.95rem;
+        padding: 0.25rem 0.65rem;
+        border-radius: 999px;
+        background: #0056b3;
+        color: #fff;
+    }
+    .outcome-note {
+        font-size: 0.9rem;
+        color: #555;
+    }
+    .match-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: stretch;
+        justify-content: center;
+        gap: 0.75rem;
+    }
+    .player-node {
+        flex: 1 1 180px;
+        max-width: 260px;
+        border: 2px solid #888;
+        border-radius: 10px;
+        padding: 0.75rem;
+        background: #fff;
+        text-align: center;
+    }
+    .player-node.is-first { border-color: #0056b3; }
+    .player-node.is-second { border-color: #2e7d32; }
+    .you-node { box-shadow: 0 0 0 2px rgba(0, 86, 179, 0.2); }
+    .node-label { font-weight: 700; margin-bottom: 0.35rem; }
+    .node-role { font-size: 0.85rem; margin-bottom: 0.35rem; color: #444; }
+    .node-choice, .node-payoff { font-size: 0.9rem; line-height: 1.4; }
+    .match-arrow {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-width: 64px;
+    }
+    .arrow-line {
+        width: 48px;
+        height: 3px;
+        background: #0056b3;
+        position: relative;
+    }
+    .arrow-line::after {
+        content: "";
+        position: absolute;
+        right: -2px;
+        top: -5px;
+        border: 6px solid transparent;
+        border-left-color: #0056b3;
+    }
+    .arrow-caption {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #666;
+        margin-top: 0.35rem;
+    }
+    .third-row {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.75rem;
+        margin-top: 0.85rem;
+    }
+    .third-node {
+        border-style: dashed;
+        opacity: 0.95;
+        max-width: 320px;
+    }
+    .member-details {
+        margin-top: 0.75rem;
+        font-size: 0.85rem;
+        color: #444;
+    }
+    .member-details summary {
+        cursor: pointer;
+        font-weight: 600;
+    }
+    .member-details ul {
+        margin: 0.5rem 0 0;
+        padding-left: 1.2rem;
+    }
+    @media (max-width: 640px) {
+        .match-arrow { min-width: 100%; flex-direction: row; gap: 0.5rem; }
+        .arrow-line { width: 3px; height: 28px; }
+        .arrow-line::after {
+            right: -5px; top: auto; bottom: -2px;
+            border: 6px solid transparent;
+            border-top-color: #0056b3;
+            border-left-color: transparent;
+        }
     }
 </style>
 {% endblock %}

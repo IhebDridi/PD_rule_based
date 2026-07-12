@@ -24,7 +24,8 @@
                     <tr>
                         <th>R</th>
                         <th colspan="4" class="text-center" style="background:#e8f4e8;">Display (screen)</th>
-                        <th colspan="8" class="text-center" style="background:#e8eef8;">DB (your row + opponent)</th>
+                        <th colspan="9" class="text-center" style="background:#e8eef8;">DB (your row + opponent)</th>
+                        <th></th>
                     </tr>
                     <tr>
                         <th></th>
@@ -35,12 +36,14 @@
                         <th>role</th>
                         <th>c1</th>
                         <th>c2</th>
+                        <th>db↔scr</th>
                         <th>pay</th>
                         <th>opp#</th>
                         <th>o.role</th>
                         <th>o.c1</th>
                         <th>o.c2</th>
                         <th>o.pay</th>
+                        <th>mismatch</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -54,12 +57,22 @@
                         <td><code>{{ row.db.role_assigned }}</code></td>
                         <td><code>{{ row.db.choice_first_mover }}</code></td>
                         <td><code>{{ row.db.choice_second_mover }}</code></td>
+                        <td><code>{{ row.db_effective_choice }}</code></td>
                         <td><code>{{ row.db.payoff }}</code></td>
                         <td><code>{{ row.db.opponent_pos }}</code></td>
                         <td><code>{{ row.db.opponent_role_assigned }}</code></td>
                         <td><code>{{ row.db.opponent_choice_first_mover }}</code></td>
                         <td><code>{{ row.db.opponent_choice_second_mover }}</code></td>
                         <td><code>{{ row.db.opponent_payoff }}</code></td>
+                        <td class="small">
+                            {% if row.mismatch %}
+                                {% for msg in row.mismatch.messages %}
+                                    <div><strong>{{ msg }}</strong></div>
+                                {% endfor %}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -68,6 +81,9 @@
         <p class="small text-muted mb-0">
             oTree round = part round + offset (see <code>db.otree_round</code> in export).
             c1/c2 = <code>choice_first_mover</code> / <code>choice_second_mover</code>.
+            db↔scr = DB effective choice for your assigned role (compare to screen &ldquo;you&rdquo;).
+            On mismatch, see the last column and <code>tg_debug_R{n}_choice_screen</code> /
+            <code>tg_debug_R{n}_choice_db</code> / <code>tg_debug_R{n}_mismatch_detail</code> below.
         </p>
     </div>
 {% endif %}

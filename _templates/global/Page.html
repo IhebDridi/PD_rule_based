@@ -5,7 +5,14 @@
 {% endblock %}
 
 {% block global_styles %}
-    <!-- Add any global styles here -->
+    {% if session.config.use_midnight_teal %}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=JetBrains+Mono:wght@400;500&family=Literata:opsz,wght@7..72,400;7..72,500;7..72,600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{% static 'themes/midnight-teal.css' %}">
+    {% else %}
+    <link rel="stylesheet" href="{% static 'themes/classic.css' %}">
+    {% endif %}
 {% endblock %}
 
 {% block global_scripts %}

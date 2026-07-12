@@ -1,0 +1,226 @@
+/* Midnight Teal — oTree theme (dev-branch). Toggle via OTREE_THEME / session.config.use_midnight_teal */
+
+:root {
+  --bg-deep: #0a0e17;
+  --bg-panel: rgba(18, 24, 38, 0.72);
+  --bg-elevated: rgba(28, 36, 56, 0.85);
+  --border: rgba(255, 255, 255, 0.08);
+  --text: #e8edf5;
+  --text-muted: #8b95a8;
+  --accent: #5eead4;
+  --accent-dim: rgba(94, 234, 212, 0.15);
+  --accent-glow: rgba(94, 234, 212, 0.35);
+  --danger: #f87171;
+  --warning: #fbbf24;
+  --success: #34d399;
+  --radius: 16px;
+  --font: "DM Sans", system-ui, sans-serif;
+  --mono: "JetBrains Mono", monospace;
+  --serif: "Literata", Georgia, serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  font-family: var(--font);
+  background: var(--bg-deep) !important;
+  color: var(--text) !important;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 5%, rgba(94, 234, 212, 0.08), transparent),
+    radial-gradient(ellipse 55% 45% at 90% 85%, rgba(99, 102, 241, 0.06), transparent),
+    var(--bg-deep);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.otree-body,
+.container,
+.page-header,
+.otree-title {
+  position: relative;
+  z-index: 1;
+}
+
+.container,
+.card,
+.panel {
+  background: transparent;
+  border: none;
+  color: var(--text);
+}
+
+.card,
+.panel-body,
+.results-container {
+  background: var(--bg-panel) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius) !important;
+  backdrop-filter: blur(12px);
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+
+h1, h2, h3, h4, .main-title, .page-title {
+  font-family: var(--serif);
+  color: var(--text) !important;
+}
+
+.main-title {
+  border-bottom-color: var(--accent) !important;
+}
+
+.intro-text,
+.transparency-note,
+p, label, li {
+  color: var(--text) !important;
+}
+
+.muted,
+.otree-timer,
+.form-text {
+  color: var(--text-muted) !important;
+}
+
+.form-control,
+select,
+textarea,
+input[type="text"],
+input[type="number"],
+input[type="password"] {
+  background: rgba(8, 12, 20, 0.55) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  border-radius: 10px !important;
+}
+
+.form-control:focus {
+  border-color: var(--accent) !important;
+  box-shadow: none !important;
+}
+
+.btn-primary,
+button[type="submit"].btn-primary,
+.modern-btn,
+button[type="submit"].modern-btn {
+  padding: 0.7rem 1.2rem !important;
+  border-radius: 12px !important;
+  border: none !important;
+  background: linear-gradient(135deg, var(--accent), #6366f1) !important;
+  color: #0a0e17 !important;
+  font-weight: 600 !important;
+}
+
+.btn-primary:hover,
+.modern-btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-default,
+.btn-secondary {
+  background: none !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text-muted) !important;
+  border-radius: 8px !important;
+}
+
+.btn-default:hover,
+.btn-secondary:hover {
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
+}
+
+.alert-danger {
+  background: rgba(248, 113, 113, 0.12) !important;
+  border: 1px solid rgba(248, 113, 113, 0.3) !important;
+  color: var(--danger) !important;
+  border-radius: var(--radius) !important;
+}
+
+.table,
+.styled-table {
+  color: var(--text) !important;
+}
+
+.styled-table thead tr {
+  background-color: rgba(94, 234, 212, 0.2) !important;
+  color: var(--text) !important;
+}
+
+.styled-table th,
+.styled-table td {
+  border-color: var(--border) !important;
+}
+
+.styled-table tbody tr:nth-of-type(even) {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+.navbar,
+.navbar-default,
+.otree-header {
+  background: var(--bg-panel) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+.progress {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+}
+
+.progress-bar {
+  background: linear-gradient(90deg, var(--accent), #6366f1) !important;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 500;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.eyebrow {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Results round diagrams */
+.round-diagram {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border) !important;
+}
+.round-badge {
+  background: linear-gradient(135deg, var(--accent), #6366f1) !important;
+  color: #0a0e17 !important;
+}
+.player-node {
+  background: rgba(8, 12, 20, 0.55) !important;
+  color: var(--text) !important;
+}
+.player-node.is-first { border-color: var(--accent) !important; }
+.player-node.is-second { border-color: var(--success) !important; }
+.outcome-note, .node-role, .member-details { color: var(--text-muted) !important; }
+.arrow-line { background: var(--accent) !important; }
+.arrow-line::after { border-left-color: var(--accent) !important; }
+.arrow-caption { color: var(--text-muted) !important; }
+.round-diagrams-section { border-top-color: var(--border) !important; }

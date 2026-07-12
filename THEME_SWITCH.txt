@@ -1,0 +1,56 @@
+# Theme switching (dev vs main)
+
+## Files
+
+| Path | Purpose |
+|------|---------|
+| `_static/themes/midnight-teal.css` | Midnight Teal dark UI |
+| `_static/themes/classic.css` | Empty stub (original look) |
+| `templates/global/Page.html` | Loads theme CSS when enabled |
+| `settings.py` → `SESSION_CONFIG_DEFAULTS['use_midnight_teal']` | Master switch |
+
+Style guide (local notes): `midnight-teal-style-guide-for-otree.txt`
+
+## How to turn ON (dev-branch default)
+
+```text
+OTREE_THEME=midnight-teal
+```
+
+Or leave unset — default on this branch is `midnight-teal`.
+
+Restart the oTree server after changing the env var.
+
+## How to turn OFF (for main / production)
+
+Either:
+
+1. Set environment variable before starting oTree:
+
+```text
+OTREE_THEME=classic
+```
+
+2. Or in `settings.py`, change the default:
+
+```python
+use_midnight_teal=environ.get("OTREE_THEME", "classic") == "midnight-teal",
+```
+
+When merging to **main**, prefer default `"classic"` so production stays on the old look without requiring env vars.
+
+## Per-session override
+
+Session configs inherit `use_midnight_teal` from `SESSION_CONFIG_DEFAULTS`. You can override one config:
+
+```python
+dict(
+    name='...',
+    ...,
+    use_midnight_teal=False,
+)
+```
+
+## Note
+
+Many page templates still ship light inline `<style>` blocks. Midnight Teal overrides the common ones (body, cards, tables, primary buttons) with `!important`. Full visual polish may need gradually removing conflicting inline styles from individual templates.

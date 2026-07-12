@@ -51,6 +51,20 @@ dict(
 )
 ```
 
+## Rollback guarantee
+
+All Midnight Teal styling lives in `_static/themes/midnight-teal.css` and loads **only** when
+`session.config.use_midnight_teal` is true (from `OTREE_THEME=midnight-teal` or settings default).
+
+With `OTREE_THEME=classic`:
+- `midnight-teal.css` is **not** loaded
+- `classic.css` is loaded (empty — no overrides)
+- Page templates keep their original inline `<style>` blocks unchanged
+
+No HTML template edits are required to switch themes.
+
 ## Note
 
-Many page templates still ship light inline `<style>` blocks. Midnight Teal overrides the common ones (body, cards, tables, primary buttons) with `!important`. Full visual polish may need gradually removing conflicting inline styles from individual templates.
+Page templates ship light inline `<style>` blocks. Midnight Teal overrides them with
+`!important` rules scoped under `html.otree-theme-midnight-teal` (class added in `Page.html`
+when the theme is active).

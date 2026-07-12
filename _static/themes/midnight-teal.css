@@ -145,6 +145,7 @@ button[type="submit"].modern-btn {
 .table,
 .styled-table {
   color: var(--text) !important;
+  background-color: var(--bg-elevated) !important;
 }
 
 .styled-table thead tr {
@@ -232,6 +233,8 @@ button[type="submit"].modern-btn {
  */
 html.otree-theme-midnight-teal [class$="-container"],
 html.otree-theme-midnight-teal .content-box,
+html.otree-theme-midnight-teal .small-instructions,
+html.otree-theme-midnight-teal .scheme-section,
 html.otree-theme-midnight-teal .decision-block,
 html.otree-theme-midnight-teal .delegation-option,
 html.otree-theme-midnight-teal .countdown-banner,
@@ -242,28 +245,54 @@ html.otree-theme-midnight-teal .header-wrapper,
 html.otree-theme-midnight-teal .round-diagram,
 html.otree-theme-midnight-teal .player-node {
   background: var(--bg-elevated) !important;
-  border-color: var(--border) !important;
+  border: 1px solid var(--border) !important;
   color: var(--text) !important;
   box-shadow: none !important;
+}
+
+html.otree-theme-midnight-teal .styled-table,
+html.otree-theme-midnight-teal table.styled-table {
+  background-color: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+}
+
+html.otree-theme-midnight-teal .styled-table tbody tr {
+  background-color: transparent !important;
 }
 
 html.otree-theme-midnight-teal [class$="-container"] :where(
   p, li, td, th, label, span, div, ol, ul, strong, em, h3, h4, h5, h6
 ):not(.bot-check-hidden):not(.modern-btn):not(.btn):not(.btn-primary):not(.btn-default),
 html.otree-theme-midnight-teal .content-box :where(p, li, td, th, label, span, strong, em, h3, h4, ol, ul),
+html.otree-theme-midnight-teal .small-instructions :where(p, li, td, th, label, span, strong, em, h2, h3, ol, ul),
+html.otree-theme-midnight-teal .scheme-section :where(p, li, label, span, strong),
 html.otree-theme-midnight-teal .decision-block :where(p, li, label, span, strong),
 html.otree-theme-midnight-teal .delegation-option,
 html.otree-theme-midnight-teal .allocation-label,
 html.otree-theme-midnight-teal .intro-text,
-html.otree-theme-midnight-teal .transparency-note {
+html.otree-theme-midnight-teal .transparency-note,
+html.otree-theme-midnight-teal .option,
+html.otree-theme-midnight-teal .option label,
+html.otree-theme-midnight-teal .scheme-label,
+html.otree-theme-midnight-teal .slider-labels,
+html.otree-theme-midnight-teal .question-subtext {
   color: var(--text) !important;
 }
 
 html.otree-theme-midnight-teal .content-section h2,
 html.otree-theme-midnight-teal [class$="-container"] > h2,
 html.otree-theme-midnight-teal .content-box h2,
-html.otree-theme-midnight-teal .content-box h3 {
+html.otree-theme-midnight-teal .content-box h3,
+html.otree-theme-midnight-teal .small-instructions h2,
+html.otree-theme-midnight-teal .small-instructions h3,
+html.otree-theme-midnight-teal .question-label {
   color: var(--accent) !important;
+}
+
+html.otree-theme-midnight-teal .role-note,
+html.otree-theme-midnight-teal .error-message {
+  color: var(--warning) !important;
 }
 
 html.otree-theme-midnight-teal .warning-text {
@@ -280,6 +309,16 @@ html.otree-theme-midnight-teal .alert-banner {
 html.otree-theme-midnight-teal .content-box a,
 html.otree-theme-midnight-teal [class$="-container"] a {
   color: var(--accent) !important;
+}
+
+html.otree-theme-midnight-teal .divider,
+html.otree-theme-midnight-teal hr.divider {
+  border-top-color: var(--border) !important;
+}
+
+html.otree-theme-midnight-teal input[type="radio"],
+html.otree-theme-midnight-teal input[type="checkbox"] {
+  accent-color: var(--accent);
 }
 
 html.otree-theme-midnight-teal .styled-table tbody tr:nth-of-type(even),

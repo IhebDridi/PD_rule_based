@@ -224,3 +224,61 @@ button[type="submit"].modern-btn {
 .arrow-line::after { border-left-color: var(--accent) !important; }
 .arrow-caption { color: var(--text-muted) !important; }
 .round-diagrams-section { border-top-color: var(--border) !important; }
+
+/* Inline page styles often set light box backgrounds; keep dark panels + readable text */
+.content-box,
+.modern-consent-container,
+.modern-test-container,
+.allocation-container,
+.modern-decision-container,
+.instructions-wrapper,
+.instruction-container,
+.modern-instructions-container,
+.results-container,
+.guess-container,
+.delegation-container,
+.questionnaire-container,
+.comprehension-container,
+.failed-test-container {
+  background: var(--bg-elevated) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+
+.content-box p,
+.content-box li,
+.content-box ol,
+.content-box ul,
+.content-box td,
+.content-box th,
+.content-box strong,
+.content-box em,
+.content-box span:not(.bot-check-hidden),
+.modern-consent-container p,
+.modern-consent-container li,
+.modern-consent-container strong,
+.allocation-container p,
+.allocation-container li,
+.modern-decision-container p,
+.modern-decision-container li,
+.instructions-wrapper p,
+.instructions-wrapper li {
+  color: var(--text) !important;
+}
+
+.content-section h2,
+.content-box h2,
+.content-box h3 {
+  color: var(--accent) !important;
+}
+
+.content-box a,
+.modern-consent-container a {
+  color: var(--accent) !important;
+}
+
+.content-box ul,
+.content-box ol {
+  border-color: var(--border);
+}

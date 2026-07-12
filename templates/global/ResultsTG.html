@@ -42,11 +42,11 @@
         {% if group_overview %}
         <p class="diagrams-intro">
             Your trio this part:
-            {% for lab in group_overview.member_labels %}
-                <span class="trio-pill{% if forloop.counter0 == 0 %}{% endif %}">{{ lab }}</span>{% if not forloop.last %} · {% endif %}
-            {% empty %}
+            {% if group_overview.member_labels_text %}
+                {{ group_overview.member_labels_text }}
+            {% else %}
                 (group members unavailable)
-            {% endfor %}
+            {% endif %}
             {% if group_overview.my_position %}
             — your position in the trio: <strong>{{ group_overview.my_position }}</strong>
             {% endif %}

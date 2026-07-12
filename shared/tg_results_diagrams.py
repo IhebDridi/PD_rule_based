@@ -72,12 +72,14 @@ def build_tg_round_diagrams(
 
     my_pos = player.participant.vars.get("matching_group_position")
 
+    member_labels = [_label(i, my_sid) for i in member_ids]
     overview = {
         "matching_group_id": gid,
         "member_ids": member_ids,
         "my_id": my_sid,
         "my_position": my_pos,
-        "member_labels": [_label(i, my_sid) for i in member_ids],
+        "member_labels": member_labels,
+        "member_labels_text": " · ".join(member_labels) if member_labels else "",
     }
 
     rounds: List[Dict[str, Any]] = []

@@ -20,7 +20,8 @@ class ComprehensionTest(Page):
         return self.form_fields
 
     def is_displayed(self):
-        return self.round_number == 1 and not self.player.is_excluded
+        is_excluded = bool(self.player.field_maybe_none("is_excluded"))
+        return self.round_number == 1 and not is_excluded
 
     def vars_for_template(self):
         return {
@@ -69,8 +70,10 @@ class ComprehensionTest(Page):
             return
 
         # incorrect answers
-        self.player.comprehension_attempts += 1
-        attempts_left = 3 - self.player.comprehension_attempts
+        attempts = self.player.field_maybe_none("comprehension_attempts") or 0
+        attempts += 1
+        self.player.comprehension_attempts = attempts
+        attempts_left = 3 - attempts
 
         display_incorrect = [field_to_display.get(q, q) for q in incorrect]
 

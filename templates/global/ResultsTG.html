@@ -77,7 +77,7 @@
 
             {% for s in all_rounds_tree.stages %}
             {# Entry links: from participants into Round 1, or from prior outcome into later rounds #}
-            {% if forloop.first %}
+            {% if s.is_first %}
             <div class="struct-entry-links from-trio" aria-hidden="true">
                 {% for col in s.columns %}
                 <div class="struct-entry-col">

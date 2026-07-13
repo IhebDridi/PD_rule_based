@@ -355,6 +355,11 @@ def build_all_rounds_tree(
             }
         )
 
+    n_stages = len(stages)
+    for i, stage in enumerate(stages):
+        stage["is_first"] = i == 0
+        stage["is_last"] = i == n_stages - 1
+
     return {
         "trio_text": overview.get("member_labels_text", ""),
         "member_labels": member_labels,
@@ -366,7 +371,7 @@ def build_all_rounds_tree(
             overview.get("matching_group_id") is not None
             and overview.get("matching_group_id") >= 0
         ),
-        "round_count": len(stages),
+        "round_count": n_stages,
         "stages": stages,
         "branches": [
             {"round": s["round"], "has_mismatch": s["has_mismatch"], "your_payoff": s["your_payoff"]}

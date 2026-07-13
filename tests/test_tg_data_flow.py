@@ -390,6 +390,8 @@ class TgDataFlowTests(unittest.TestCase):
         tree = build_all_rounds_tree(overview, rounds)
         self.assertEqual(tree["round_count"], 1)
         stage = tree["stages"][0]
+        self.assertTrue(stage["is_first"])
+        self.assertTrue(stage["is_last"])
         self.assertEqual(len(stage["columns"]), 3)
         self.assertEqual(len(stage["contingencies"]), 6)
         selected = [c for c in stage["contingencies"] if c["selected"]]

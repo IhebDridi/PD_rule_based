@@ -64,11 +64,11 @@
         <article class="all-rounds-diagram">
             <h3 class="all-rounds-title">Grouping structure (logic graph)</h3>
             <p class="all-rounds-desc">
-                Players link to Round N 1st/2nd contingencies. Directed matches form groups
-                side-by-side. Only <strong>YOUR official match</strong> feeds your Results / DB line below.
+                Participants link into each round box. Match groups stay inside the round;
+                your official Results line sits <strong>outside</strong> the round and feeds the next round.
             </p>
 
-            {# Persistent trio root — content-sized chips centered #}
+            {# Participants live above all rounds #}
             <div class="struct-trio-row">
                 {% for chip in all_rounds_tree.member_chips %}
                 <div class="struct-player{% if chip.is_you %} is-you{% endif %}">{{ chip.label }}</div>
@@ -76,19 +76,26 @@
             </div>
 
             {% for s in all_rounds_tree.stages %}
+            {# Entry links: from participants into Round 1, or from prior outcome into later rounds #}
+            {% if forloop.first %}
+            <div class="struct-entry-links from-trio" aria-hidden="true">
+                {% for col in s.columns %}
+                <div class="struct-entry-col">
+                    <div class="struct-vline"></div>
+                    <div class="struct-vbranch">
+                        <span></span><span></span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="struct-entry-links from-outcome" aria-hidden="true">
+                <div class="struct-stage-vline"></div>
+            </div>
+            {% endif %}
+
             <div class="struct-round{% if s.has_mismatch %} struct-round--mismatch{% endif %}">
                 <div class="struct-round-label">Round {{ s.round }}</div>
-
-                <div class="struct-vlinks" aria-hidden="true">
-                    {% for col in s.columns %}
-                    <div class="struct-vlink-col">
-                        <div class="struct-vline"></div>
-                        <div class="struct-vbranch">
-                            <span></span><span></span>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
 
                 <div class="struct-contingency-row">
                     {% for col in s.columns %}
@@ -142,19 +149,22 @@
                     {% endfor %}
                 </div>
 
-                {% if s.your_outcome %}
-                <div class="struct-converge" aria-hidden="true">
-                    <span></span><span></span><span></span>
-                </div>
-                <div class="struct-outcome{% if s.your_official_group %} from-official{% endif %}">
-                    {{ s.your_outcome.summary }}
-                </div>
-                {% endif %}
-
                 {% if s.has_mismatch %}
                 <div class="flow-bug">Display ≠ DB{% if s.mismatch_detail %}: {{ s.mismatch_detail }}{% endif %}</div>
                 {% endif %}
             </div>
+
+            {# Official outcome lives OUTSIDE the round box, then links to the next round #}
+            {% if s.your_outcome %}
+            <div class="struct-exit-links" aria-hidden="true">
+                <div class="struct-converge">
+                    <span></span><span></span><span></span>
+                </div>
+            </div>
+            <div class="struct-outcome{% if s.your_official_group %} from-official{% endif %}">
+                {{ s.your_outcome.summary }}
+            </div>
+            {% endif %}
             {% endfor %}
         </article>
         {% endif %}
@@ -364,6 +374,38 @@
         border-color: #0056b3;
         background: #dbeafe;
     }
+
+    .struct-entry-links.from-trio {
+        display: flex;
+        justify-content: center;
+        gap: 0.75rem;
+        height: 32px;
+        width: max-content;
+        max-width: 100%;
+        margin: 0.15rem auto 0;
+    }
+    .struct-entry-col {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 7.5rem;
+        flex: 0 0 auto;
+    }
+    .struct-entry-links.from-outcome,
+    .struct-exit-links {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin: 0.2rem auto 0;
+        width: max-content;
+        max-width: 100%;
+    }
+    .struct-stage-vline {
+        width: 2px;
+        height: 28px;
+        background: #0056b3;
+    }
+
     .struct-round {
         margin-top: 0.85rem;
         padding: 0.85rem 0.65rem 1rem;
@@ -385,22 +427,6 @@
         background: #0056b3;
         color: #fff;
         margin-bottom: 0.5rem;
-    }
-    .struct-vlinks {
-        display: flex;
-        justify-content: center;
-        gap: 0.75rem;
-        height: 28px;
-        width: max-content;
-        max-width: 100%;
-        margin: 0 auto;
-    }
-    .struct-vlink-col {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        width: 7.5rem;
-        flex: 0 0 auto;
     }
     .struct-vline {
         width: 2px;

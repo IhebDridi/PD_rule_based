@@ -328,7 +328,8 @@ html.otree-theme-midnight-teal .struct-outcome {
   border-color: var(--accent) !important;
   color: var(--text) !important;
 }
-html.otree-theme-midnight-teal .struct-converge span {
+html.otree-theme-midnight-teal .struct-converge span,
+html.otree-theme-midnight-teal .struct-stage-vline {
   background: var(--accent) !important;
 }
 html.otree-theme-midnight-teal .struct-group-focal {

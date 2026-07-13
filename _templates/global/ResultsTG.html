@@ -68,19 +68,22 @@
                 your official Results line sits <strong>outside</strong> the round and feeds the next round.
             </p>
 
-            {# Participants live above all rounds #}
-            <div class="struct-trio-row">
+            {# Shared column lanes so P1/P2/P3 align with entry links #}
+            <div class="struct-lanes">
+            <div class="struct-lane-row struct-trio-row">
                 {% for chip in all_rounds_tree.member_chips %}
-                <div class="struct-player{% if chip.is_you %} is-you{% endif %}">{{ chip.label }}</div>
+                <div class="struct-lane">
+                    <div class="struct-player{% if chip.is_you %} is-you{% endif %}">{{ chip.label }}</div>
+                </div>
                 {% endfor %}
             </div>
 
             {% for s in all_rounds_tree.stages %}
             {# Entry links: from participants into Round 1, or from prior outcome into later rounds #}
             {% if s.is_first %}
-            <div class="struct-entry-links from-trio" aria-hidden="true">
+            <div class="struct-lane-row struct-entry-links from-trio" aria-hidden="true">
                 {% for col in s.columns %}
-                <div class="struct-entry-col">
+                <div class="struct-lane">
                     <div class="struct-vline"></div>
                     <div class="struct-vbranch">
                         <span></span><span></span>
@@ -97,8 +100,9 @@
             <div class="struct-round{% if s.has_mismatch %} struct-round--mismatch{% endif %}">
                 <div class="struct-round-label">Round {{ s.round }}</div>
 
-                <div class="struct-contingency-row">
+                <div class="struct-lane-row struct-contingency-row">
                     {% for col in s.columns %}
+                    <div class="struct-lane">
                     <div class="struct-contingency-pair">
                         {% for c in col.contingencies %}
                         <div class="struct-cnode{% if c.selected %} is-selected{% endif %}{% if c.is_you %} is-you{% endif %}">
@@ -108,6 +112,7 @@
                             {% if c.selected %}<div class="struct-cnode-flag">SELECTED by role</div>{% endif %}
                         </div>
                         {% endfor %}
+                    </div>
                     </div>
                     {% endfor %}
                 </div>
@@ -162,10 +167,13 @@
                 </div>
             </div>
             <div class="struct-outcome{% if s.your_official_group %} from-official{% endif %}">
-                {{ s.your_outcome.summary }}
+                <div class="struct-outcome-round">{{ s.your_outcome.round_line }}</div>
+                <div class="struct-outcome-choices">{{ s.your_outcome.choice_line }}</div>
+                <div class="struct-outcome-pay">{{ s.your_outcome.payoff_line }}</div>
             </div>
             {% endif %}
             {% endfor %}
+            </div>
         </article>
         {% endif %}
 
@@ -347,27 +355,41 @@
         margin-left: auto;
         margin-right: auto;
     }
-    .struct-trio-row {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        align-items: stretch;
-        gap: 0.75rem;
-        margin-bottom: 0.25rem;
+    .struct-lanes {
+        --struct-col-w: 9.25rem;
+        --struct-col-gap: 0.75rem;
         width: max-content;
         max-width: 100%;
+        margin: 0 auto 0.25rem;
+    }
+    .struct-lane-row {
+        display: grid;
+        grid-template-columns: repeat(3, var(--struct-col-w));
+        gap: var(--struct-col-gap);
+        justify-items: center;
+        width: max-content;
         margin-left: auto;
         margin-right: auto;
+    }
+    .struct-lane {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .struct-trio-row {
+        margin-bottom: 0;
     }
     .struct-player {
         text-align: center;
         font-weight: 700;
-        padding: 0.55rem 0.9rem;
+        padding: 0.55rem 0.45rem;
         border-radius: 10px;
         border: 2px solid #64748b;
         background: #fff;
         color: #0f172a;
-        width: fit-content;
+        width: 100%;
+        box-sizing: border-box;
         flex: 0 0 auto;
     }
     .struct-player.is-you {
@@ -376,20 +398,24 @@
     }
 
     .struct-entry-links.from-trio {
-        display: flex;
-        justify-content: center;
-        gap: 0.75rem;
         height: 32px;
-        width: max-content;
-        max-width: 100%;
         margin: 0.15rem auto 0;
     }
-    .struct-entry-col {
+    .struct-entry-links.from-trio .struct-lane {
+        height: 100%;
+    }
+    .struct-entry-links.from-trio .struct-vline {
+        width: 2px;
+        flex: 1;
+        background: #0056b3;
+    }
+    .struct-vbranch {
+        width: 72%;
+        max-width: 5.5rem;
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        width: 7.5rem;
-        flex: 0 0 auto;
+        justify-content: space-between;
+        border-top: 2px solid #0056b3;
+        position: relative;
     }
     .struct-entry-links.from-outcome,
     .struct-exit-links {
@@ -407,12 +433,17 @@
     }
 
     .struct-round {
-        margin-top: 0.85rem;
+        margin-top: 0.35rem;
         padding: 0.85rem 0.65rem 1rem;
         border: 1px solid #94a3b8;
         border-radius: 10px;
         background: #fff;
         overflow-x: auto;
+        width: max-content;
+        max-width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+        box-sizing: border-box;
     }
     .struct-round--mismatch {
         border: 2px solid #dc2626;
@@ -446,12 +477,7 @@
         background: #0056b3;
     }
     .struct-contingency-row {
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: center;
-        gap: 0.75rem;
-        width: max-content;
-        max-width: 100%;
+        /* uses .struct-lane-row grid; keep centered */
         margin: 0 auto;
     }
     .struct-contingency-pair {
@@ -459,6 +485,7 @@
         gap: 0.35rem;
         flex: 0 0 auto;
         width: fit-content;
+        justify-content: center;
     }
     .struct-cnode {
         border: 1px solid #94a3b8;
@@ -628,8 +655,19 @@
         font-size: 0.88rem;
         font-weight: 700;
         text-align: center;
-        line-height: 1.4;
+        line-height: 1.45;
         font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    .struct-outcome-round {
+        margin-bottom: 0.25rem;
+    }
+    .struct-outcome-choices {
+        font-weight: 600;
+        margin-bottom: 0.35rem;
+    }
+    .struct-outcome-pay {
+        font-size: 1.05rem;
+        font-weight: 800;
     }
     .struct-outcome.from-official {
         box-shadow: 0 0 0 2px rgba(0, 86, 179, 0.15);

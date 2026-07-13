@@ -334,9 +334,17 @@ def build_all_rounds_tree(
                 "other_role": other_role,
                 "other_choice": other_choice,
                 "payoff": pay,
+                "round_line": f"Round {rn}:",
+                "choice_line": (
+                    f"your choice as {your_role} {{{your_choice}}} + "
+                    f"other choice as {other_role} {{{other_choice}}}"
+                ),
+                "payoff_line": f"{{{pay}}}",
                 "summary": (
-                    f"Round {rn}: your choice as {your_role} {{{your_choice}}} + "
-                    f"other choice as {other_role} {{{other_choice}}} = {{{pay}}}"
+                    f"Round {rn}:\n"
+                    f"your choice as {your_role} {{{your_choice}}} + "
+                    f"other choice as {other_role} {{{other_choice}}}\n"
+                    f"{{{pay}}}"
                 ),
             }
 

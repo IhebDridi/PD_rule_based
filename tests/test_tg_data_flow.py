@@ -417,6 +417,12 @@ class TgDataFlowTests(unittest.TestCase):
         self.assertIn("Round 1:", outcome["summary"])
         self.assertIn("{B}", outcome["summary"])
         self.assertIn("{30}", outcome["summary"])
+        self.assertEqual(outcome["round_line"], "Round 1:")
+        self.assertEqual(
+            outcome["choice_line"],
+            "your choice as 2nd mover {B} + other choice as 1st mover {B}",
+        )
+        self.assertEqual(outcome["payoff_line"], "{30}")
     def test_results_cache_round_trip(self):
         assignments = [
             [(1, None), (2, None)] * 5,

@@ -395,11 +395,26 @@ class TgDataFlowTests(unittest.TestCase):
         selected = [c for c in stage["contingencies"] if c["selected"]]
         self.assertEqual(len(selected), 3)
         self.assertTrue(len(stage["groups"]) >= 1)
-        g = next(x for x in stage["groups"] if x["involves_you"])
+        self.assertEqual(len(stage["groups"]), 3)  # one per directed edge
+        g = next(x for x in stage["groups"] if x["is_your_official_match"])
         self.assertEqual(g["first_choice"], "B")
         self.assertEqual(g["second_choice"], "B")
+        self.assertEqual(g["focal_payoff"], 30)
         you_rec = next(r for r in g["recipients"] if r["is_you"])
         self.assertEqual(you_rec["payoff"], 30)
+        others = [x for x in stage["groups"] if not x["is_your_official_match"]]
+        self.assertEqual(len(others), 2)
+        self.assertTrue(all(x.get("note_other") for x in others))
+        outcome = stage["your_outcome"]
+        self.assertIsNotNone(outcome)
+        self.assertEqual(outcome["your_role"], "2nd mover")
+        self.assertEqual(outcome["your_choice"], "B")
+        self.assertEqual(outcome["other_role"], "1st mover")
+        self.assertEqual(outcome["other_choice"], "B")
+        self.assertEqual(outcome["payoff"], 30)
+        self.assertIn("Round 1:", outcome["summary"])
+        self.assertIn("{B}", outcome["summary"])
+        self.assertIn("{30}", outcome["summary"])
     def test_results_cache_round_trip(self):
         assignments = [
             [(1, None), (2, None)] * 5,

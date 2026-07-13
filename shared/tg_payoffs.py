@@ -117,7 +117,7 @@ def set_payoffs_tg_batch_group(group) -> None:
         if opp is None:
             continue
         pair_seed = hash((group.session.code, rnd, min(p.id, opp.id), max(p.id, opp.id))) & 0xFFFFFFFF
-        apply_tg_payoffs_for_pair(p, opp, rng=random.Random(pair_seed))
+        apply_tg_payoffs_for_pair(p, opp, rng=random.Random(pair_seed), write_both=False)
 
 
 def run_payoffs_for_matching_group_tg(
@@ -189,7 +189,7 @@ def run_payoffs_for_matching_group_tg(
                 (session_code, r, min(p.participant.id_in_session, opp.participant.id_in_session),
                  max(p.participant.id_in_session, opp.participant.id_in_session))
             ) & 0xFFFFFFFF
-            apply_tg_payoffs_for_pair(p, opp, rng=random.Random(pair_seed))
+            apply_tg_payoffs_for_pair(p, opp, rng=random.Random(pair_seed), write_both=False)
 
     write_tg_results_display_cache(
         players_start,
@@ -246,9 +246,10 @@ def _tg_game_moves(player, opponent) -> Tuple[Optional[str], Optional[str]]:
 
 
 def _tg_payoff_from_db(player) -> Optional[int]:
-    if player.payoff is None:
+    payoff = getattr(player, "payoff", None)
+    if payoff is None:
         return None
-    raw = getattr(player.payoff, "amount", player.payoff)
+    raw = getattr(payoff, "amount", payoff)
     try:
         return int(raw)
     except (TypeError, ValueError):
@@ -256,7 +257,12 @@ def _tg_payoff_from_db(player) -> Optional[int]:
 
 
 def tg_results_row(player, opponent, *, role: Optional[str] = None) -> dict:
-    """Build one Results-table row for TG (role, choices, payoff — always mutually consistent)."""
+    """Build one Results-table row for TG.
+
+    Role and choices come from the player's directed match; ``payoff`` prefers the
+    DB value (source of truth) so screen earnings match what was stored when this
+    player was the focal participant on their directed edge.
+    """
     assigned = role or player.field_maybe_none("role_assigned")
     role_label = ""
     if assigned == "first":
@@ -274,12 +280,11 @@ def tg_results_row(player, opponent, *, role: Optional[str] = None) -> dict:
 
     other_choice = _tg_opponent_display_choice(player, opponent)
 
-    payoff_val = None
-    if first_move in ("A", "B") and second_move in ("A", "B"):
+    payoff_val = _tg_payoff_from_db(player)
+    # Display earnings = DB (source of truth). Recompute only if DB payoff is missing.
+    if payoff_val is None and first_move in ("A", "B") and second_move in ("A", "B"):
         pay_first, pay_second = compute_tg_payoffs(first_move, second_move)
         payoff_val = pay_first if assigned == "first" else pay_second
-    else:
-        payoff_val = _tg_payoff_from_db(player)
 
     return {
         "role_assigned": role_label,

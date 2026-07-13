@@ -304,10 +304,35 @@ html.otree-theme-midnight-teal .struct-recipient {
 }
 html.otree-theme-midnight-teal .struct-player.is-you,
 html.otree-theme-midnight-teal .struct-group.involves-you,
+html.otree-theme-midnight-teal .struct-group.official-match,
 html.otree-theme-midnight-teal .struct-recipient.is-you,
 html.otree-theme-midnight-teal .struct-cnode.is-you.is-selected {
   background: rgba(94, 234, 212, 0.14) !important;
   border-color: var(--accent) !important;
+}
+html.otree-theme-midnight-teal .struct-group.other-match {
+  background: rgba(8, 12, 20, 0.55) !important;
+  border-color: var(--border) !important;
+  opacity: 0.9;
+}
+html.otree-theme-midnight-teal .struct-group-badge.official {
+  background: var(--accent) !important;
+  color: #0a0e17 !important;
+}
+html.otree-theme-midnight-teal .struct-group-badge.other {
+  background: rgba(148, 163, 184, 0.25) !important;
+  color: var(--text-muted) !important;
+}
+html.otree-theme-midnight-teal .struct-outcome {
+  background: rgba(94, 234, 212, 0.14) !important;
+  border-color: var(--accent) !important;
+  color: var(--text) !important;
+}
+html.otree-theme-midnight-teal .struct-converge span {
+  background: var(--accent) !important;
+}
+html.otree-theme-midnight-teal .struct-group-focal {
+  color: var(--text) !important;
 }
 html.otree-theme-midnight-teal .struct-cnode.is-selected {
   background: rgba(52, 211, 153, 0.16) !important;

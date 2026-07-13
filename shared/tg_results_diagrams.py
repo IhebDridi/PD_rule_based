@@ -140,8 +140,9 @@ def build_all_rounds_tree(
 
     Per round:
       players → R{n}_1st / R{n}_2nd contingency nodes
-      → selected contingencies link into a match group
-      → calculated result → each player receives their payoff
+      → one group per directed edge (focal → opponent)
+      → YOUR official match is the only group stored on the viewer's DB row
+      → other groups are other players' directed matches (illustration only)
     """
     member_labels = overview.get("member_labels") or []
     stages: List[Dict[str, Any]] = []
@@ -205,8 +206,8 @@ def build_all_rounds_tree(
         by_id = {p["id"]: p for p in players if p.get("id") is not None}
         by_plain = {_plain_label(p["label"]): p for p in players}
 
-        # One group per directed match (focal player → opponent), unique undirected key
-        match_keys = set()
+        # One group per directed edge (focal → opponent). Only the viewer's
+        # directed edge is their official Results/DB match.
         groups: List[Dict[str, Any]] = []
         for m in d.get("members") or []:
             me = by_id.get(m.get("id")) or by_plain.get(_plain_label(m.get("label") or ""))
@@ -216,25 +217,12 @@ def build_all_rounds_tree(
             opp = by_plain.get(opp_plain)
             if opp is None:
                 continue
-            key = tuple(sorted([me["plain"], opp["plain"]]))
-            if key in match_keys:
-                continue
-            match_keys.add(key)
 
-            # Roles from each player's own assigned role in their row
-            first_p = second_p = None
-            if me.get("role_code") == "first" and opp.get("role_code") == "second":
-                first_p, second_p = me, opp
-            elif me.get("role_code") == "second" and opp.get("role_code") == "first":
-                first_p, second_p = opp, me
-            elif me.get("role_code") == "first":
-                # Directed: me is first vs opp; opp may have a different game —
-                # still form group from me's perspective using opp's 2nd contingency
+            if me.get("role_code") == "first":
                 first_p, second_p = me, opp
             elif me.get("role_code") == "second":
                 first_p, second_p = opp, me
-
-            if first_p is None or second_p is None:
+            else:
                 continue
 
             first_choice = next(
@@ -253,19 +241,29 @@ def build_all_rounds_tree(
                 ),
                 None,
             )
-            first_node = f"r{rn}_p{first_p['id']}_1st"
-            second_node = f"r{rn}_p{second_p['id']}_2nd"
 
             pay_first = pay_second = None
             if first_choice in ("A", "B") and second_choice in ("A", "B"):
                 pay_first, pay_second = compute_tg_payoffs(first_choice, second_choice)
 
-            involves_you = bool(me.get("is_you") or opp.get("is_you"))
+            # Official earnings for the focal player: prefer their stored DB payoff
+            # when this is your match; otherwise illustrate with recomputed payoffs.
+            if me.get("is_you") and me.get("payoff") is not None:
+                focal_pay = me.get("payoff")
+            elif me.get("role_code") == "first":
+                focal_pay = pay_first if pay_first is not None else me.get("payoff")
+            else:
+                focal_pay = pay_second if pay_second is not None else me.get("payoff")
+
             groups.append(
                 {
-                    "id": f"r{rn}_group_{first_p['plain']}_{second_p['plain']}",
-                    "first_node": first_node,
-                    "second_node": second_node,
+                    "id": f"r{rn}_focal_{me['plain']}_vs_{opp['plain']}",
+                    "focal_label": me["label"],
+                    "focal_plain": me["plain"],
+                    "focal_is_you": me["is_you"],
+                    "is_your_official_match": me["is_you"],
+                    "involves_you": me["is_you"],
+                    "opponent_label": opp["label"],
                     "first_label": first_p["label"],
                     "second_label": second_p["label"],
                     "first_choice": first_choice,
@@ -274,35 +272,73 @@ def build_all_rounds_tree(
                     "second_plain": second_p["plain"],
                     "pay_first": pay_first,
                     "pay_second": pay_second,
-                    "involves_you": involves_you,
+                    "focal_payoff": focal_pay,
                     "link_caption": (
                         f"{first_p['plain']}·R{rn}_1st({first_choice}) + "
                         f"{second_p['plain']}·R{rn}_2nd({second_choice})"
                     ),
                     "recipients": [
                         {
-                            "label": first_p["label"],
-                            "plain": first_p["plain"],
-                            "is_you": first_p["is_you"],
-                            "role": "1st mover",
-                            "payoff": pay_first if pay_first is not None else first_p.get("payoff"),
-                        },
-                        {
-                            "label": second_p["label"],
-                            "plain": second_p["plain"],
-                            "is_you": second_p["is_you"],
-                            "role": "2nd mover",
-                            "payoff": pay_second if pay_second is not None else second_p.get("payoff"),
-                        },
+                            "label": me["label"],
+                            "plain": me["plain"],
+                            "is_you": me["is_you"],
+                            "is_focal": True,
+                            "role": me.get("role"),
+                            "payoff": focal_pay,
+                        }
                     ],
+                    "note_other": (
+                        None
+                        if me["is_you"]
+                        else (
+                            f"This is {me['plain']}'s directed match (opponent {opp['plain']}). "
+                            "Only that player's DB row is written for this edge — not yours."
+                        )
+                    ),
                 }
             )
 
-        # Columns for template: player + their two contingency nodes
         columns = []
         for p in players:
             cols_c = [c for c in contingencies if c["player_id"] == p["id"]]
             columns.append({"player": p, "contingencies": cols_c})
+
+        official = next((g for g in groups if g["is_your_official_match"]), None)
+        your_outcome = None
+        if official is not None:
+            you_snap = d.get("you") or {}
+            role_label = (you_snap.get("role") or "").lower()
+            if "1st" in role_label or you_snap.get("is_first") is True:
+                your_role, other_role = "1st mover", "2nd mover"
+                your_choice = official["first_choice"]
+                other_choice = official["second_choice"]
+            elif "2nd" in role_label or you_snap.get("is_first") is False:
+                your_role, other_role = "2nd mover", "1st mover"
+                your_choice = official["second_choice"]
+                other_choice = official["first_choice"]
+            elif official.get("focal_plain") == official.get("first_plain"):
+                your_role, other_role = "1st mover", "2nd mover"
+                your_choice = official["first_choice"]
+                other_choice = official["second_choice"]
+            else:
+                your_role, other_role = "2nd mover", "1st mover"
+                your_choice = official["second_choice"]
+                other_choice = official["first_choice"]
+
+            pay = official.get("focal_payoff")
+            if pay is None:
+                pay = d.get("your_payoff")
+            your_outcome = {
+                "your_role": your_role,
+                "your_choice": your_choice,
+                "other_role": other_role,
+                "other_choice": other_choice,
+                "payoff": pay,
+                "summary": (
+                    f"Round {rn}: your choice as {your_role} {{{your_choice}}} + "
+                    f"other choice as {other_role} {{{other_choice}}} = {{{pay}}}"
+                ),
+            }
 
         stages.append(
             {
@@ -310,7 +346,9 @@ def build_all_rounds_tree(
                 "columns": columns,
                 "contingencies": contingencies,
                 "groups": groups,
-                "your_groups": [g for g in groups if g["involves_you"]],
+                "your_official_group": official,
+                "your_outcome": your_outcome,
+                "your_groups": [g for g in groups if g["is_your_official_match"]],
                 "has_mismatch": d.get("has_mismatch", False),
                 "mismatch_detail": d.get("mismatch_detail", ""),
                 "your_payoff": d.get("your_payoff"),

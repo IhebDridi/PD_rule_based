@@ -13,6 +13,11 @@ def _otree_debug_mode() -> bool:
     return os.environ.get("OTREE_PRODUCTION") in (None, "", "0")
 
 
+def is_otree_debug_mode() -> bool:
+    """Public alias: True in oTree debug / non-production sessions."""
+    return _otree_debug_mode()
+
+
 def _payoff_int(player) -> Optional[int]:
     if player.payoff is None:
         return None

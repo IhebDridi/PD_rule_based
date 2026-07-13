@@ -1,7 +1,7 @@
 from otree.api import *
 
 from shared.tg_payoffs import tg_results_row
-from shared.tg_results_debug import build_tg_results_debug
+from shared.tg_results_debug import build_tg_results_debug, is_otree_debug_mode
 from shared.tg_results_diagrams import (
     annotate_diagrams_with_debug,
     build_all_rounds_tree,
@@ -222,6 +222,7 @@ class Results(Page):
             group_overview=diagrams["overview"],
             round_diagrams=diagrams["rounds"],
             all_rounds_tree=all_rounds_tree,
+            show_round_diagrams=is_otree_debug_mode(),
         )
         if tg_debug is not None:
             out["tg_results_debug"] = {

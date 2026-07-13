@@ -57,7 +57,9 @@
             <span class="legend-swatch legend-you">You</span>
             <span class="legend-swatch legend-opp">Your opponent</span>
             <span class="legend-swatch legend-third">Other trio member</span>
+            {% if show_round_diagrams %}
             <span class="legend-swatch legend-mismatch">Display ≠ DB (dev)</span>
+            {% endif %}
         </div>
 
         {% if all_rounds_tree and all_rounds_tree.stages %}
@@ -177,6 +179,7 @@
         </article>
         {% endif %}
 
+        {% if show_round_diagrams %}
         <h3 class="per-round-heading">Per-round diagrams</h3>
 
         {% for d in round_diagrams %}
@@ -245,6 +248,7 @@
             </details>
         </article>
         {% endfor %}
+        {% endif %}
     </section>
     {% endif %}
 

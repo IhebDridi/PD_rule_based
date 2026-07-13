@@ -344,6 +344,7 @@ class TgDataFlowTests(unittest.TestCase):
                 "opponent": {"label": "P1", "choice": "B"},
                 "members": [
                     {
+                        "id": 1,
                         "label": "P1",
                         "is_you": False,
                         "role": "1st mover",
@@ -355,6 +356,7 @@ class TgDataFlowTests(unittest.TestCase):
                         "payoff": 30,
                     },
                     {
+                        "id": 2,
                         "label": "P2 (you)",
                         "is_you": True,
                         "role": "2nd mover",
@@ -366,6 +368,7 @@ class TgDataFlowTests(unittest.TestCase):
                         "payoff": 30,
                     },
                     {
+                        "id": 3,
                         "label": "P3",
                         "is_you": False,
                         "role": "2nd mover",
@@ -386,14 +389,17 @@ class TgDataFlowTests(unittest.TestCase):
         ]
         tree = build_all_rounds_tree(overview, rounds)
         self.assertEqual(tree["round_count"], 1)
-        self.assertTrue(tree["show_batch_id"])
-        self.assertEqual(len(tree["stages"]), 1)
         stage = tree["stages"][0]
-        self.assertEqual(len(stage["players"]), 3)
-        you = next(p for p in stage["players"] if p["is_you"])
-        self.assertEqual(you["selected_choice"], "B")
-        self.assertIn("2nd-mover", you["selected_from"])
-        self.assertTrue(len(stage["matches"]) >= 1)
+        self.assertEqual(len(stage["columns"]), 3)
+        self.assertEqual(len(stage["contingencies"]), 6)
+        selected = [c for c in stage["contingencies"] if c["selected"]]
+        self.assertEqual(len(selected), 3)
+        self.assertTrue(len(stage["groups"]) >= 1)
+        g = next(x for x in stage["groups"] if x["involves_you"])
+        self.assertEqual(g["first_choice"], "B")
+        self.assertEqual(g["second_choice"], "B")
+        you_rec = next(r for r in g["recipients"] if r["is_you"])
+        self.assertEqual(you_rec["payoff"], 30)
     def test_results_cache_round_trip(self):
         assignments = [
             [(1, None), (2, None)] * 5,

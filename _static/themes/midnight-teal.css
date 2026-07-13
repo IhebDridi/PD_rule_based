@@ -277,72 +277,78 @@ button[type="submit"].modern-btn {
 .round-diagrams-section { border-top-color: var(--border) !important; }
 .diagram-legend { color: var(--text-muted) !important; }
 
-/* All-rounds unified grouping diagram — dark panels + readable light text */
+/* All-rounds structural graph — dark + readable */
 html.otree-theme-midnight-teal .all-rounds-diagram {
   background: rgba(18, 24, 38, 0.92) !important;
   border-color: var(--accent) !important;
   color: var(--text) !important;
 }
 html.otree-theme-midnight-teal .all-rounds-title,
-html.otree-theme-midnight-teal .per-round-heading,
-html.otree-theme-midnight-teal .flow-step-title,
-html.otree-theme-midnight-teal .flow-player-name {
+html.otree-theme-midnight-teal .per-round-heading {
   color: var(--text) !important;
 }
 html.otree-theme-midnight-teal .all-rounds-desc,
-html.otree-theme-midnight-teal .flow-step-note {
+html.otree-theme-midnight-teal .struct-mid-caption,
+html.otree-theme-midnight-teal .struct-cnode-owner {
   color: var(--text-muted) !important;
 }
-html.otree-theme-midnight-teal .flow-connector {
-  background: var(--accent) !important;
-}
-html.otree-theme-midnight-teal .flow-mini-connector {
-  background: var(--text-muted) !important;
-}
-html.otree-theme-midnight-teal .flow-step-num,
-html.otree-theme-midnight-teal .flow-round-banner {
-  background: linear-gradient(135deg, var(--accent), #6366f1) !important;
-  color: #0a0e17 !important;
-}
-html.otree-theme-midnight-teal .trio-chip,
-html.otree-theme-midnight-teal .flow-round-block,
-html.otree-theme-midnight-teal .flow-player-card {
+html.otree-theme-midnight-teal .struct-player,
+html.otree-theme-midnight-teal .struct-round,
+html.otree-theme-midnight-teal .struct-cnode,
+html.otree-theme-midnight-teal .struct-group,
+html.otree-theme-midnight-teal .struct-result,
+html.otree-theme-midnight-teal .struct-recipient {
   background: rgba(8, 12, 20, 0.75) !important;
   border-color: var(--border) !important;
   color: var(--text) !important;
 }
-html.otree-theme-midnight-teal .trio-chip-you,
-html.otree-theme-midnight-teal .flow-player-card.is-you {
+html.otree-theme-midnight-teal .struct-player.is-you,
+html.otree-theme-midnight-teal .struct-group.involves-you,
+html.otree-theme-midnight-teal .struct-recipient.is-you,
+html.otree-theme-midnight-teal .struct-cnode.is-you.is-selected {
   background: rgba(94, 234, 212, 0.14) !important;
   border-color: var(--accent) !important;
 }
-html.otree-theme-midnight-teal .flow-round-block--mismatch {
+html.otree-theme-midnight-teal .struct-cnode.is-selected {
+  background: rgba(52, 211, 153, 0.16) !important;
+  border-color: var(--success) !important;
+  opacity: 1 !important;
+}
+html.otree-theme-midnight-teal .struct-cnode-flag { color: var(--success) !important; }
+html.otree-theme-midnight-teal .struct-round--mismatch {
   background: rgba(248, 113, 113, 0.12) !important;
   border-color: var(--danger) !important;
 }
-html.otree-theme-midnight-teal .flow-contingent,
-html.otree-theme-midnight-teal .flow-contingent span,
-html.otree-theme-midnight-teal .flow-contingent strong,
-html.otree-theme-midnight-teal .flow-role-line,
-html.otree-theme-midnight-teal .flow-selected-line,
-html.otree-theme-midnight-teal .flow-payoff-line,
-html.otree-theme-midnight-teal .flow-vs-line,
-html.otree-theme-midnight-teal .flow-match-moves,
-html.otree-theme-midnight-teal .flow-match-side,
-html.otree-theme-midnight-teal .flow-match-side em {
-  color: var(--text) !important;
+html.otree-theme-midnight-teal .struct-round-label {
+  background: linear-gradient(135deg, var(--accent), #6366f1) !important;
+  color: #0a0e17 !important;
 }
-html.otree-theme-midnight-teal .flow-match-card {
-  background: rgba(99, 102, 241, 0.16) !important;
+html.otree-theme-midnight-teal .struct-vline,
+html.otree-theme-midnight-teal .struct-vbranch,
+html.otree-theme-midnight-teal .struct-vbranch span {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+}
+html.otree-theme-midnight-teal .struct-group {
+  background: rgba(99, 102, 241, 0.14) !important;
   border-color: #6366f1 !important;
-  color: var(--text) !important;
 }
-html.otree-theme-midnight-teal .flow-match-vs {
+html.otree-theme-midnight-teal .struct-group-title,
+html.otree-theme-midnight-teal .struct-result-title,
+html.otree-theme-midnight-teal .struct-arrow {
   color: #a5b4fc !important;
 }
-html.otree-theme-midnight-teal .flow-bug {
-  color: var(--danger) !important;
+html.otree-theme-midnight-teal .struct-group-link code {
+  background: rgba(255,255,255,0.06) !important;
+  color: var(--text) !important;
 }
+html.otree-theme-midnight-teal .struct-cnode-id,
+html.otree-theme-midnight-teal .struct-cnode-choice,
+html.otree-theme-midnight-teal .struct-group strong,
+html.otree-theme-midnight-teal .struct-result div {
+  color: var(--text) !important;
+}
+html.otree-theme-midnight-teal .flow-bug { color: var(--danger) !important; }
 
 /* Round diagram cards: force readable dark nodes under teal */
 html.otree-theme-midnight-teal .round-diagrams-section {

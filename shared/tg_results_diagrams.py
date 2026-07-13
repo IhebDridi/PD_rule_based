@@ -136,110 +136,183 @@ def build_all_rounds_tree(
     round_diagrams: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """
-    Sequential grouping flow for Results:
+    Structural grouping graph for Results.
 
-    trio → (per round) contingent plans → role picks which choice → match → payoffs
+    Per round:
+      players → R{n}_1st / R{n}_2nd contingency nodes
+      → selected contingencies link into a match group
+      → calculated result → each player receives their payoff
     """
     member_labels = overview.get("member_labels") or []
     stages: List[Dict[str, Any]] = []
 
     for d in round_diagrams:
-        players_flow: List[Dict[str, Any]] = []
+        rn = d["round"]
+        players: List[Dict[str, Any]] = []
+        contingencies: List[Dict[str, Any]] = []
+
         for m in d.get("members") or []:
             role_code = m.get("role_code")
             c1 = m.get("choice_first")
             c2 = m.get("choice_second")
-            if role_code == "first":
-                selected = c1
-                selected_from = "1st-mover contingency"
-            elif role_code == "second":
-                selected = c2
-                selected_from = "2nd-mover contingency"
-            else:
-                selected = m.get("my_choice")
-                selected_from = "—"
+            pid = m.get("id")
+            label = m.get("label")
+            is_you = bool(m.get("is_you"))
+            selected_first = role_code == "first"
+            selected_second = role_code == "second"
 
-            players_flow.append(
+            players.append(
                 {
-                    "label": m.get("label"),
-                    "is_you": bool(m.get("is_you")),
-                    "choice_first": c1,
-                    "choice_second": c2,
+                    "id": pid,
+                    "label": label,
+                    "plain": _plain_label(label or "?"),
+                    "is_you": is_you,
                     "role": m.get("role") or "—",
                     "role_code": role_code,
-                    "selected_choice": selected,
-                    "selected_from": selected_from,
                     "opponent_label": m.get("opponent_label"),
                     "payoff": m.get("payoff"),
                 }
             )
+            contingencies.append(
+                {
+                    "node_id": f"r{rn}_p{pid}_1st",
+                    "player_id": pid,
+                    "player_label": label,
+                    "plain": _plain_label(label or "?"),
+                    "is_you": is_you,
+                    "kind": "1st",
+                    "kind_label": f"R{rn}_1st",
+                    "choice": c1,
+                    "selected": selected_first,
+                    "title": f"R{rn} · {_plain_label(label or '?')} · if 1st",
+                }
+            )
+            contingencies.append(
+                {
+                    "node_id": f"r{rn}_p{pid}_2nd",
+                    "player_id": pid,
+                    "player_label": label,
+                    "plain": _plain_label(label or "?"),
+                    "is_you": is_you,
+                    "kind": "2nd",
+                    "kind_label": f"R{rn}_2nd",
+                    "choice": c2,
+                    "selected": selected_second,
+                    "title": f"R{rn} · {_plain_label(label or '?')} · if 2nd",
+                }
+            )
 
-        # Unique undirected matches for this round (you↔opp edges from member list)
+        by_id = {p["id"]: p for p in players if p.get("id") is not None}
+        by_plain = {_plain_label(p["label"]): p for p in players}
+
+        # One group per directed match (focal player → opponent), unique undirected key
         match_keys = set()
-        matches: List[Dict[str, Any]] = []
+        groups: List[Dict[str, Any]] = []
         for m in d.get("members") or []:
-            a = m.get("label")
-            b = m.get("opponent_label")
-            if not a or not b:
+            me = by_id.get(m.get("id")) or by_plain.get(_plain_label(m.get("label") or ""))
+            if me is None:
                 continue
-            key = tuple(sorted([_plain_label(a), _plain_label(b)]))
+            opp_plain = _plain_label(m.get("opponent_label") or "")
+            opp = by_plain.get(opp_plain)
+            if opp is None:
+                continue
+            key = tuple(sorted([me["plain"], opp["plain"]]))
             if key in match_keys:
                 continue
             match_keys.add(key)
-            # Find both sides for role/choice/payoff
-            side_a = next((p for p in players_flow if p["label"] == a), None)
-            side_b = next(
-                (p for p in players_flow if _plain_label(p["label"]) == _plain_label(b)),
+
+            # Roles from each player's own assigned role in their row
+            first_p = second_p = None
+            if me.get("role_code") == "first" and opp.get("role_code") == "second":
+                first_p, second_p = me, opp
+            elif me.get("role_code") == "second" and opp.get("role_code") == "first":
+                first_p, second_p = opp, me
+            elif me.get("role_code") == "first":
+                # Directed: me is first vs opp; opp may have a different game —
+                # still form group from me's perspective using opp's 2nd contingency
+                first_p, second_p = me, opp
+            elif me.get("role_code") == "second":
+                first_p, second_p = opp, me
+
+            if first_p is None or second_p is None:
+                continue
+
+            first_choice = next(
+                (
+                    c["choice"]
+                    for c in contingencies
+                    if c["player_id"] == first_p["id"] and c["kind"] == "1st"
+                ),
                 None,
             )
-            first_label = None
-            second_label = None
-            first_choice = None
-            second_choice = None
-            if side_a and side_a.get("role_code") == "first":
-                first_label, first_choice = side_a["label"], side_a["selected_choice"]
-                if side_b:
-                    second_label, second_choice = side_b["label"], side_b["selected_choice"]
-            elif side_b and side_b.get("role_code") == "first":
-                first_label, first_choice = side_b["label"], side_b["selected_choice"]
-                if side_a:
-                    second_label, second_choice = side_a["label"], side_a["selected_choice"]
-            else:
-                # Fall back to stored game moves from viewer perspective for viewer's match
-                if a == d.get("you", {}).get("label"):
-                    first_choice = d.get("first_move")
-                    second_choice = d.get("second_move")
+            second_choice = next(
+                (
+                    c["choice"]
+                    for c in contingencies
+                    if c["player_id"] == second_p["id"] and c["kind"] == "2nd"
+                ),
+                None,
+            )
+            first_node = f"r{rn}_p{first_p['id']}_1st"
+            second_node = f"r{rn}_p{second_p['id']}_2nd"
 
             pay_first = pay_second = None
             if first_choice in ("A", "B") and second_choice in ("A", "B"):
                 pay_first, pay_second = compute_tg_payoffs(first_choice, second_choice)
 
-            matches.append(
+            involves_you = bool(me.get("is_you") or opp.get("is_you"))
+            groups.append(
                 {
-                    "a_label": a,
-                    "b_label": b if isinstance(b, str) else b,
-                    "a_role": side_a.get("role") if side_a else "—",
-                    "b_role": side_b.get("role") if side_b else "—",
-                    "a_payoff": side_a.get("payoff") if side_a else None,
-                    "b_payoff": side_b.get("payoff") if side_b else None,
-                    "first_label": first_label,
-                    "second_label": second_label,
+                    "id": f"r{rn}_group_{first_p['plain']}_{second_p['plain']}",
+                    "first_node": first_node,
+                    "second_node": second_node,
+                    "first_label": first_p["label"],
+                    "second_label": second_p["label"],
                     "first_choice": first_choice,
                     "second_choice": second_choice,
+                    "first_plain": first_p["plain"],
+                    "second_plain": second_p["plain"],
                     "pay_first": pay_first,
                     "pay_second": pay_second,
+                    "involves_you": involves_you,
+                    "link_caption": (
+                        f"{first_p['plain']}·R{rn}_1st({first_choice}) + "
+                        f"{second_p['plain']}·R{rn}_2nd({second_choice})"
+                    ),
+                    "recipients": [
+                        {
+                            "label": first_p["label"],
+                            "plain": first_p["plain"],
+                            "is_you": first_p["is_you"],
+                            "role": "1st mover",
+                            "payoff": pay_first if pay_first is not None else first_p.get("payoff"),
+                        },
+                        {
+                            "label": second_p["label"],
+                            "plain": second_p["plain"],
+                            "is_you": second_p["is_you"],
+                            "role": "2nd mover",
+                            "payoff": pay_second if pay_second is not None else second_p.get("payoff"),
+                        },
+                    ],
                 }
             )
 
+        # Columns for template: player + their two contingency nodes
+        columns = []
+        for p in players:
+            cols_c = [c for c in contingencies if c["player_id"] == p["id"]]
+            columns.append({"player": p, "contingencies": cols_c})
+
         stages.append(
             {
-                "round": d["round"],
-                "players": players_flow,
-                "matches": matches,
+                "round": rn,
+                "columns": columns,
+                "contingencies": contingencies,
+                "groups": groups,
+                "your_groups": [g for g in groups if g["involves_you"]],
                 "has_mismatch": d.get("has_mismatch", False),
                 "mismatch_detail": d.get("mismatch_detail", ""),
-                "first_move": d.get("first_move"),
-                "second_move": d.get("second_move"),
                 "your_payoff": d.get("your_payoff"),
             }
         )
@@ -257,13 +330,8 @@ def build_all_rounds_tree(
         ),
         "round_count": len(stages),
         "stages": stages,
-        # keep branches for older tests / callers
         "branches": [
-            {
-                "round": s["round"],
-                "has_mismatch": s["has_mismatch"],
-                "your_payoff": s["your_payoff"],
-            }
+            {"round": s["round"], "has_mismatch": s["has_mismatch"], "your_payoff": s["your_payoff"]}
             for s in stages
         ],
     }

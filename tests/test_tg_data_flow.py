@@ -328,6 +328,12 @@ class TgDataFlowTests(unittest.TestCase):
 
         overview = {
             "member_labels_text": "P1 · P2 (you) · P3",
+            "member_labels": ["P1", "P2 (you)", "P3"],
+            "member_chips": [
+                {"label": "P1", "is_you": False},
+                {"label": "P2 (you)", "is_you": True},
+                {"label": "P3", "is_you": False},
+            ],
             "my_position": 2,
             "matching_group_id": 1,
         }
@@ -339,11 +345,39 @@ class TgDataFlowTests(unittest.TestCase):
                 "members": [
                     {
                         "label": "P1",
+                        "is_you": False,
+                        "role": "1st mover",
+                        "role_code": "first",
+                        "choice_first": "B",
+                        "choice_second": "A",
+                        "my_choice": "B",
+                        "opponent_label": "P2 (you)",
+                        "payoff": 30,
+                    },
+                    {
+                        "label": "P2 (you)",
+                        "is_you": True,
+                        "role": "2nd mover",
+                        "role_code": "second",
                         "choice_first": "A",
                         "choice_second": "B",
-                    }
+                        "my_choice": "B",
+                        "opponent_label": "P1",
+                        "payoff": 30,
+                    },
+                    {
+                        "label": "P3",
+                        "is_you": False,
+                        "role": "2nd mover",
+                        "role_code": "second",
+                        "choice_first": "A",
+                        "choice_second": "A",
+                        "my_choice": "A",
+                        "opponent_label": "P1",
+                        "payoff": 70,
+                    },
                 ],
-                "third": [{"label": "P3", "opponent_label": "P2", "role": "1st mover", "payoff": 70}],
+                "third": [],
                 "first_move": "B",
                 "second_move": "B",
                 "your_payoff": 30,
@@ -353,11 +387,13 @@ class TgDataFlowTests(unittest.TestCase):
         tree = build_all_rounds_tree(overview, rounds)
         self.assertEqual(tree["round_count"], 1)
         self.assertTrue(tree["show_batch_id"])
-        b = tree["branches"][0]
-        self.assertEqual(b["opponent_label"], "P1")
-        self.assertEqual(b["opp_contingent_first"], "A")
-        self.assertIn("1st-mover contingency", b["opp_move_used_label"])
-
+        self.assertEqual(len(tree["stages"]), 1)
+        stage = tree["stages"][0]
+        self.assertEqual(len(stage["players"]), 3)
+        you = next(p for p in stage["players"] if p["is_you"])
+        self.assertEqual(you["selected_choice"], "B")
+        self.assertIn("2nd-mover", you["selected_from"])
+        self.assertTrue(len(stage["matches"]) >= 1)
     def test_results_cache_round_trip(self):
         assignments = [
             [(1, None), (2, None)] * 5,

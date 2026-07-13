@@ -284,88 +284,63 @@ html.otree-theme-midnight-teal .all-rounds-diagram {
   color: var(--text) !important;
 }
 html.otree-theme-midnight-teal .all-rounds-title,
-html.otree-theme-midnight-teal .per-round-heading {
+html.otree-theme-midnight-teal .per-round-heading,
+html.otree-theme-midnight-teal .flow-step-title,
+html.otree-theme-midnight-teal .flow-player-name {
   color: var(--text) !important;
 }
-html.otree-theme-midnight-teal .all-rounds-desc {
+html.otree-theme-midnight-teal .all-rounds-desc,
+html.otree-theme-midnight-teal .flow-step-note {
   color: var(--text-muted) !important;
 }
-html.otree-theme-midnight-teal .grouping-root {
-  background: var(--bg-elevated) !important;
-  border-color: var(--accent) !important;
-  color: var(--text) !important;
-}
-html.otree-theme-midnight-teal .grouping-root-kicker,
-html.otree-theme-midnight-teal .grouping-root-meta {
-  color: var(--text-muted) !important;
-}
-html.otree-theme-midnight-teal .grouping-root-main {
-  color: var(--text) !important;
-}
-html.otree-theme-midnight-teal .grouping-spine,
-html.otree-theme-midnight-teal .grouping-rail,
-html.otree-theme-midnight-teal .grouping-rounds {
-  background: transparent !important;
-  border-color: var(--accent) !important;
-}
-html.otree-theme-midnight-teal .grouping-spine,
-html.otree-theme-midnight-teal .grouping-rail {
+html.otree-theme-midnight-teal .flow-connector {
   background: var(--accent) !important;
 }
-html.otree-theme-midnight-teal .grouping-round {
+html.otree-theme-midnight-teal .flow-mini-connector {
+  background: var(--text-muted) !important;
+}
+html.otree-theme-midnight-teal .flow-step-num,
+html.otree-theme-midnight-teal .flow-round-banner {
+  background: linear-gradient(135deg, var(--accent), #6366f1) !important;
+  color: #0a0e17 !important;
+}
+html.otree-theme-midnight-teal .trio-chip,
+html.otree-theme-midnight-teal .flow-round-block,
+html.otree-theme-midnight-teal .flow-player-card {
   background: rgba(8, 12, 20, 0.75) !important;
   border-color: var(--border) !important;
   color: var(--text) !important;
 }
-html.otree-theme-midnight-teal .grouping-round--mismatch {
+html.otree-theme-midnight-teal .trio-chip-you,
+html.otree-theme-midnight-teal .flow-player-card.is-you {
+  background: rgba(94, 234, 212, 0.14) !important;
+  border-color: var(--accent) !important;
+}
+html.otree-theme-midnight-teal .flow-round-block--mismatch {
   background: rgba(248, 113, 113, 0.12) !important;
   border-color: var(--danger) !important;
 }
-html.otree-theme-midnight-teal .grouping-round-head {
-  background: linear-gradient(135deg, var(--accent), #6366f1) !important;
-  color: #0a0e17 !important;
-}
-html.otree-theme-midnight-teal .grouping-you {
-  background: rgba(94, 234, 212, 0.14) !important;
-  border-color: var(--accent) !important;
+html.otree-theme-midnight-teal .flow-contingent,
+html.otree-theme-midnight-teal .flow-contingent span,
+html.otree-theme-midnight-teal .flow-contingent strong,
+html.otree-theme-midnight-teal .flow-role-line,
+html.otree-theme-midnight-teal .flow-selected-line,
+html.otree-theme-midnight-teal .flow-payoff-line,
+html.otree-theme-midnight-teal .flow-vs-line,
+html.otree-theme-midnight-teal .flow-match-moves,
+html.otree-theme-midnight-teal .flow-match-side,
+html.otree-theme-midnight-teal .flow-match-side em {
   color: var(--text) !important;
 }
-html.otree-theme-midnight-teal .grouping-opp {
+html.otree-theme-midnight-teal .flow-match-card {
   background: rgba(99, 102, 241, 0.16) !important;
   border-color: #6366f1 !important;
   color: var(--text) !important;
 }
-html.otree-theme-midnight-teal .grouping-you .grouping-kicker,
-html.otree-theme-midnight-teal .grouping-you strong,
-html.otree-theme-midnight-teal .grouping-you span,
-html.otree-theme-midnight-teal .grouping-opp .grouping-kicker,
-html.otree-theme-midnight-teal .grouping-opp strong,
-html.otree-theme-midnight-teal .grouping-opp span,
-html.otree-theme-midnight-teal .grouping-plan,
-html.otree-theme-midnight-teal .grouping-used,
-html.otree-theme-midnight-teal .grouping-pay,
-html.otree-theme-midnight-teal .grouping-calc,
-html.otree-theme-midnight-teal .grouping-link {
-  color: var(--text) !important;
-}
-html.otree-theme-midnight-teal .grouping-opp .grouping-kicker {
+html.otree-theme-midnight-teal .flow-match-vs {
   color: #a5b4fc !important;
 }
-html.otree-theme-midnight-teal .grouping-you .grouping-kicker {
-  color: var(--accent) !important;
-}
-html.otree-theme-midnight-teal .grouping-plan,
-html.otree-theme-midnight-teal .grouping-used,
-html.otree-theme-midnight-teal .grouping-link,
-html.otree-theme-midnight-teal .grouping-calc {
-  color: var(--text-muted) !important;
-}
-html.otree-theme-midnight-teal .grouping-third {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border-color: var(--text-muted) !important;
-  color: var(--text-muted) !important;
-}
-html.otree-theme-midnight-teal .grouping-bug {
+html.otree-theme-midnight-teal .flow-bug {
   color: var(--danger) !important;
 }
 

@@ -60,60 +60,131 @@
             <span class="legend-swatch legend-mismatch">Display ≠ DB (dev)</span>
         </div>
 
-        {% if all_rounds_tree and all_rounds_tree.branches %}
+        {% if all_rounds_tree and all_rounds_tree.stages %}
         <article class="all-rounds-diagram">
-            <h3 class="all-rounds-title">All rounds — one grouping diagram</h3>
+            <h3 class="all-rounds-title">How grouping works (all rounds)</h3>
             <p class="all-rounds-desc">
-                Single diagram of how this part grouped you, who you faced each round,
-                which roles were drawn, which contingent choices entered the game, and your Ecoins.
-                Per-round detail cards follow below.
+                One continuous diagram: form the trio, then for every round show contingent plans,
+                which role was assigned (and which choice that selects), how players are matched,
+                and the resulting Ecoins. Detailed cards for each round follow below.
             </p>
 
-            <div class="grouping-flow">
-                <div class="grouping-root">
-                    <div class="grouping-root-kicker">Matching batch (trio)</div>
-                    <div class="grouping-root-main">{{ all_rounds_tree.trio_text }}</div>
-                    <div class="grouping-root-meta">
-                        {% if all_rounds_tree.my_position %}position {{ all_rounds_tree.my_position }}{% endif %}
-                        {% if all_rounds_tree.show_batch_id %} · batch id {{ all_rounds_tree.matching_group_id }}{% endif %}
-                        · {{ all_rounds_tree.round_count }} rounds
+            <div class="flow-diagram">
+                {# Step 0: trio formed #}
+                <div class="flow-step flow-step-trio">
+                    <div class="flow-step-num">0</div>
+                    <div class="flow-step-body">
+                        <div class="flow-step-title">Group formed</div>
+                        <div class="trio-row">
+                            {% for chip in all_rounds_tree.member_chips %}
+                            <div class="trio-chip{% if chip.is_you %} trio-chip-you{% endif %}">{{ chip.label }}</div>
+                            {% endfor %}
+                        </div>
+                        <div class="flow-step-note">
+                            {% if all_rounds_tree.my_position %}Your position: {{ all_rounds_tree.my_position }}{% endif %}
+                            {% if all_rounds_tree.show_batch_id %} · batch {{ all_rounds_tree.matching_group_id }}{% endif %}
+                        </div>
                     </div>
                 </div>
 
-                <div class="grouping-spine" aria-hidden="true"></div>
+                {% for s in all_rounds_tree.stages %}
+                <div class="flow-connector" aria-hidden="true"></div>
 
-                <div class="grouping-rail" aria-hidden="true"></div>
+                <div class="flow-round-block{% if s.has_mismatch %} flow-round-block--mismatch{% endif %}">
+                    <div class="flow-round-banner">Round {{ s.round }}</div>
 
-                <div class="grouping-rounds">
-                    {% for b in all_rounds_tree.branches %}
-                    <div class="grouping-round{% if b.has_mismatch %} grouping-round--mismatch{% endif %}">
-                        <div class="grouping-round-head">R{{ b.round }}</div>
-                        <div class="grouping-you">
-                            <span class="grouping-kicker">You</span>
-                            <span>{{ b.your_role }}</span>
-                            <strong>chose {{ b.your_choice }}</strong>
-                            <span class="grouping-pay">{{ b.your_payoff }} Ecoins</span>
+                    {# Step 1: contingent choices #}
+                    <div class="flow-step">
+                        <div class="flow-step-num">1</div>
+                        <div class="flow-step-body">
+                            <div class="flow-step-title">Contingent choices submitted</div>
+                            <div class="flow-player-grid">
+                                {% for p in s.players %}
+                                <div class="flow-player-card{% if p.is_you %} is-you{% endif %}">
+                                    <div class="flow-player-name">{{ p.label }}</div>
+                                    <div class="flow-contingent">
+                                        <span>If 1st mover: <strong>{{ p.choice_first }}</strong></span>
+                                        <span>If 2nd mover: <strong>{{ p.choice_second }}</strong></span>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
                         </div>
-                        <div class="grouping-link" aria-hidden="true">↕ match</div>
-                        <div class="grouping-opp">
-                            <span class="grouping-kicker">{{ b.opponent_label }}</span>
-                            <span class="grouping-plan">plan c1={{ b.opp_contingent_first }} · c2={{ b.opp_contingent_second }}</span>
-                            <span class="grouping-used">{{ b.opp_move_used_label }}</span>
-                        </div>
-                        <div class="grouping-calc">
-                            1st {{ b.first_move }} + 2nd {{ b.second_move }}
-                        </div>
-                        {% if b.third_label %}
-                        <div class="grouping-third">
-                            also: {{ b.third_label }} ↔ {{ b.third_opponent_label }}
-                        </div>
-                        {% endif %}
-                        {% if b.has_mismatch %}
-                        <div class="grouping-bug">Display ≠ DB</div>
-                        {% endif %}
                     </div>
-                    {% endfor %}
+
+                    <div class="flow-mini-connector" aria-hidden="true"></div>
+
+                    {# Step 2: role → which choice counts #}
+                    <div class="flow-step">
+                        <div class="flow-step-num">2</div>
+                        <div class="flow-step-body">
+                            <div class="flow-step-title">Role assigned → choice selected</div>
+                            <div class="flow-player-grid">
+                                {% for p in s.players %}
+                                <div class="flow-player-card{% if p.is_you %} is-you{% endif %}">
+                                    <div class="flow-player-name">{{ p.label }}</div>
+                                    <div class="flow-role-line">Role: <strong>{{ p.role }}</strong></div>
+                                    <div class="flow-selected-line">
+                                        Uses {{ p.selected_from }} → <strong>{{ p.selected_choice }}</strong>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flow-mini-connector" aria-hidden="true"></div>
+
+                    {# Step 3: matching #}
+                    <div class="flow-step">
+                        <div class="flow-step-num">3</div>
+                        <div class="flow-step-body">
+                            <div class="flow-step-title">Matched into games</div>
+                            <div class="flow-match-list">
+                                {% for m in s.matches %}
+                                <div class="flow-match-card">
+                                    <div class="flow-match-pair">
+                                        <span class="flow-match-side">{{ m.a_label }} <em>({{ m.a_role }})</em></span>
+                                        <span class="flow-match-vs">↔</span>
+                                        <span class="flow-match-side">{{ m.b_label }} <em>({{ m.b_role }})</em></span>
+                                    </div>
+                                    <div class="flow-match-moves">
+                                        Game moves:
+                                        1st {% if m.first_label %}{{ m.first_label }}{% endif %}
+                                        chose <strong>{{ m.first_choice }}</strong>
+                                        ·
+                                        2nd {% if m.second_label %}{{ m.second_label }}{% endif %}
+                                        chose <strong>{{ m.second_choice }}</strong>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flow-mini-connector" aria-hidden="true"></div>
+
+                    {# Step 4: results #}
+                    <div class="flow-step">
+                        <div class="flow-step-num">4</div>
+                        <div class="flow-step-body">
+                            <div class="flow-step-title">Payoffs from those moves</div>
+                            <div class="flow-player-grid">
+                                {% for p in s.players %}
+                                <div class="flow-player-card{% if p.is_you %} is-you{% endif %}">
+                                    <div class="flow-player-name">{{ p.label }}</div>
+                                    <div class="flow-payoff-line"><strong>{{ p.payoff }}</strong> Ecoins</div>
+                                    <div class="flow-vs-line">vs {{ p.opponent_label }}</div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% if s.has_mismatch %}
+                            <div class="flow-bug">Display ≠ DB{% if s.mismatch_detail %}: {{ s.mismatch_detail }}{% endif %}</div>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
+                {% endfor %}
             </div>
         </article>
         {% endif %}
@@ -268,14 +339,14 @@
     .legend-swatch.legend-third::before { background: var(--diag-third-bg); border-color: var(--diag-third-border); border-style: dashed; }
     .legend-swatch.legend-mismatch::before { background: var(--diag-mismatch-bg); border-color: var(--diag-mismatch-border); }
 
-    /* One unified all-rounds grouping diagram */
+    /* One continuous how-grouping-works flow diagram */
     .all-rounds-diagram {
         margin-bottom: 1.75rem;
         padding: 1.1rem 1rem 1.25rem;
         border: 2px solid #0056b3;
         border-radius: 12px;
         background: #eef5fb;
-        color: #1a1a1a;
+        color: #0f172a;
     }
     .all-rounds-title {
         font-size: 1.1rem;
@@ -290,136 +361,139 @@
         margin: 0 0 1rem;
         line-height: 1.45;
     }
-    .grouping-flow {
-        display: flex;
-        flex-direction: column;
-        align-items: stretch;
-    }
-    .grouping-root {
-        align-self: center;
-        text-align: center;
-        padding: 0.75rem 1.25rem;
-        border-radius: 10px;
-        background: #ffffff;
-        border: 2px solid #0056b3;
-        color: #0f172a;
-        max-width: 100%;
-    }
-    .grouping-root-kicker {
-        font-size: 0.68rem;
-        text-transform: uppercase;
-        letter-spacing: 0.07em;
-        color: #475569;
-        margin-bottom: 0.25rem;
-    }
-    .grouping-root-main { font-weight: 700; font-size: 1rem; color: #0f172a; }
-    .grouping-root-meta { font-size: 0.82rem; color: #475569; margin-top: 0.2rem; }
-    .grouping-spine {
+    .flow-diagram { display: flex; flex-direction: column; gap: 0; }
+    .flow-connector {
         width: 3px;
-        height: 16px;
+        height: 18px;
         background: #0056b3;
         align-self: center;
     }
-    .grouping-rail {
-        height: 3px;
+    .flow-mini-connector {
+        width: 2px;
+        height: 12px;
+        background: #64748b;
+        margin-left: 1.35rem;
+    }
+    .flow-step {
+        display: flex;
+        gap: 0.75rem;
+        align-items: flex-start;
+    }
+    .flow-step-num {
+        flex: 0 0 1.6rem;
+        width: 1.6rem;
+        height: 1.6rem;
+        border-radius: 50%;
         background: #0056b3;
-        margin: 0 0.5rem;
-        border-radius: 2px;
+        color: #fff;
+        font-size: 0.75rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 0.15rem;
     }
-    .grouping-rounds {
-        display: grid;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
-        gap: 0.5rem;
-        margin-top: 0;
-        padding-top: 0.65rem;
-        border-top: 3px solid #0056b3;
-    }
-    @media (max-width: 900px) {
-        .grouping-rounds { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    .grouping-round {
-        background: #ffffff;
-        border: 1px solid #94a3b8;
-        border-radius: 8px;
-        padding: 0.45rem 0.4rem 0.55rem;
-        font-size: 0.72rem;
-        line-height: 1.35;
+    .flow-step-body { flex: 1; min-width: 0; }
+    .flow-step-title {
+        font-weight: 700;
+        font-size: 0.88rem;
+        margin-bottom: 0.45rem;
         color: #0f172a;
-        text-align: center;
     }
-    .grouping-round--mismatch {
+    .flow-step-note { font-size: 0.78rem; color: #475569; margin-top: 0.35rem; }
+    .trio-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    .trio-chip {
+        padding: 0.55rem 0.9rem;
+        border-radius: 10px;
+        border: 2px solid #64748b;
+        background: #fff;
+        font-weight: 700;
+        color: #0f172a;
+    }
+    .trio-chip-you {
+        border-color: #0056b3;
+        background: #dbeafe;
+    }
+    .flow-round-block {
+        border: 1px solid #94a3b8;
+        border-radius: 10px;
+        padding: 0.75rem 0.75rem 0.85rem;
+        background: #ffffff;
+        margin-bottom: 0.15rem;
+    }
+    .flow-round-block--mismatch {
         border: 2px solid #dc2626;
         background: #fef2f2;
     }
-    .grouping-round-head {
+    .flow-round-banner {
         display: inline-block;
         font-weight: 700;
-        font-size: 0.7rem;
-        padding: 0.12rem 0.45rem;
+        font-size: 0.8rem;
+        padding: 0.2rem 0.65rem;
         border-radius: 999px;
         background: #0056b3;
-        color: #ffffff;
-        margin-bottom: 0.35rem;
+        color: #fff;
+        margin-bottom: 0.65rem;
     }
-    .grouping-you, .grouping-opp {
-        border-radius: 6px;
-        padding: 0.35rem;
-        margin-bottom: 0.25rem;
-        border: 1px solid transparent;
+    .flow-player-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.45rem;
     }
-    .grouping-you {
-        background: #dbeafe;
+    @media (max-width: 700px) {
+        .flow-player-grid { grid-template-columns: 1fr; }
+    }
+    .flow-player-card {
+        border: 1px solid #94a3b8;
+        border-radius: 8px;
+        padding: 0.45rem 0.5rem;
+        background: #f8fafc;
+        color: #0f172a;
+        font-size: 0.78rem;
+        line-height: 1.35;
+    }
+    .flow-player-card.is-you {
         border-color: #0056b3;
-        color: #0f172a;
+        background: #dbeafe;
     }
-    .grouping-opp {
-        background: #ede9fe;
-        border-color: #6366f1;
-        color: #0f172a;
-    }
-    .grouping-kicker {
-        display: block;
-        font-size: 0.62rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        color: #1e3a5f;
-    }
-    .grouping-opp .grouping-kicker { color: #3730a3; }
-    .grouping-you strong, .grouping-opp strong { color: #0f172a; }
-    .grouping-pay { display: block; font-weight: 700; }
-    .grouping-plan, .grouping-used {
-        display: block;
-        font-size: 0.65rem;
-        color: #334155;
-    }
-    .grouping-link {
-        font-size: 0.65rem;
-        font-weight: 600;
-        color: #0056b3;
-        margin: 0.15rem 0;
-    }
-    .grouping-calc {
-        margin-top: 0.25rem;
-        font-size: 0.65rem;
-        font-weight: 600;
+    .flow-player-name { font-weight: 700; margin-bottom: 0.25rem; }
+    .flow-contingent {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
         color: #1e293b;
     }
-    .grouping-third {
-        margin-top: 0.3rem;
-        padding: 0.25rem;
-        border-radius: 4px;
-        border: 1px dashed #71717a;
-        background: #f4f4f5;
-        color: #27272a;
-        font-size: 0.62rem;
+    .flow-role-line, .flow-selected-line, .flow-payoff-line, .flow-vs-line {
+        color: #1e293b;
     }
-    .grouping-bug {
-        margin-top: 0.3rem;
-        font-size: 0.62rem;
+    .flow-match-list { display: flex; flex-direction: column; gap: 0.45rem; }
+    .flow-match-card {
+        border: 1px solid #6366f1;
+        border-radius: 8px;
+        padding: 0.5rem 0.65rem;
+        background: #ede9fe;
+        color: #0f172a;
+        font-size: 0.78rem;
+    }
+    .flow-match-pair {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.35rem;
+        font-weight: 600;
+    }
+    .flow-match-vs { color: #4338ca; font-weight: 700; }
+    .flow-match-side em { font-style: normal; font-weight: 500; color: #334155; }
+    .flow-match-moves { margin-top: 0.3rem; color: #1e293b; }
+    .flow-bug {
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
         font-weight: 700;
         color: #b91c1c;
-        text-transform: uppercase;
     }
     .per-round-heading {
         font-size: 1.05rem;

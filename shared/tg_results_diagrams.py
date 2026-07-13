@@ -136,71 +136,136 @@ def build_all_rounds_tree(
     round_diagrams: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """
-    Compact tree of all rounds for one participant — verify trio + per-round opponents
-    and which contingent choices from others fed into this player's payoffs.
+    Sequential grouping flow for Results:
+
+    trio → (per round) contingent plans → role picks which choice → match → payoffs
     """
-    branches: List[Dict[str, Any]] = []
+    member_labels = overview.get("member_labels") or []
+    stages: List[Dict[str, Any]] = []
+
     for d in round_diagrams:
-        opp_label = d.get("opponent", {}).get("label", "?")
-        opp_member = None
+        players_flow: List[Dict[str, Any]] = []
         for m in d.get("members") or []:
-            if m.get("label") == opp_label:
-                opp_member = m
-                break
+            role_code = m.get("role_code")
+            c1 = m.get("choice_first")
+            c2 = m.get("choice_second")
+            if role_code == "first":
+                selected = c1
+                selected_from = "1st-mover contingency"
+            elif role_code == "second":
+                selected = c2
+                selected_from = "2nd-mover contingency"
+            else:
+                selected = m.get("my_choice")
+                selected_from = "—"
 
-        opp_affecting = d.get("opponent", {}).get("choice")
-        assigned = d.get("you", {}).get("role", "")
-        if assigned == "1st mover":
-            opp_move_used = (
-                f"2nd-mover contingency → {opp_affecting}"
-                if opp_affecting is not None
-                else "2nd-mover contingency → —"
+            players_flow.append(
+                {
+                    "label": m.get("label"),
+                    "is_you": bool(m.get("is_you")),
+                    "choice_first": c1,
+                    "choice_second": c2,
+                    "role": m.get("role") or "—",
+                    "role_code": role_code,
+                    "selected_choice": selected,
+                    "selected_from": selected_from,
+                    "opponent_label": m.get("opponent_label"),
+                    "payoff": m.get("payoff"),
+                }
             )
-        elif assigned == "2nd mover":
-            opp_move_used = (
-                f"1st-mover contingency → {opp_affecting}"
-                if opp_affecting is not None
-                else "1st-mover contingency → —"
-            )
-        else:
-            opp_move_used = "—"
 
-        third = (d.get("third") or [None])[0]
-        branches.append(
+        # Unique undirected matches for this round (you↔opp edges from member list)
+        match_keys = set()
+        matches: List[Dict[str, Any]] = []
+        for m in d.get("members") or []:
+            a = m.get("label")
+            b = m.get("opponent_label")
+            if not a or not b:
+                continue
+            key = tuple(sorted([_plain_label(a), _plain_label(b)]))
+            if key in match_keys:
+                continue
+            match_keys.add(key)
+            # Find both sides for role/choice/payoff
+            side_a = next((p for p in players_flow if p["label"] == a), None)
+            side_b = next(
+                (p for p in players_flow if _plain_label(p["label"]) == _plain_label(b)),
+                None,
+            )
+            first_label = None
+            second_label = None
+            first_choice = None
+            second_choice = None
+            if side_a and side_a.get("role_code") == "first":
+                first_label, first_choice = side_a["label"], side_a["selected_choice"]
+                if side_b:
+                    second_label, second_choice = side_b["label"], side_b["selected_choice"]
+            elif side_b and side_b.get("role_code") == "first":
+                first_label, first_choice = side_b["label"], side_b["selected_choice"]
+                if side_a:
+                    second_label, second_choice = side_a["label"], side_a["selected_choice"]
+            else:
+                # Fall back to stored game moves from viewer perspective for viewer's match
+                if a == d.get("you", {}).get("label"):
+                    first_choice = d.get("first_move")
+                    second_choice = d.get("second_move")
+
+            pay_first = pay_second = None
+            if first_choice in ("A", "B") and second_choice in ("A", "B"):
+                pay_first, pay_second = compute_tg_payoffs(first_choice, second_choice)
+
+            matches.append(
+                {
+                    "a_label": a,
+                    "b_label": b if isinstance(b, str) else b,
+                    "a_role": side_a.get("role") if side_a else "—",
+                    "b_role": side_b.get("role") if side_b else "—",
+                    "a_payoff": side_a.get("payoff") if side_a else None,
+                    "b_payoff": side_b.get("payoff") if side_b else None,
+                    "first_label": first_label,
+                    "second_label": second_label,
+                    "first_choice": first_choice,
+                    "second_choice": second_choice,
+                    "pay_first": pay_first,
+                    "pay_second": pay_second,
+                }
+            )
+
+        stages.append(
             {
                 "round": d["round"],
-                "opponent_label": opp_label,
-                "your_role": d.get("you", {}).get("role", "—"),
-                "your_choice": d.get("you", {}).get("choice"),
-                "your_payoff": d.get("your_payoff"),
-                "opp_choice_in_game": opp_affecting,
-                "opp_contingent_first": (
-                    opp_member.get("choice_first") if opp_member else None
-                ),
-                "opp_contingent_second": (
-                    opp_member.get("choice_second") if opp_member else None
-                ),
-                "opp_move_used_label": opp_move_used,
+                "players": players_flow,
+                "matches": matches,
+                "has_mismatch": d.get("has_mismatch", False),
+                "mismatch_detail": d.get("mismatch_detail", ""),
                 "first_move": d.get("first_move"),
                 "second_move": d.get("second_move"),
-                "third_label": third.get("label") if third else None,
-                "third_opponent_label": third.get("opponent_label") if third else None,
-                "third_role": third.get("role") if third else None,
-                "third_payoff": third.get("payoff") if third else None,
-                "has_mismatch": d.get("has_mismatch", False),
+                "your_payoff": d.get("your_payoff"),
             }
         )
 
     return {
         "trio_text": overview.get("member_labels_text", ""),
+        "member_labels": member_labels,
+        "member_chips": overview.get("member_chips")
+        or [{"label": lab, "is_you": False} for lab in member_labels],
         "my_position": overview.get("my_position"),
         "matching_group_id": overview.get("matching_group_id"),
         "show_batch_id": (
             overview.get("matching_group_id") is not None
             and overview.get("matching_group_id") >= 0
         ),
-        "round_count": len(branches),
-        "branches": branches,
+        "round_count": len(stages),
+        "stages": stages,
+        # keep branches for older tests / callers
+        "branches": [
+            {
+                "round": s["round"],
+                "has_mismatch": s["has_mismatch"],
+                "your_payoff": s["your_payoff"],
+            }
+            for s in stages
+        ],
     }
 
 
@@ -255,6 +320,9 @@ def build_tg_round_diagrams(
         "my_position": my_pos,
         "member_labels": member_labels,
         "member_labels_text": " · ".join(member_labels) if member_labels else "",
+        "member_chips": [
+            {"label": _label(i, my_sid), "is_you": i == my_sid} for i in member_ids
+        ],
     }
 
     rounds: List[Dict[str, Any]] = []

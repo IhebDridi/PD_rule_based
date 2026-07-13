@@ -262,6 +262,49 @@ class TgDataFlowTests(unittest.TestCase):
         self.assertEqual(d["summary_vars"]["tg_debug_R1_choice_db"], "A")
         self.assertIn("choice — screen: 'B'", d["summary_vars"]["tg_debug_R1_mismatch_detail"])
 
+    def test_round_narrative_second_mover_both_b(self):
+        from shared.tg_results_diagrams import _build_round_narrative
+
+        text = _build_round_narrative(
+            round_num=1,
+            you_label="P2 (you)",
+            opp_label="P1",
+            assigned="second",
+            first_move="B",
+            second_move="B",
+            your_payoff=30,
+            opp_payoff=30,
+            third_nodes=[
+                {
+                    "label": "P3",
+                    "opponent_label": "P1",
+                    "role": "2nd mover",
+                    "payoff": 70,
+                }
+            ],
+        )
+        self.assertIn("matched with P1", text)
+        self.assertIn("P1 was the 1st mover and chose B", text)
+        self.assertIn("P2 was the 2nd mover and chose B", text)
+        self.assertIn("30 Ecoins", text)
+        self.assertIn("P3", text)
+
+    def test_annotate_diagrams_with_debug(self):
+        from shared.tg_results_diagrams import annotate_diagrams_with_debug
+
+        diagrams = [{"round": 1, "round_narrative": "x"}]
+        debug = [
+            {
+                "round": 1,
+                "warn": True,
+                "flags": ["payoff_mismatch"],
+                "mismatch": {"summary": "payoff — screen: 70, DB: 30"},
+            }
+        ]
+        annotate_diagrams_with_debug(diagrams, debug)
+        self.assertTrue(diagrams[0]["has_mismatch"])
+        self.assertEqual(diagrams[0]["mismatch_flags"], ["payoff_mismatch"])
+
     def test_results_cache_round_trip(self):
         assignments = [
             [(1, None), (2, None)] * 5,

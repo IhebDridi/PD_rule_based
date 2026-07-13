@@ -206,25 +206,76 @@ button[type="submit"].modern-btn {
 }
 
 /* Results round diagrams */
+.round-diagrams-section {
+  --diag-you-bg: rgba(94, 234, 212, 0.12);
+  --diag-you-border: var(--accent);
+  --diag-opp-bg: rgba(99, 102, 241, 0.12);
+  --diag-opp-border: #6366f1;
+  --diag-third-bg: rgba(255, 255, 255, 0.04);
+  --diag-third-border: var(--text-muted);
+  --diag-first-role: var(--accent);
+  --diag-second-role: var(--success);
+  --diag-mismatch-bg: rgba(248, 113, 113, 0.1);
+  --diag-mismatch-border: var(--danger);
+  --diag-mismatch-tag: var(--danger);
+}
 .round-diagram {
   background: var(--bg-elevated) !important;
   border-color: var(--border) !important;
+}
+.round-diagram--mismatch {
+  background: var(--diag-mismatch-bg) !important;
+  border: 2px solid var(--diag-mismatch-border) !important;
+  box-shadow: 0 0 0 1px rgba(248, 113, 113, 0.2) !important;
+}
+.round-narrative {
+  background: rgba(8, 12, 20, 0.45) !important;
+  color: var(--text) !important;
+  border-left-color: var(--accent) !important;
+}
+.round-diagram--mismatch .round-narrative {
+  border-left-color: var(--diag-mismatch-border) !important;
+}
+.mismatch-badge {
+  background: var(--diag-mismatch-border) !important;
+  color: #0a0e17 !important;
+}
+.mismatch-detail {
+  color: var(--danger) !important;
+  background: rgba(248, 113, 113, 0.12) !important;
 }
 .round-badge {
   background: linear-gradient(135deg, var(--accent), #6366f1) !important;
   color: #0a0e17 !important;
 }
-.player-node {
-  background: rgba(8, 12, 20, 0.55) !important;
+.player-node.node-you {
+  background: var(--diag-you-bg) !important;
+  border-color: var(--diag-you-border) !important;
   color: var(--text) !important;
 }
-.player-node.is-first { border-color: var(--accent) !important; }
-.player-node.is-second { border-color: var(--success) !important; }
+.player-node.node-opponent {
+  background: var(--diag-opp-bg) !important;
+  border-color: var(--diag-opp-border) !important;
+  color: var(--text) !important;
+}
+.player-node.node-third {
+  background: var(--diag-third-bg) !important;
+  border-color: var(--diag-third-border) !important;
+  border-style: dashed !important;
+  color: var(--text) !important;
+}
+.player-node.role-first { box-shadow: inset 0 -3px 0 var(--diag-first-role) !important; }
+.player-node.role-second { box-shadow: inset 0 -3px 0 var(--diag-second-role) !important; }
+.node-status-tag { color: var(--text-muted) !important; }
+.player-node.node-you .node-status-tag { color: var(--accent) !important; }
+.player-node.node-opponent .node-status-tag { color: #818cf8 !important; }
+.player-node.node-third .node-status-tag { color: var(--text-muted) !important; }
 .outcome-note, .node-role, .member-details { color: var(--text-muted) !important; }
 .arrow-line { background: var(--accent) !important; }
 .arrow-line::after { border-left-color: var(--accent) !important; }
 .arrow-caption { color: var(--text-muted) !important; }
 .round-diagrams-section { border-top-color: var(--border) !important; }
+.diagram-legend { color: var(--text-muted) !important; }
 
 /*
  * Panel / box overrides — beats inline <style> on every page template.

@@ -29,6 +29,108 @@ def _role_short(assigned: Optional[str]) -> str:
     return "—"
 
 
+def _plain_label(label: str) -> str:
+    return label.replace(" (you)", "").strip()
+
+
+def _build_round_narrative(
+    *,
+    round_num: int,
+    you_label: str,
+    opp_label: str,
+    assigned: Optional[str],
+    first_move: Optional[str],
+    second_move: Optional[str],
+    your_payoff: Optional[int],
+    opp_payoff: Optional[int],
+    third_nodes: List[Dict[str, Any]],
+) -> str:
+    """Plain-language summary of what happened in this round for the viewing player."""
+    you = _plain_label(you_label)
+    opp = _plain_label(opp_label)
+    parts: List[str] = [
+        f"In round {round_num} you ({you}) were matched with {opp}."
+    ]
+
+    if assigned == "first":
+        first_name, second_name = you, opp
+    elif assigned == "second":
+        first_name, second_name = opp, you
+    else:
+        parts.append("Roles were not recorded for this round.")
+        if your_payoff is not None:
+            parts.append(f"You earned {your_payoff} Ecoins.")
+        return " ".join(parts)
+
+    if first_move not in ("A", "B") or second_move not in ("A", "B"):
+        parts.append(
+            f"{first_name} was assigned 1st mover; {second_name} was assigned 2nd mover, "
+            "but contingent choices are incomplete in the database."
+        )
+        if your_payoff is not None:
+            parts.append(f"You earned {your_payoff} Ecoins.")
+        return " ".join(parts)
+
+    parts.append(
+        f"Roles were assigned randomly: {first_name} was the 1st mover and chose {first_move}; "
+        f"{second_name} was the 2nd mover and chose {second_move}."
+    )
+
+    if first_move == "B":
+        parts.append(
+            f"Because the 1st mover chose B, both players received 30 Ecoins "
+            f"({second_name}'s choice of {second_move} is shown for transparency but did not change payoffs)."
+        )
+    elif first_move == "A" and second_move == "A":
+        parts.append("Both players chose A, so each received 70 Ecoins.")
+    elif first_move == "A" and second_move == "B":
+        parts.append(
+            f"The 1st mover chose A and the 2nd mover chose B, so {first_name} received 0 Ecoins "
+            f"and {second_name} received 100 Ecoins."
+        )
+
+    if your_payoff is not None and opp_payoff is not None:
+        parts.append(f"You earned {your_payoff} Ecoins; {opp} earned {opp_payoff} Ecoins.")
+    elif your_payoff is not None:
+        parts.append(f"You earned {your_payoff} Ecoins.")
+
+    if third_nodes:
+        third_bits = []
+        for t in third_nodes:
+            t_label = _plain_label(t.get("label", "?"))
+            t_opp = _plain_label(t.get("opponent_label", "?"))
+            t_pay = t.get("payoff")
+            t_role = t.get("role", "—")
+            pay_str = f"{t_pay} Ecoins" if t_pay is not None else "— Ecoins"
+            third_bits.append(
+                f"{t_label} (your other trio member) played against {t_opp} as {t_role} and earned {pay_str}"
+            )
+        parts.append("Meanwhile, " + "; ".join(third_bits) + ".")
+
+    return " ".join(parts)
+
+
+def annotate_diagrams_with_debug(
+    round_diagrams: List[Dict[str, Any]],
+    debug_rounds: Optional[List[Dict[str, Any]]],
+) -> None:
+    """Attach display-vs-DB mismatch flags to diagram rows (dev integrity UI)."""
+    if not debug_rounds:
+        for d in round_diagrams:
+            d.setdefault("has_mismatch", False)
+            d.setdefault("mismatch_flags", [])
+            d.setdefault("mismatch_detail", "")
+        return
+
+    by_round = {row["round"]: row for row in debug_rounds}
+    for d in round_diagrams:
+        dbg = by_round.get(d["round"])
+        d["has_mismatch"] = bool(dbg and dbg.get("warn"))
+        d["mismatch_flags"] = list(dbg.get("flags") or []) if dbg else []
+        mismatch = dbg.get("mismatch") if dbg else None
+        d["mismatch_detail"] = (mismatch or {}).get("summary", "") if mismatch else ""
+
+
 def _member_snapshot(me_round, opp, my_sid: int) -> Dict[str, Any]:
     row = tg_results_row(me_round, opp)
     assigned = me_round.field_maybe_none("role_assigned")
@@ -131,31 +233,13 @@ def build_tg_round_diagrams(
         elif first_move == "A" and second_move == "B":
             outcome_note = "1st A + 2nd B → 1st earns 0, 2nd earns 100."
 
-        # You vs opponent edge (primary visual)
-        you_node = {
-            "label": _label(my_sid, my_sid),
-            "role": my_row.get("role_assigned") or _role_short(assigned),
-            "choice": my_row.get("my_choice"),
-            "payoff": my_row.get("payoff"),
-            "is_first": assigned == "first",
-        }
-        opp_node = {
-            "label": _label(_sid(my_opp), my_sid),
-            "role": (
-                "2nd mover"
-                if assigned == "first"
-                else ("1st mover" if assigned == "second" else "—")
-            ),
-            "choice": my_row.get("other_choice"),
-            "payoff": None,
-            "is_first": assigned == "second",
-        }
+        opp_payoff: Optional[int] = None
         if my_opp is not None and first_move in ("A", "B") and second_move in ("A", "B"):
             pf, ps = compute_tg_payoffs(first_move, second_move)
             if assigned == "first":
-                opp_node["payoff"] = ps
+                opp_payoff = ps
             elif assigned == "second":
-                opp_node["payoff"] = pf
+                opp_payoff = pf
 
         third_ids = [
             i for i in ids_for_round if i not in (my_sid, _sid(my_opp))
@@ -171,9 +255,43 @@ def build_tg_round_diagrams(
                             "choice": m["my_choice"],
                             "payoff": m["payoff"],
                             "opponent_label": m["opponent_label"],
+                            "node_status": "third",
                         }
                     )
                     break
+
+        round_narrative = _build_round_narrative(
+            round_num=round_in_part,
+            you_label=_label(my_sid, my_sid),
+            opp_label=_label(_sid(my_opp), my_sid),
+            assigned=assigned,
+            first_move=first_move,
+            second_move=second_move,
+            your_payoff=my_row.get("payoff"),
+            opp_payoff=opp_payoff,
+            third_nodes=third_nodes,
+        )
+
+        you_node = {
+            "label": _label(my_sid, my_sid),
+            "role": my_row.get("role_assigned") or _role_short(assigned),
+            "choice": my_row.get("my_choice"),
+            "payoff": my_row.get("payoff"),
+            "is_first": assigned == "first",
+            "node_status": "you",
+        }
+        opp_node = {
+            "label": _label(_sid(my_opp), my_sid),
+            "role": (
+                "2nd mover"
+                if assigned == "first"
+                else ("1st mover" if assigned == "second" else "—")
+            ),
+            "choice": my_row.get("other_choice"),
+            "payoff": opp_payoff,
+            "is_first": assigned == "second",
+            "node_status": "opponent",
+        }
 
         rounds.append(
             {
@@ -185,7 +303,11 @@ def build_tg_round_diagrams(
                 "first_move": first_move,
                 "second_move": second_move,
                 "outcome_note": outcome_note,
+                "round_narrative": round_narrative,
                 "your_payoff": my_row.get("payoff"),
+                "has_mismatch": False,
+                "mismatch_flags": [],
+                "mismatch_detail": "",
             }
         )
 

@@ -61,50 +61,55 @@
         </div>
 
         {% if all_rounds_tree and all_rounds_tree.branches %}
-        <article class="all-rounds-tree">
-            <h3 class="all-rounds-title">All rounds — grouping &amp; opponent choices (overview)</h3>
+        <article class="all-rounds-diagram">
+            <h3 class="all-rounds-title">All rounds — one grouping diagram</h3>
             <p class="all-rounds-desc">
-                Tree of every round in this part for you. Each branch shows who you were matched with,
-                your role and choice, and the opponent contingent choice that entered the payoff
-                (plus their full 1st/2nd contingency plan from the database).
+                Single diagram of how this part grouped you, who you faced each round,
+                which roles were drawn, which contingent choices entered the game, and your Ecoins.
+                Per-round detail cards follow below.
             </p>
-            <div class="tree-root-block">
-                <div class="tree-root-node">
-                    <span class="tree-root-label">Your trio</span>
-                    <span class="tree-root-value">{{ all_rounds_tree.trio_text }}</span>
-                    {% if all_rounds_tree.my_position %}
-                    <span class="tree-root-meta">· position {{ all_rounds_tree.my_position }}</span>
-                    {% endif %}
-                    {% if all_rounds_tree.show_batch_id %}
-                    <span class="tree-root-meta">· batch {{ all_rounds_tree.matching_group_id }}</span>
-                    {% endif %}
+
+            <div class="grouping-flow">
+                <div class="grouping-root">
+                    <div class="grouping-root-kicker">Matching batch (trio)</div>
+                    <div class="grouping-root-main">{{ all_rounds_tree.trio_text }}</div>
+                    <div class="grouping-root-meta">
+                        {% if all_rounds_tree.my_position %}position {{ all_rounds_tree.my_position }}{% endif %}
+                        {% if all_rounds_tree.show_batch_id %} · batch id {{ all_rounds_tree.matching_group_id }}{% endif %}
+                        · {{ all_rounds_tree.round_count }} rounds
+                    </div>
                 </div>
-                <div class="tree-trunk" aria-hidden="true"></div>
-                <div class="tree-branches-grid">
+
+                <div class="grouping-spine" aria-hidden="true"></div>
+
+                <div class="grouping-rail" aria-hidden="true"></div>
+
+                <div class="grouping-rounds">
                     {% for b in all_rounds_tree.branches %}
-                    <div class="tree-branch{% if b.has_mismatch %} tree-branch--mismatch{% endif %}">
-                        <div class="tree-round-pill">R{{ b.round }}</div>
-                        <div class="tree-branch-body">
-                            <div class="tree-mini-node node-you">
-                                <span class="mini-tag">You</span>
-                                <span>{{ b.your_role }}</span>
-                                <strong>{{ b.your_choice }}</strong>
-                                <span class="mini-pay">{{ b.your_payoff }} ec</span>
-                            </div>
-                            <div class="tree-branch-link" aria-hidden="true">↔</div>
-                            <div class="tree-mini-node node-opponent">
-                                <span class="mini-tag">vs {{ b.opponent_label }}</span>
-                                <span class="mini-contingent">c1={{ b.opp_contingent_first }} c2={{ b.opp_contingent_second }}</span>
-                                <span class="mini-used">{{ b.opp_move_used_label }}</span>
-                            </div>
+                    <div class="grouping-round{% if b.has_mismatch %} grouping-round--mismatch{% endif %}">
+                        <div class="grouping-round-head">R{{ b.round }}</div>
+                        <div class="grouping-you">
+                            <span class="grouping-kicker">You</span>
+                            <span>{{ b.your_role }}</span>
+                            <strong>chose {{ b.your_choice }}</strong>
+                            <span class="grouping-pay">{{ b.your_payoff }} Ecoins</span>
                         </div>
-                        <div class="tree-game-moves">
-                            Game: 1st <strong>{{ b.first_move }}</strong> · 2nd <strong>{{ b.second_move }}</strong>
+                        <div class="grouping-link" aria-hidden="true">↕ match</div>
+                        <div class="grouping-opp">
+                            <span class="grouping-kicker">{{ b.opponent_label }}</span>
+                            <span class="grouping-plan">plan c1={{ b.opp_contingent_first }} · c2={{ b.opp_contingent_second }}</span>
+                            <span class="grouping-used">{{ b.opp_move_used_label }}</span>
+                        </div>
+                        <div class="grouping-calc">
+                            1st {{ b.first_move }} + 2nd {{ b.second_move }}
                         </div>
                         {% if b.third_label %}
-                        <div class="tree-parallel node-third">
-                            {{ b.third_label }} vs {{ b.third_opponent_label }} · {{ b.third_role }} · {{ b.third_payoff }} ec
+                        <div class="grouping-third">
+                            also: {{ b.third_label }} ↔ {{ b.third_opponent_label }}
                         </div>
+                        {% endif %}
+                        {% if b.has_mismatch %}
+                        <div class="grouping-bug">Display ≠ DB</div>
                         {% endif %}
                     </div>
                     {% endfor %}
@@ -112,6 +117,8 @@
             </div>
         </article>
         {% endif %}
+
+        <h3 class="per-round-heading">Per-round diagrams</h3>
 
         {% for d in round_diagrams %}
         <article class="round-diagram{% if d.has_mismatch %} round-diagram--mismatch{% endif %}">
@@ -260,133 +267,165 @@
     .legend-swatch.legend-opp::before { background: var(--diag-opp-bg); border-color: var(--diag-opp-border); }
     .legend-swatch.legend-third::before { background: var(--diag-third-bg); border-color: var(--diag-third-border); border-style: dashed; }
     .legend-swatch.legend-mismatch::before { background: var(--diag-mismatch-bg); border-color: var(--diag-mismatch-border); }
-    .all-rounds-tree {
+
+    /* One unified all-rounds grouping diagram */
+    .all-rounds-diagram {
         margin-bottom: 1.75rem;
-        padding: 1rem 1.1rem;
+        padding: 1.1rem 1rem 1.25rem;
         border: 2px solid #0056b3;
-        border-radius: 10px;
-        background: #f0f7ff;
+        border-radius: 12px;
+        background: #eef5fb;
+        color: #1a1a1a;
     }
     .all-rounds-title {
-        font-size: 1.05rem;
+        font-size: 1.1rem;
         text-align: center;
         margin: 0 0 0.35rem;
+        color: #0f172a;
     }
     .all-rounds-desc {
         font-size: 0.82rem;
-        color: #555;
+        color: #334155;
         text-align: center;
         margin: 0 0 1rem;
         line-height: 1.45;
     }
-    .tree-root-block {
+    .grouping-flow {
         display: flex;
         flex-direction: column;
-        align-items: center;
+        align-items: stretch;
     }
-    .tree-root-node {
+    .grouping-root {
+        align-self: center;
         text-align: center;
-        padding: 0.65rem 1rem;
+        padding: 0.75rem 1.25rem;
         border-radius: 10px;
-        background: #fff;
+        background: #ffffff;
         border: 2px solid #0056b3;
+        color: #0f172a;
         max-width: 100%;
     }
-    .tree-root-label {
-        display: block;
+    .grouping-root-kicker {
         font-size: 0.68rem;
         text-transform: uppercase;
-        letter-spacing: 0.06em;
-        color: #555;
+        letter-spacing: 0.07em;
+        color: #475569;
         margin-bottom: 0.25rem;
     }
-    .tree-root-value { font-weight: 700; }
-    .tree-root-meta { font-size: 0.85rem; color: #666; }
-    .tree-trunk {
+    .grouping-root-main { font-weight: 700; font-size: 1rem; color: #0f172a; }
+    .grouping-root-meta { font-size: 0.82rem; color: #475569; margin-top: 0.2rem; }
+    .grouping-spine {
         width: 3px;
-        height: 18px;
+        height: 16px;
         background: #0056b3;
+        align-self: center;
     }
-    .tree-branches-grid {
+    .grouping-rail {
+        height: 3px;
+        background: #0056b3;
+        margin: 0 0.5rem;
+        border-radius: 2px;
+    }
+    .grouping-rounds {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
-        gap: 0.65rem;
-        width: 100%;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 0.5rem;
+        margin-top: 0;
+        padding-top: 0.65rem;
+        border-top: 3px solid #0056b3;
     }
-    .tree-branch {
-        border: 1px solid #c1c1c1;
+    @media (max-width: 900px) {
+        .grouping-rounds { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    .grouping-round {
+        background: #ffffff;
+        border: 1px solid #94a3b8;
         border-radius: 8px;
-        padding: 0.5rem;
-        background: #fff;
-        font-size: 0.78rem;
-        line-height: 1.35;
-    }
-    .tree-branch--mismatch {
-        border-color: var(--diag-mismatch-border);
-        background: var(--diag-mismatch-bg);
-    }
-    .tree-round-pill {
-        display: inline-block;
-        font-weight: 700;
+        padding: 0.45rem 0.4rem 0.55rem;
         font-size: 0.72rem;
-        padding: 0.15rem 0.45rem;
-        border-radius: 999px;
-        background: #0056b3;
-        color: #fff;
-        margin-bottom: 0.35rem;
-    }
-    .tree-branch-body {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-        flex-wrap: wrap;
-    }
-    .tree-mini-node {
-        flex: 1 1 64px;
-        padding: 0.35rem;
-        border-radius: 6px;
-        border: 1px solid #ccc;
+        line-height: 1.35;
+        color: #0f172a;
         text-align: center;
     }
-    .tree-mini-node.node-you {
-        background: var(--diag-you-bg);
-        border-color: var(--diag-you-border);
+    .grouping-round--mismatch {
+        border: 2px solid #dc2626;
+        background: #fef2f2;
     }
-    .tree-mini-node.node-opponent {
-        background: var(--diag-opp-bg);
-        border-color: var(--diag-opp-border);
+    .grouping-round-head {
+        display: inline-block;
+        font-weight: 700;
+        font-size: 0.7rem;
+        padding: 0.12rem 0.45rem;
+        border-radius: 999px;
+        background: #0056b3;
+        color: #ffffff;
+        margin-bottom: 0.35rem;
     }
-    .mini-tag {
+    .grouping-you, .grouping-opp {
+        border-radius: 6px;
+        padding: 0.35rem;
+        margin-bottom: 0.25rem;
+        border: 1px solid transparent;
+    }
+    .grouping-you {
+        background: #dbeafe;
+        border-color: #0056b3;
+        color: #0f172a;
+    }
+    .grouping-opp {
+        background: #ede9fe;
+        border-color: #6366f1;
+        color: #0f172a;
+    }
+    .grouping-kicker {
         display: block;
         font-size: 0.62rem;
         font-weight: 700;
         text-transform: uppercase;
-        opacity: 0.85;
+        letter-spacing: 0.04em;
+        color: #1e3a5f;
     }
-    .mini-contingent, .mini-used {
+    .grouping-opp .grouping-kicker { color: #3730a3; }
+    .grouping-you strong, .grouping-opp strong { color: #0f172a; }
+    .grouping-pay { display: block; font-weight: 700; }
+    .grouping-plan, .grouping-used {
         display: block;
-        font-size: 0.68rem;
-        color: #555;
+        font-size: 0.65rem;
+        color: #334155;
     }
-    .mini-pay { font-weight: 700; }
-    .tree-branch-link {
-        font-size: 0.85rem;
+    .grouping-link {
+        font-size: 0.65rem;
+        font-weight: 600;
         color: #0056b3;
-        flex-shrink: 0;
+        margin: 0.15rem 0;
     }
-    .tree-game-moves {
-        margin-top: 0.35rem;
-        font-size: 0.68rem;
-        color: #444;
-        text-align: center;
+    .grouping-calc {
+        margin-top: 0.25rem;
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: #1e293b;
     }
-    .tree-parallel {
-        margin-top: 0.35rem;
-        padding: 0.3rem 0.4rem;
+    .grouping-third {
+        margin-top: 0.3rem;
+        padding: 0.25rem;
         border-radius: 4px;
-        border: 1px dashed var(--diag-third-border);
-        background: var(--diag-third-bg);
-        font-size: 0.68rem;
+        border: 1px dashed #71717a;
+        background: #f4f4f5;
+        color: #27272a;
+        font-size: 0.62rem;
+    }
+    .grouping-bug {
+        margin-top: 0.3rem;
+        font-size: 0.62rem;
+        font-weight: 700;
+        color: #b91c1c;
+        text-transform: uppercase;
+    }
+    .per-round-heading {
+        font-size: 1.05rem;
+        text-align: center;
+        margin: 0.5rem 0 1rem;
+        color: #1e293b;
     }
     .diagrams-title {
         font-size: 22px;

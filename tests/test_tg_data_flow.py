@@ -71,12 +71,30 @@ class TgDataFlowTests(unittest.TestCase):
         a.payoff = None
         b.payoff = None
 
-        ok = apply_tg_payoffs_for_pair(a, b, rng=random.Random(0))
+        ok = apply_tg_payoffs_for_pair(a, b, rng=random.Random(0), write_both=True)
         self.assertTrue(ok)
         self.assertIn(a.role_assigned, ("first", "second"))
         self.assertIn(b.role_assigned, ("first", "second"))
         self.assertNotEqual(a.role_assigned, b.role_assigned)
         self.assertEqual(compute_tg_payoffs("B", "A"), (30, 30))
+
+    def test_apply_tg_payoffs_focal_only_does_not_overwrite_opponent(self):
+        """Directed round-robin: only focal player is written so later matches cannot clobber them."""
+        import random
+
+        a = _FakeFieldPlayer(choice_first_mover="A", choice_second_mover="B", id=1)
+        b = _FakeFieldPlayer(choice_first_mover="B", choice_second_mover="A", id=2)
+        a.role_assigned = None
+        b.role_assigned = "first"
+        a.payoff = None
+        b.payoff = 999
+
+        ok = apply_tg_payoffs_for_pair(a, b, rng=random.Random(1), write_both=False)
+        self.assertTrue(ok)
+        self.assertIn(a.role_assigned, ("first", "second"))
+        self.assertIsNotNone(a.payoff)
+        self.assertEqual(b.role_assigned, "first")
+        self.assertEqual(b.payoff, 999)
 
     def test_tg_choices_ready(self):
         ready = _FakeFieldPlayer(choice_first_mover="A", choice_second_mover="B")

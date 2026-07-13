@@ -51,9 +51,17 @@ def apply_tg_payoffs_for_pair(
     player_b,
     *,
     rng: random.Random,
+    write_both: bool = False,
 ) -> bool:
     """
-    Randomly assign roles, persist on both players, set payoffs.
+    Randomly assign roles for the (player_a, player_b) match and set payoffs.
+
+    By default only ``player_a`` is written. Round-robin matching for N=3 is
+    *directed* (P1→P3, P2→P1, P3→P2), so writing both players overwrote each
+    row when the opponent’s own match ran later — causing Display≠DB
+    (screen recomputes from directed opponent; DB held the last overwrite).
+
+    Set ``write_both=True`` only for true mutual pairs / unit tests that apply once.
     Returns False if either player lacks both contingent choices.
     """
     a_first = player_a.field_maybe_none("choice_first_mover")
@@ -64,17 +72,26 @@ def apply_tg_payoffs_for_pair(
         return False
 
     if rng.random() < 0.5:
-        first_p, second_p = player_a, player_b
+        a_is_first = True
         first_move, second_move = a_first, b_second
     else:
-        first_p, second_p = player_b, player_a
+        a_is_first = False
         first_move, second_move = b_first, a_second
 
-    first_p.role_assigned = "first"
-    second_p.role_assigned = "second"
     pay_first, pay_second = compute_tg_payoffs(first_move, second_move)
-    first_p.payoff = cu(pay_first)
-    second_p.payoff = cu(pay_second)
+
+    if a_is_first:
+        player_a.role_assigned = "first"
+        player_a.payoff = cu(pay_first)
+        if write_both:
+            player_b.role_assigned = "second"
+            player_b.payoff = cu(pay_second)
+    else:
+        player_a.role_assigned = "second"
+        player_a.payoff = cu(pay_second)
+        if write_both:
+            player_b.role_assigned = "first"
+            player_b.payoff = cu(pay_first)
     return True
 
 

@@ -277,6 +277,40 @@ button[type="submit"].modern-btn {
 .round-diagrams-section { border-top-color: var(--border) !important; }
 .diagram-legend { color: var(--text-muted) !important; }
 
+/* All-rounds overview tree */
+.all-rounds-tree {
+  background: rgba(94, 234, 212, 0.06) !important;
+  border-color: var(--accent) !important;
+}
+.all-rounds-desc { color: var(--text-muted) !important; }
+.tree-root-node {
+  background: var(--bg-elevated) !important;
+  border-color: var(--accent) !important;
+  color: var(--text) !important;
+}
+.tree-root-label, .tree-root-meta { color: var(--text-muted) !important; }
+.tree-trunk { background: var(--accent) !important; }
+.tree-branch {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+.tree-branch--mismatch {
+  background: var(--diag-mismatch-bg) !important;
+  border-color: var(--diag-mismatch-border) !important;
+}
+.tree-round-pill {
+  background: linear-gradient(135deg, var(--accent), #6366f1) !important;
+  color: #0a0e17 !important;
+}
+.mini-contingent, .mini-used, .tree-game-moves { color: var(--text-muted) !important; }
+.tree-parallel {
+  background: var(--diag-third-bg) !important;
+  border-color: var(--diag-third-border) !important;
+  color: var(--text) !important;
+}
+.tree-branch-link { color: var(--accent) !important; }
+
 /*
  * Panel / box overrides — beats inline <style> on every page template.
  * Scoped to html.otree-theme-midnight-teal (class set in Page.html when theme is on).

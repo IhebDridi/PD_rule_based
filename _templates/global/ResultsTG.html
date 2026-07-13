@@ -60,6 +60,59 @@
             <span class="legend-swatch legend-mismatch">Display ≠ DB (dev)</span>
         </div>
 
+        {% if all_rounds_tree and all_rounds_tree.branches %}
+        <article class="all-rounds-tree">
+            <h3 class="all-rounds-title">All rounds — grouping &amp; opponent choices (overview)</h3>
+            <p class="all-rounds-desc">
+                Tree of every round in this part for you. Each branch shows who you were matched with,
+                your role and choice, and the opponent contingent choice that entered the payoff
+                (plus their full 1st/2nd contingency plan from the database).
+            </p>
+            <div class="tree-root-block">
+                <div class="tree-root-node">
+                    <span class="tree-root-label">Your trio</span>
+                    <span class="tree-root-value">{{ all_rounds_tree.trio_text }}</span>
+                    {% if all_rounds_tree.my_position %}
+                    <span class="tree-root-meta">· position {{ all_rounds_tree.my_position }}</span>
+                    {% endif %}
+                    {% if all_rounds_tree.show_batch_id %}
+                    <span class="tree-root-meta">· batch {{ all_rounds_tree.matching_group_id }}</span>
+                    {% endif %}
+                </div>
+                <div class="tree-trunk" aria-hidden="true"></div>
+                <div class="tree-branches-grid">
+                    {% for b in all_rounds_tree.branches %}
+                    <div class="tree-branch{% if b.has_mismatch %} tree-branch--mismatch{% endif %}">
+                        <div class="tree-round-pill">R{{ b.round }}</div>
+                        <div class="tree-branch-body">
+                            <div class="tree-mini-node node-you">
+                                <span class="mini-tag">You</span>
+                                <span>{{ b.your_role }}</span>
+                                <strong>{{ b.your_choice }}</strong>
+                                <span class="mini-pay">{{ b.your_payoff }} ec</span>
+                            </div>
+                            <div class="tree-branch-link" aria-hidden="true">↔</div>
+                            <div class="tree-mini-node node-opponent">
+                                <span class="mini-tag">vs {{ b.opponent_label }}</span>
+                                <span class="mini-contingent">c1={{ b.opp_contingent_first }} c2={{ b.opp_contingent_second }}</span>
+                                <span class="mini-used">{{ b.opp_move_used_label }}</span>
+                            </div>
+                        </div>
+                        <div class="tree-game-moves">
+                            Game: 1st <strong>{{ b.first_move }}</strong> · 2nd <strong>{{ b.second_move }}</strong>
+                        </div>
+                        {% if b.third_label %}
+                        <div class="tree-parallel node-third">
+                            {{ b.third_label }} vs {{ b.third_opponent_label }} · {{ b.third_role }} · {{ b.third_payoff }} ec
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </article>
+        {% endif %}
+
         {% for d in round_diagrams %}
         <article class="round-diagram{% if d.has_mismatch %} round-diagram--mismatch{% endif %}">
             <header class="round-diagram-header">
@@ -207,6 +260,134 @@
     .legend-swatch.legend-opp::before { background: var(--diag-opp-bg); border-color: var(--diag-opp-border); }
     .legend-swatch.legend-third::before { background: var(--diag-third-bg); border-color: var(--diag-third-border); border-style: dashed; }
     .legend-swatch.legend-mismatch::before { background: var(--diag-mismatch-bg); border-color: var(--diag-mismatch-border); }
+    .all-rounds-tree {
+        margin-bottom: 1.75rem;
+        padding: 1rem 1.1rem;
+        border: 2px solid #0056b3;
+        border-radius: 10px;
+        background: #f0f7ff;
+    }
+    .all-rounds-title {
+        font-size: 1.05rem;
+        text-align: center;
+        margin: 0 0 0.35rem;
+    }
+    .all-rounds-desc {
+        font-size: 0.82rem;
+        color: #555;
+        text-align: center;
+        margin: 0 0 1rem;
+        line-height: 1.45;
+    }
+    .tree-root-block {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .tree-root-node {
+        text-align: center;
+        padding: 0.65rem 1rem;
+        border-radius: 10px;
+        background: #fff;
+        border: 2px solid #0056b3;
+        max-width: 100%;
+    }
+    .tree-root-label {
+        display: block;
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #555;
+        margin-bottom: 0.25rem;
+    }
+    .tree-root-value { font-weight: 700; }
+    .tree-root-meta { font-size: 0.85rem; color: #666; }
+    .tree-trunk {
+        width: 3px;
+        height: 18px;
+        background: #0056b3;
+    }
+    .tree-branches-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+        gap: 0.65rem;
+        width: 100%;
+    }
+    .tree-branch {
+        border: 1px solid #c1c1c1;
+        border-radius: 8px;
+        padding: 0.5rem;
+        background: #fff;
+        font-size: 0.78rem;
+        line-height: 1.35;
+    }
+    .tree-branch--mismatch {
+        border-color: var(--diag-mismatch-border);
+        background: var(--diag-mismatch-bg);
+    }
+    .tree-round-pill {
+        display: inline-block;
+        font-weight: 700;
+        font-size: 0.72rem;
+        padding: 0.15rem 0.45rem;
+        border-radius: 999px;
+        background: #0056b3;
+        color: #fff;
+        margin-bottom: 0.35rem;
+    }
+    .tree-branch-body {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        flex-wrap: wrap;
+    }
+    .tree-mini-node {
+        flex: 1 1 64px;
+        padding: 0.35rem;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        text-align: center;
+    }
+    .tree-mini-node.node-you {
+        background: var(--diag-you-bg);
+        border-color: var(--diag-you-border);
+    }
+    .tree-mini-node.node-opponent {
+        background: var(--diag-opp-bg);
+        border-color: var(--diag-opp-border);
+    }
+    .mini-tag {
+        display: block;
+        font-size: 0.62rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        opacity: 0.85;
+    }
+    .mini-contingent, .mini-used {
+        display: block;
+        font-size: 0.68rem;
+        color: #555;
+    }
+    .mini-pay { font-weight: 700; }
+    .tree-branch-link {
+        font-size: 0.85rem;
+        color: #0056b3;
+        flex-shrink: 0;
+    }
+    .tree-game-moves {
+        margin-top: 0.35rem;
+        font-size: 0.68rem;
+        color: #444;
+        text-align: center;
+    }
+    .tree-parallel {
+        margin-top: 0.35rem;
+        padding: 0.3rem 0.4rem;
+        border-radius: 4px;
+        border: 1px dashed var(--diag-third-border);
+        background: var(--diag-third-bg);
+        font-size: 0.68rem;
+    }
     .diagrams-title {
         font-size: 22px;
         text-align: center;

@@ -305,6 +305,41 @@ class TgDataFlowTests(unittest.TestCase):
         self.assertTrue(diagrams[0]["has_mismatch"])
         self.assertEqual(diagrams[0]["mismatch_flags"], ["payoff_mismatch"])
 
+    def test_build_all_rounds_tree(self):
+        from shared.tg_results_diagrams import build_all_rounds_tree
+
+        overview = {
+            "member_labels_text": "P1 · P2 (you) · P3",
+            "my_position": 2,
+            "matching_group_id": 1,
+        }
+        rounds = [
+            {
+                "round": 1,
+                "you": {"label": "P2 (you)", "role": "2nd mover", "choice": "B"},
+                "opponent": {"label": "P1", "choice": "B"},
+                "members": [
+                    {
+                        "label": "P1",
+                        "choice_first": "A",
+                        "choice_second": "B",
+                    }
+                ],
+                "third": [{"label": "P3", "opponent_label": "P2", "role": "1st mover", "payoff": 70}],
+                "first_move": "B",
+                "second_move": "B",
+                "your_payoff": 30,
+                "has_mismatch": False,
+            }
+        ]
+        tree = build_all_rounds_tree(overview, rounds)
+        self.assertEqual(tree["round_count"], 1)
+        self.assertTrue(tree["show_batch_id"])
+        b = tree["branches"][0]
+        self.assertEqual(b["opponent_label"], "P1")
+        self.assertEqual(b["opp_contingent_first"], "A")
+        self.assertIn("1st-mover contingency", b["opp_move_used_label"])
+
     def test_results_cache_round_trip(self):
         assignments = [
             [(1, None), (2, None)] * 5,

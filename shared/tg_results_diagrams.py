@@ -131,6 +131,79 @@ def annotate_diagrams_with_debug(
         d["mismatch_detail"] = (mismatch or {}).get("summary", "") if mismatch else ""
 
 
+def build_all_rounds_tree(
+    overview: Dict[str, Any],
+    round_diagrams: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Compact tree of all rounds for one participant — verify trio + per-round opponents
+    and which contingent choices from others fed into this player's payoffs.
+    """
+    branches: List[Dict[str, Any]] = []
+    for d in round_diagrams:
+        opp_label = d.get("opponent", {}).get("label", "?")
+        opp_member = None
+        for m in d.get("members") or []:
+            if m.get("label") == opp_label:
+                opp_member = m
+                break
+
+        opp_affecting = d.get("opponent", {}).get("choice")
+        assigned = d.get("you", {}).get("role", "")
+        if assigned == "1st mover":
+            opp_move_used = (
+                f"2nd-mover contingency → {opp_affecting}"
+                if opp_affecting is not None
+                else "2nd-mover contingency → —"
+            )
+        elif assigned == "2nd mover":
+            opp_move_used = (
+                f"1st-mover contingency → {opp_affecting}"
+                if opp_affecting is not None
+                else "1st-mover contingency → —"
+            )
+        else:
+            opp_move_used = "—"
+
+        third = (d.get("third") or [None])[0]
+        branches.append(
+            {
+                "round": d["round"],
+                "opponent_label": opp_label,
+                "your_role": d.get("you", {}).get("role", "—"),
+                "your_choice": d.get("you", {}).get("choice"),
+                "your_payoff": d.get("your_payoff"),
+                "opp_choice_in_game": opp_affecting,
+                "opp_contingent_first": (
+                    opp_member.get("choice_first") if opp_member else None
+                ),
+                "opp_contingent_second": (
+                    opp_member.get("choice_second") if opp_member else None
+                ),
+                "opp_move_used_label": opp_move_used,
+                "first_move": d.get("first_move"),
+                "second_move": d.get("second_move"),
+                "third_label": third.get("label") if third else None,
+                "third_opponent_label": third.get("opponent_label") if third else None,
+                "third_role": third.get("role") if third else None,
+                "third_payoff": third.get("payoff") if third else None,
+                "has_mismatch": d.get("has_mismatch", False),
+            }
+        )
+
+    return {
+        "trio_text": overview.get("member_labels_text", ""),
+        "my_position": overview.get("my_position"),
+        "matching_group_id": overview.get("matching_group_id"),
+        "show_batch_id": (
+            overview.get("matching_group_id") is not None
+            and overview.get("matching_group_id") >= 0
+        ),
+        "round_count": len(branches),
+        "branches": branches,
+    }
+
+
 def _member_snapshot(me_round, opp, my_sid: int) -> Dict[str, Any]:
     row = tg_results_row(me_round, opp)
     assigned = me_round.field_maybe_none("role_assigned")

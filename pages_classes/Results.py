@@ -2,7 +2,11 @@ from otree.api import *
 
 from shared.tg_payoffs import tg_results_row
 from shared.tg_results_debug import build_tg_results_debug
-from shared.tg_results_diagrams import build_tg_round_diagrams, annotate_diagrams_with_debug
+from shared.tg_results_diagrams import (
+    annotate_diagrams_with_debug,
+    build_all_rounds_tree,
+    build_tg_round_diagrams,
+)
 
 from .model_bridge import app_models, is_tg_app
 
@@ -210,12 +214,14 @@ class Results(Page):
         )
         debug_rounds = tg_debug["rounds"] if tg_debug else None
         annotate_diagrams_with_debug(diagrams["rounds"], debug_rounds)
+        all_rounds_tree = build_all_rounds_tree(diagrams["overview"], diagrams["rounds"])
         out = dict(
             current_part=current_part,
             display_part=current_part,
             rounds_data=rounds_data,
             group_overview=diagrams["overview"],
             round_diagrams=diagrams["rounds"],
+            all_rounds_tree=all_rounds_tree,
         )
         if tg_debug is not None:
             out["tg_results_debug"] = {

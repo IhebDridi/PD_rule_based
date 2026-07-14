@@ -122,7 +122,7 @@
 
             {% for part in p.parts %}
             <div class="part-block">
-                <h3>Part {{ part.part }}{% if part.batch_id is not None %} · batch {{ part.batch_id }}{% endif %}
+                <h3>Part {{ part.part }}{% if part.has_batch_id %} · batch {{ part.batch_id }}{% endif %}
                     {% if part.debug_ok %}<span class="badge-ok">debug ok</span>{% else %}<span class="badge-warn">{{ part.mismatch_count }} round flag(s)</span>{% endif %}
                 </h3>
                 {% if part.member_ids %}
@@ -147,7 +147,7 @@
                     </thead>
                     <tbody>
                         {% for row in part.rounds %}
-                        <tr{% if row.is_partial_contingent %} class="row-partial"{% elif row.flags %} class="row-warn"{% endif %}>
+                        <tr{% if row.is_partial_contingent %} class="row-partial"{% elif row.has_flags %} class="row-warn"{% endif %}>
                             <td>{{ row.round }}</td>
                             <td>{% if row.flags_text %}<code>{{ row.flags_text }}</code>{% else %}—{% endif %}</td>
                             <td><code>{{ row.db.choice_first_mover }}</code></td>

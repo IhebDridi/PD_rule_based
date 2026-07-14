@@ -195,6 +195,7 @@ def _scan_participant(
                         "flags": flags,
                         "flags_text": ", ".join(flags) if flags else "",
                         "is_partial_contingent": "partial_contingent_choices" in flags,
+                        "has_flags": bool(flags),
                         "display": row.get("display") or {},
                         "db": row.get("db") or {},
                         "mismatch_summary": (row.get("mismatch") or {}).get("summary", ""),
@@ -211,10 +212,12 @@ def _scan_participant(
                 )
 
         batch = participant_batch_for_part(session, participant.id_in_session, part)
+        batch_id = batch.get("batch_id") if batch else None
         parts_out.append(
             {
                 "part": part,
-                "batch_id": batch.get("batch_id") if batch else None,
+                "batch_id": batch_id,
+                "has_batch_id": batch_id is not None,
                 "member_ids": batch.get("member_ids") if batch else [],
                 "member_ids_text": (
                     ", ".join(str(x) for x in batch.get("member_ids", [])) if batch else ""

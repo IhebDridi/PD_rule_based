@@ -32,13 +32,13 @@
             <div class="filter-row">
                 <label>
                     Show at most
-                    <input type="number" name="participant_limit" min="1" step="1"
+                    <input type="number" name="filter_date_from" min="1" step="1"
                            value="{{ participant_limit }}" class="inspector-number"
                            placeholder="all">
                 </label>
                 <label>
                     Prolific ID
-                    <input type="text" name="filter_prolific_id"
+                    <input type="text" name="filter_date_to"
                            value="{{ filter_prolific_id }}" class="inspector-text"
                            placeholder="exact match">
                 </label>
@@ -48,8 +48,8 @@
                 </button>
                 <button type="submit" class="inspector-btn secondary"
                         onclick="
-                          document.querySelector('[name=participant_limit]').value='';
-                          document.querySelector('[name=filter_prolific_id]').value='';
+                          document.querySelector('[name=filter_date_from]').value='';
+                          document.querySelector('[name=filter_date_to]').value='';
                           document.getElementById('inspect_action').value='apply_filters';
                         ">
                     Clear

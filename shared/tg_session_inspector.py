@@ -424,3 +424,25 @@ def inspector_step(participant) -> str:
 
 def set_inspector_step(participant, step: str) -> None:
     participant.vars["inspector_step"] = step
+
+
+def stash_session_date_filters(participant, player) -> None:
+    """Preserve SessionSelect date filters while inspect page reuses the same fields."""
+    participant.vars["inspector_select_date_from"] = player.field_maybe_none("filter_date_from") or ""
+    participant.vars["inspector_select_date_to"] = player.field_maybe_none("filter_date_to") or ""
+    player.filter_date_from = ""
+    player.filter_date_to = ""
+
+
+def restore_session_date_filters(participant, player) -> None:
+    player.filter_date_from = participant.vars.get("inspector_select_date_from") or ""
+    player.filter_date_to = participant.vars.get("inspector_select_date_to") or ""
+
+
+def read_inspect_participant_limit(player) -> Optional[int]:
+    return _normalize_participant_limit(player.field_maybe_none("filter_date_from"))
+
+
+def read_inspect_prolific_id(player) -> Optional[str]:
+    val = (player.field_maybe_none("filter_date_to") or "").strip()
+    return val or None

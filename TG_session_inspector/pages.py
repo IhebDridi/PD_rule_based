@@ -3,11 +3,14 @@
 from otree.api import *
 
 from shared.tg_session_inspector import (
-    _normalize_participant_limit,
     inspect_tg_session_by_code,
     inspector_step,
     list_tg_sessions,
+    read_inspect_participant_limit,
+    read_inspect_prolific_id,
+    restore_session_date_filters,
     set_inspector_step,
+    stash_session_date_filters,
 )
 
 
@@ -29,6 +32,9 @@ class SessionSelect(Page):
     def vars_for_template(self):
         date_from = self.player.field_maybe_none("filter_date_from") or ""
         date_to = self.player.field_maybe_none("filter_date_to") or ""
+        if not date_from and not date_to:
+            date_from = self.participant.vars.get("inspector_select_date_from") or ""
+            date_to = self.participant.vars.get("inspector_select_date_to") or ""
         sessions = list_tg_sessions(
             limit=100,
             date_from=date_from or None,
@@ -73,8 +79,7 @@ class SessionSelect(Page):
             self.player.selected_session_code = ""
             set_inspector_step(self.participant, "select")
         else:
-            self.player.participant_limit = None
-            self.player.filter_prolific_id = ""
+            stash_session_date_filters(self.participant, self.player)
             set_inspector_step(self.participant, "inspect")
 
 
@@ -85,34 +90,32 @@ class InspectSession(Page):
     form_model = "player"
     form_fields = [
         "inspect_action",
-        "participant_limit",
-        "filter_prolific_id",
+        "filter_date_from",
+        "filter_date_to",
     ]
 
     def is_displayed(self):
         return inspector_step(self.participant) == "inspect"
 
     def _inspect_report(self):
-        limit = _normalize_participant_limit(self.player.field_maybe_none("participant_limit"))
-        prolific = (self.player.field_maybe_none("filter_prolific_id") or "").strip() or None
         return inspect_tg_session_by_code(
             self.player.selected_session_code,
-            participant_limit=limit,
-            prolific_id=prolific,
+            participant_limit=read_inspect_participant_limit(self.player),
+            prolific_id=read_inspect_prolific_id(self.player),
         )
 
     def vars_for_template(self):
         return {
             "report": self._inspect_report(),
-            "participant_limit": self.player.field_maybe_none("participant_limit") or "",
-            "filter_prolific_id": self.player.field_maybe_none("filter_prolific_id") or "",
+            "participant_limit": self.player.field_maybe_none("filter_date_from") or "",
+            "filter_prolific_id": self.player.field_maybe_none("filter_date_to") or "",
         }
 
     def error_message(self, values):
-        raw_limit = values.get("participant_limit")
+        raw_limit = values.get("filter_date_from")
         if raw_limit not in (None, ""):
             try:
-                n = int(raw_limit)
+                n = int(str(raw_limit).strip())
             except (TypeError, ValueError):
                 return "Participant limit must be a positive number."
             if n < 1:
@@ -125,6 +128,7 @@ class InspectSession(Page):
             set_inspector_step(self.participant, "inspect")
         elif action == "back":
             self.player.selected_session_code = ""
+            restore_session_date_filters(self.participant, self.player)
             set_inspector_step(self.participant, "select")
         else:
             set_inspector_step(self.participant, "done")

@@ -35,12 +35,5 @@ class Player(BasePlayer):
     select_action = models.StringField(blank=True)
     # InspectSession: "rescan" | "back" | "done" | "apply_filters"
     inspect_action = models.StringField(blank=True)
-    participant_limit = models.IntegerField(
-        label="Show at most N participants (leave blank for all)",
-        blank=True,
-        min=1,
-    )
-    filter_prolific_id = models.StringField(
-        label="Only show participant with Prolific ID",
-        blank=True,
-    )
+    # On InspectSession only (reused): filter_date_from = participant limit,
+    # filter_date_to = prolific id. On SessionSelect they are YYYY-MM-DD dates.

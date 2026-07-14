@@ -128,10 +128,11 @@ def _participant_prolific_id(participant: Any) -> str:
 def filter_session_participants(
     participants: List[Any],
     *,
-    participant_limit: Optional[int] = None,
+    participant_from: Optional[int] = None,
+    participant_to: Optional[int] = None,
     prolific_id: Optional[str] = None,
 ) -> List[Any]:
-    """Return participants to scan, ordered by id_in_session."""
+    """Return participants to scan, ordered by id_in_session (P number)."""
     ordered = sorted(participants, key=lambda p: p.id_in_session)
     prolific_q = (prolific_id or "").strip()
     if prolific_q:
@@ -140,12 +141,14 @@ def filter_session_participants(
             for p in ordered
             if _participant_prolific_id(p).lower() == prolific_q.lower()
         ]
-    if participant_limit is not None and participant_limit > 0:
-        ordered = ordered[:participant_limit]
+    if participant_from is not None:
+        ordered = [p for p in ordered if p.id_in_session >= participant_from]
+    if participant_to is not None:
+        ordered = [p for p in ordered if p.id_in_session <= participant_to]
     return ordered
 
 
-def _normalize_participant_limit(value: Any) -> Optional[int]:
+def _normalize_participant_pos(value: Any) -> Optional[int]:
     if value is None or value == "":
         return None
     try:
@@ -320,7 +323,8 @@ def _batch_overview(session: Any) -> List[Dict[str, Any]]:
 def inspect_tg_session_by_code(
     session_code: str,
     *,
-    participant_limit: Optional[int] = None,
+    participant_from: Optional[int] = None,
+    participant_to: Optional[int] = None,
     prolific_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Full integrity report for one TG session code."""
@@ -330,7 +334,8 @@ def inspect_tg_session_by_code(
     if not code:
         return {"ok": False, "error": "No session code provided."}
 
-    limit = _normalize_participant_limit(participant_limit)
+    p_from = _normalize_participant_pos(participant_from)
+    p_to = _normalize_participant_pos(participant_to)
     prolific_q = (prolific_id or "").strip() or None
 
     try:
@@ -356,7 +361,8 @@ def inspect_tg_session_by_code(
     all_participants = list(session.get_participants())
     selected_participants = filter_session_participants(
         all_participants,
-        participant_limit=limit,
+        participant_from=p_from,
+        participant_to=p_to,
         prolific_id=prolific_q,
     )
     participant_reports = [
@@ -373,7 +379,14 @@ def inspect_tg_session_by_code(
     participants_with_issues = sum(1 for r in participant_reports if r.get("has_issues"))
     partial_contingent_count = flag_totals.get("partial_contingent_choices", 0)
     scanned_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    filter_active = bool(limit or prolific_q)
+    filter_active = bool(p_from is not None or p_to is not None or prolific_q)
+    range_label = ""
+    if p_from is not None and p_to is not None:
+        range_label = f"P{p_from}–P{p_to}"
+    elif p_from is not None:
+        range_label = f"P{p_from}+"
+    elif p_to is not None:
+        range_label = f"up to P{p_to}"
 
     return {
         "ok": True,
@@ -399,7 +412,9 @@ def inspect_tg_session_by_code(
             "all_clear": participants_with_issues == 0 and bool(participant_reports),
             "scanned_at": scanned_at,
             "filter_active": filter_active,
-            "participant_limit": limit,
+            "participant_from": p_from,
+            "participant_to": p_to,
+            "participant_range_label": range_label,
             "filter_prolific_id": prolific_q or "",
             "prolific_not_found": bool(prolific_q and not participant_reports),
         },
@@ -432,17 +447,23 @@ def stash_session_date_filters(participant, player) -> None:
     participant.vars["inspector_select_date_to"] = player.field_maybe_none("filter_date_to") or ""
     player.filter_date_from = ""
     player.filter_date_to = ""
+    player.select_action = ""
 
 
 def restore_session_date_filters(participant, player) -> None:
     player.filter_date_from = participant.vars.get("inspector_select_date_from") or ""
     player.filter_date_to = participant.vars.get("inspector_select_date_to") or ""
+    player.select_action = ""
 
 
-def read_inspect_participant_limit(player) -> Optional[int]:
-    return _normalize_participant_limit(player.field_maybe_none("filter_date_from"))
+def read_inspect_participant_from(player) -> Optional[int]:
+    return _normalize_participant_pos(player.field_maybe_none("filter_date_from"))
+
+
+def read_inspect_participant_to(player) -> Optional[int]:
+    return _normalize_participant_pos(player.field_maybe_none("filter_date_to"))
 
 
 def read_inspect_prolific_id(player) -> Optional[str]:
-    val = (player.field_maybe_none("filter_date_to") or "").strip()
+    val = (player.field_maybe_none("select_action") or "").strip()
     return val or None

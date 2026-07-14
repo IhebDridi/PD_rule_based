@@ -146,7 +146,7 @@ class TgSessionInspectorTests(unittest.TestCase):
         self.assertIn("partial contingents", detail["summary"])
         self.assertIn("c1='A'", detail["summary"])
 
-    def test_filter_session_participants_by_limit_and_prolific(self):
+    def test_filter_session_participants_by_range_and_prolific(self):
         def _players(pid):
             return [SimpleNamespace(field_maybe_none=lambda n, p=pid: p if n == "prolific_id" else None)]
 
@@ -154,10 +154,14 @@ class TgSessionInspectorTests(unittest.TestCase):
             SimpleNamespace(id_in_session=1, get_players=lambda: _players("AAA")),
             SimpleNamespace(id_in_session=2, get_players=lambda: _players("BBB")),
             SimpleNamespace(id_in_session=3, get_players=lambda: _players("CCC")),
+            SimpleNamespace(id_in_session=20, get_players=lambda: _players("ZZZ")),
         ]
 
-        limited = filter_session_participants(participants, participant_limit=2)
-        self.assertEqual([p.id_in_session for p in limited], [1, 2])
+        ranged = filter_session_participants(participants, participant_from=1, participant_to=2)
+        self.assertEqual([p.id_in_session for p in ranged], [1, 2])
+
+        wide = filter_session_participants(participants, participant_from=1, participant_to=20)
+        self.assertEqual([p.id_in_session for p in wide], [1, 2, 3, 20])
 
         by_prolific = filter_session_participants(participants, prolific_id="bbb")
         self.assertEqual([p.id_in_session for p in by_prolific], [2])

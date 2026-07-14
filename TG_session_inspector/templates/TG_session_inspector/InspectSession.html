@@ -31,14 +31,20 @@
             <legend>Participant display</legend>
             <div class="filter-row">
                 <label>
-                    Show at most
+                    From P
                     <input type="number" name="filter_date_from" min="1" step="1"
-                           value="{{ participant_limit }}" class="inspector-number"
-                           placeholder="all">
+                           value="{{ participant_from }}" class="inspector-number"
+                           placeholder="e.g. 1">
+                </label>
+                <label>
+                    To P
+                    <input type="number" name="filter_date_to" min="1" step="1"
+                           value="{{ participant_to }}" class="inspector-number"
+                           placeholder="e.g. 20">
                 </label>
                 <label>
                     Prolific ID
-                    <input type="text" name="filter_date_to"
+                    <input type="text" name="select_action"
                            value="{{ filter_prolific_id }}" class="inspector-text"
                            placeholder="exact match">
                 </label>
@@ -50,6 +56,7 @@
                         onclick="
                           document.querySelector('[name=filter_date_from]').value='';
                           document.querySelector('[name=filter_date_to]').value='';
+                          document.querySelector('[name=select_action]').value='';
                           document.getElementById('inspect_action').value='apply_filters';
                         ">
                     Clear
@@ -59,7 +66,7 @@
             <p class="inspector-hint">
                 Showing {{ report.summary.participant_count }} of
                 {{ report.summary.session_participant_count }} participants
-                {% if report.summary.participant_limit %} · limit {{ report.summary.participant_limit }}{% endif %}
+                {% if report.summary.participant_range_label %} · {{ report.summary.participant_range_label }}{% endif %}
                 {% if report.summary.filter_prolific_id %} · prolific {{ report.summary.filter_prolific_id }}{% endif %}
             </p>
             {% else %}

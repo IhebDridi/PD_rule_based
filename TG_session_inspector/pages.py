@@ -3,10 +3,12 @@
 from otree.api import *
 
 from shared.tg_session_inspector import (
+    _normalize_participant_pos,
     inspect_tg_session_by_code,
     inspector_step,
     list_tg_sessions,
-    read_inspect_participant_limit,
+    read_inspect_participant_from,
+    read_inspect_participant_to,
     read_inspect_prolific_id,
     restore_session_date_filters,
     set_inspector_step,
@@ -92,6 +94,7 @@ class InspectSession(Page):
         "inspect_action",
         "filter_date_from",
         "filter_date_to",
+        "select_action",
     ]
 
     def is_displayed(self):
@@ -100,26 +103,30 @@ class InspectSession(Page):
     def _inspect_report(self):
         return inspect_tg_session_by_code(
             self.player.selected_session_code,
-            participant_limit=read_inspect_participant_limit(self.player),
+            participant_from=read_inspect_participant_from(self.player),
+            participant_to=read_inspect_participant_to(self.player),
             prolific_id=read_inspect_prolific_id(self.player),
         )
 
     def vars_for_template(self):
         return {
             "report": self._inspect_report(),
-            "participant_limit": self.player.field_maybe_none("filter_date_from") or "",
-            "filter_prolific_id": self.player.field_maybe_none("filter_date_to") or "",
+            "participant_from": self.player.field_maybe_none("filter_date_from") or "",
+            "participant_to": self.player.field_maybe_none("filter_date_to") or "",
+            "filter_prolific_id": self.player.field_maybe_none("select_action") or "",
         }
 
     def error_message(self, values):
-        raw_limit = values.get("filter_date_from")
-        if raw_limit not in (None, ""):
-            try:
-                n = int(str(raw_limit).strip())
-            except (TypeError, ValueError):
-                return "Participant limit must be a positive number."
-            if n < 1:
-                return "Participant limit must be at least 1."
+        p_from = _normalize_participant_pos(values.get("filter_date_from"))
+        p_to = _normalize_participant_pos(values.get("filter_date_to"))
+        raw_from = values.get("filter_date_from")
+        raw_to = values.get("filter_date_to")
+        if raw_from not in (None, "") and p_from is None:
+            return "P from must be a positive number (e.g. 1 for P1)."
+        if raw_to not in (None, "") and p_to is None:
+            return "P to must be a positive number (e.g. 20 for P20)."
+        if p_from is not None and p_to is not None and p_from > p_to:
+            return "P from must be less than or equal to P to."
         return None
 
     def before_next_page(self):

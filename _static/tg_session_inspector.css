@@ -1,0 +1,271 @@
+/* TG session inspector — readable in classic (light) and midnight-teal themes */
+
+.inspector-container {
+    max-width: 1200px;
+    margin: 1.5rem auto;
+    padding: 1.25rem 1.5rem;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+    color: #0f172a;
+}
+
+.inspector-title {
+    margin: 0 0 0.75rem;
+    font-size: 1.6rem;
+    color: #0f172a;
+}
+
+.inspector-intro {
+    color: #334155;
+    line-height: 1.5;
+    margin-bottom: 1.25rem;
+}
+
+.inspector-meta {
+    color: #475569;
+    margin-bottom: 0.75rem;
+}
+
+.inspector-error {
+    color: #b91c1c;
+    font-weight: 600;
+}
+
+.inspector-filter {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 0.75rem 1rem 1rem;
+    margin-bottom: 1.25rem;
+    background: #f8fafc;
+    color: #0f172a;
+}
+
+.inspector-filter legend {
+    font-weight: 700;
+    padding: 0 0.35rem;
+    color: #0f172a;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: flex-end;
+}
+
+.filter-row label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    color: #334155;
+}
+
+.inspector-date,
+.inspector-select {
+    padding: 0.4rem 0.55rem;
+    font-size: 0.95rem;
+    border: 1px solid #94a3b8;
+    border-radius: 6px;
+    background: #fff;
+    color: #0f172a;
+}
+
+.inspector-select {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    margin: 0.5rem 0 0.75rem;
+    padding: 0.55rem 0.65rem;
+}
+
+.inspector-hint {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin: 0.5rem 0 0;
+}
+
+.inspector-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.inspector-actions.bottom-actions {
+    margin-top: 1.25rem;
+    margin-bottom: 0;
+}
+
+.inspector-btn {
+    margin-top: 0.35rem;
+    padding: 0.55rem 1.2rem;
+    background: #0056b3;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.inspector-btn:hover {
+    background: #003d80;
+}
+
+.inspector-btn.secondary {
+    background: #e2e8f0;
+    color: #0f172a;
+}
+
+.inspector-btn.secondary:hover {
+    background: #cbd5e1;
+}
+
+.inspector-empty {
+    padding: 1rem;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 8px;
+    color: #78350f;
+}
+
+.inspector-summary {
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+    color: #0f172a;
+}
+
+.summary-ok {
+    background: #ecfdf5;
+    border: 1px solid #10b981;
+}
+
+.summary-warn {
+    background: #fef2f2;
+    border: 1px solid #ef4444;
+}
+
+.flag-totals {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.flag-chip {
+    font-size: 0.78rem;
+    padding: 0.15rem 0.45rem;
+    background: rgba(0, 0, 0, 0.06);
+    border-radius: 4px;
+    color: #0f172a;
+}
+
+.flag-chip-warn {
+    background: #fee2e2;
+    color: #991b1b;
+    font-weight: 600;
+}
+
+.partial-alert {
+    margin-top: 0.35rem;
+}
+
+.inspector-section {
+    margin-bottom: 1.5rem;
+}
+
+.inspector-section h2 {
+    font-size: 1.15rem;
+    margin-bottom: 0.65rem;
+    color: #0f172a;
+}
+
+.inspector-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+    color: #0f172a;
+}
+
+.inspector-table th,
+.inspector-table td {
+    border: 1px solid #cbd5e1;
+    padding: 0.35rem 0.45rem;
+    vertical-align: top;
+    color: #0f172a;
+}
+
+.inspector-table th {
+    background: #f1f5f9;
+    text-align: left;
+}
+
+.inspector-table-sm {
+    font-size: 0.8rem;
+}
+
+.row-warn {
+    background: #fff7ed;
+}
+
+.row-partial {
+    background: #fef2f2;
+}
+
+.participant-panel {
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.65rem;
+    color: #0f172a;
+}
+
+.participant-panel.has-issues {
+    border-color: #f59e0b;
+}
+
+.participant-panel summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.badge-ok {
+    font-size: 0.72rem;
+    padding: 0.1rem 0.35rem;
+    background: #dcfce7;
+    color: #166534;
+    border-radius: 4px;
+    margin-left: 0.35rem;
+}
+
+.badge-warn {
+    font-size: 0.72rem;
+    padding: 0.1rem 0.35rem;
+    background: #fee2e2;
+    color: #991b1b;
+    border-radius: 4px;
+    margin-left: 0.35rem;
+}
+
+.issue-block,
+.part-block {
+    margin: 0.75rem 0 0.5rem 0.5rem;
+    color: #0f172a;
+}
+
+.issue-block h3,
+.part-block h3 {
+    font-size: 0.95rem;
+    margin: 0 0 0.35rem;
+    color: #0f172a;
+}
+
+.small {
+    font-size: 0.78rem;
+    color: #475569;
+}

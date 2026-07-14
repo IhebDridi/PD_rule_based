@@ -506,3 +506,106 @@ html.otree-theme-midnight-teal .member-details,
 html.otree-theme-midnight-teal .arrow-caption {
   color: var(--text-muted) !important;
 }
+
+/* TG session inspector — dark panel, light text (fixes white-on-white filter box) */
+html.otree-theme-midnight-teal .inspector-container {
+  background: var(--bg-panel) !important;
+  border: 1px solid var(--border) !important;
+  box-shadow: none !important;
+  color: var(--text) !important;
+  backdrop-filter: blur(12px);
+}
+
+html.otree-theme-midnight-teal .inspector-container .inspector-title,
+html.otree-theme-midnight-teal .inspector-container .inspector-filter legend,
+html.otree-theme-midnight-teal .inspector-container .filter-row label,
+html.otree-theme-midnight-teal .inspector-container label,
+html.otree-theme-midnight-teal .inspector-container p,
+html.otree-theme-midnight-teal .inspector-container strong,
+html.otree-theme-midnight-teal .inspector-container h2,
+html.otree-theme-midnight-teal .inspector-container h3,
+html.otree-theme-midnight-teal .inspector-container summary,
+html.otree-theme-midnight-teal .inspector-container .inspector-summary,
+html.otree-theme-midnight-teal .inspector-container .issue-block,
+html.otree-theme-midnight-teal .inspector-container .part-block,
+html.otree-theme-midnight-teal .inspector-container .participant-panel,
+html.otree-theme-midnight-teal .inspector-container .flag-chip {
+  color: var(--text) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container .inspector-intro,
+html.otree-theme-midnight-teal .inspector-container .inspector-meta,
+html.otree-theme-midnight-teal .inspector-container .inspector-hint,
+html.otree-theme-midnight-teal .inspector-container .small {
+  color: var(--text-muted) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container .inspector-filter {
+  background: var(--bg-elevated) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container input[type="date"],
+html.otree-theme-midnight-teal .inspector-container .inspector-date,
+html.otree-theme-midnight-teal .inspector-container .inspector-select,
+html.otree-theme-midnight-teal .inspector-container select {
+  background: rgba(8, 12, 20, 0.55) !important;
+  border: 1px solid var(--border) !important;
+  color: var(--text) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container .inspector-table,
+html.otree-theme-midnight-teal .inspector-container .inspector-table th,
+html.otree-theme-midnight-teal .inspector-container .inspector-table td {
+  color: var(--text) !important;
+  border-color: var(--border) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container .inspector-table th {
+  background: var(--bg-elevated) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container .participant-panel,
+html.otree-theme-midnight-teal .inspector-container .summary-ok,
+html.otree-theme-midnight-teal .inspector-container .summary-warn {
+  border-color: var(--border) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container .summary-ok {
+  background: rgba(52, 211, 153, 0.12) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container .summary-warn,
+html.otree-theme-midnight-teal .inspector-container .row-partial {
+  background: rgba(248, 113, 113, 0.12) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container .row-warn {
+  background: rgba(251, 191, 36, 0.1) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container .flag-chip {
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container .flag-chip-warn {
+  background: rgba(248, 113, 113, 0.2) !important;
+  color: var(--danger) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container .inspector-empty {
+  background: rgba(251, 191, 36, 0.12) !important;
+  border-color: var(--warning) !important;
+  color: var(--text) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container .inspector-btn.secondary {
+  background: var(--bg-elevated) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+}
+
+html.otree-theme-midnight-teal .inspector-container .inspector-btn.secondary:hover {
+  border-color: var(--accent) !important;
+}

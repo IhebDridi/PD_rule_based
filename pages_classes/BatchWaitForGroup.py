@@ -3,6 +3,7 @@ import time
 from otree.api import *
 
 from shared.export_integrity import record_data_errors_for_participants
+from shared.session_part_lock import normalize_pool_ids, session_part_lock
 
 from .model_bridge import app_models
 from .page_helpers import BATCH_WAIT_MIN_SECONDS, _has_left_lobby_for_part
@@ -10,11 +11,10 @@ from .page_helpers import BATCH_WAIT_MIN_SECONDS, _has_left_lobby_for_part
 
 class BatchWaitForGroup(WaitPage):
     """
-    Shown at end of each part (rounds 10, 20, 30). Waits until every participant in the same
-    matching_group_id has arrived; then one request runs run_payoffs_for_matching_group and all
-    proceed. Uses session key payoffs_run_matching_group_{gid}_part_{part} so payoffs run only once.
-
-    Template path is ``global/BatchWaitForGroup.html``.
+    Shown at end of each part (rounds 10, 20, 30). Participants join a shared pool;
+    trios of 3 are formed deterministically (lowest id_in_session first). Pool updates
+    and payoff runs are serialized per session+part via a PostgreSQL advisory lock so
+    simultaneous clicks from large sessions cannot double-form groups or double-run payoffs.
     """
 
     @property
@@ -61,9 +61,11 @@ class BatchWaitForGroup(WaitPage):
         if _params:
             if _params.get("quit"):
                 # Participant chooses to leave → remove from pool, mark quit, advance to TimeOutquit (admin shows that name), which then redirects to Prolific.
-                pool = [sid for sid in self.session.vars.get(pool_key, []) if sid != self.participant.id_in_session]
-                self.session.vars[pool_key] = pool
-                self.session.vars[pool_version_key] = int(self.session.vars.get(pool_version_key, 0)) + 1
+                with session_part_lock(self.session, current_part):
+                    pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
+                    pool = [sid for sid in pool if sid != self.participant.id_in_session]
+                    self.session.vars[pool_key] = pool
+                    self.session.vars[pool_version_key] = int(self.session.vars.get(pool_version_key, 0)) + 1
                 self.participant.vars['quit_to_prolific_results'] = True
                 self.participant.vars[f"results_waiting_part_{current_part}"] = False
                 return self._response_when_ready()
@@ -122,10 +124,14 @@ class BatchWaitForGroup(WaitPage):
         return self._get_wait_page()
 
     def _update_results_pool_and_maybe_group(self):
-        """Side-effect helper: incrementally maintain pool and, if possible, form one group of 3."""
+        """Maintain the shared pool and form as many groups of 3 as possible (serialized per session+part)."""
         am = app_models(self.player)
         Constants = am.Constants
         current_part = Constants.get_part(self.round_number)
+        with session_part_lock(self.session, current_part):
+            self._update_results_pool_and_maybe_group_locked(am, Constants, current_part)
+
+    def _update_results_pool_and_maybe_group_locked(self, am, Constants, current_part):
         can_proceed_key = f"can_proceed_to_results_part_{current_part}"
         pool_key = f'results_pool_part_{current_part}'
         group_size = self.FIXED_RESULTS_GROUP_SIZE
@@ -135,18 +141,13 @@ class BatchWaitForGroup(WaitPage):
         ready_at_key = f"results_ready_at_part_{current_part}"
         pool_version_key = f"results_pool_version_part_{current_part}"
         claim_prefix = f"results_group_claim_part_{current_part}_"
-        pool = self.session.vars.get(pool_key, [])
-        if not isinstance(pool, list):
-            pool = []
-        # Keep pool normalized (unique + sorted) without scanning all participants.
-        pool = sorted({int(pid) for pid in pool})
+        pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
         self.session.vars[pool_key] = pool
         now = time.time()
         if first_join_key not in self.session.vars:
             self.session.vars[first_join_key] = now
         pid = self.participant.id_in_session
 
-        # Keep own status/pool entry consistent first.
         if self.participant.vars.get(can_proceed_key) or self.participant.vars.get('quit_to_prolific_results', False):
             self.participant.vars[waiting_key] = False
             if pid in pool:
@@ -164,64 +165,118 @@ class BatchWaitForGroup(WaitPage):
             self.session.vars[pool_key] = pool
             self.session.vars[pool_version_key] = int(self.session.vars.get(pool_version_key, 0)) + 1
 
-        # Periodic stale-entry cleanup (infrequent, for long high-traffic sessions).
         pool_version = int(self.session.vars.get(pool_version_key, 0))
         if pool and (pool_version % self.POOL_CLEANUP_EVERY_UPDATES == 0):
-            participants = self.session.get_participants()
-            pmap = {p.id_in_session: p for p in participants}
-            cleaned = []
-            for sid in pool:
-                pp = pmap.get(sid)
-                if not pp:
-                    continue
-                if pp.vars.get(can_proceed_key) or pp.vars.get('quit_to_prolific_results', False):
-                    continue
-                if not pp.vars.get(waiting_key):
-                    continue
-                cleaned.append(sid)
-            cleaned = sorted(set(cleaned))
-            if cleaned != pool:
-                pool = cleaned
-                self.session.vars[pool_key] = pool
-                self.session.vars[pool_version_key] = pool_version + 1
+            pool = self._cleanup_results_pool(
+                pool,
+                pool_key,
+                pool_version_key,
+                pool_version,
+                can_proceed_key,
+                waiting_key,
+                claim_prefix,
+                group_size,
+            )
 
-            # Keep session vars compact: remove obsolete claim keys for this part.
-            active_trio_claim = None
-            if len(pool) >= group_size:
-                active_ids = pool[:group_size]
-                active_trio_claim = f"{claim_prefix}{'_'.join(map(str, active_ids))}"
-            stale_claim_keys = [
-                k for k in list(self.session.vars.keys())
-                if isinstance(k, str) and k.startswith(claim_prefix) and k != active_trio_claim
-            ]
-            for k in stale_claim_keys:
-                self.session.vars.pop(k, None)
+        while len(pool) >= group_size:
+            formed, pool, stop = self._try_form_one_results_group(
+                am,
+                Constants,
+                current_part,
+                pool,
+                pool_key,
+                pool_version_key,
+                group_size,
+                can_proceed_key,
+                waiting_key,
+                ready_at_key,
+                now,
+            )
+            if stop:
+                break
+            if not formed:
+                continue
 
-        if len(pool) < group_size:
-            return
+    def _cleanup_results_pool(
+        self,
+        pool,
+        pool_key,
+        pool_version_key,
+        pool_version,
+        can_proceed_key,
+        waiting_key,
+        claim_prefix,
+        group_size,
+    ):
+        participants = self.session.get_participants()
+        pmap = {p.id_in_session: p for p in participants}
+        cleaned = []
+        for sid in pool:
+            pp = pmap.get(sid)
+            if not pp:
+                continue
+            if pp.vars.get(can_proceed_key) or pp.vars.get('quit_to_prolific_results', False):
+                continue
+            if not pp.vars.get(waiting_key):
+                continue
+            cleaned.append(sid)
+        cleaned = sorted(set(cleaned))
+        if cleaned != pool:
+            pool = cleaned
+            self.session.vars[pool_key] = pool
+            self.session.vars[pool_version_key] = pool_version + 1
 
-        # Deterministic trio claim: smallest IDs first.
+        active_trio_claim = None
+        if len(pool) >= group_size:
+            active_ids = pool[:group_size]
+            active_trio_claim = f"{claim_prefix}{'_'.join(map(str, active_ids))}"
+        stale_claim_keys = [
+            k for k in list(self.session.vars.keys())
+            if isinstance(k, str) and k.startswith(claim_prefix) and k != active_trio_claim
+        ]
+        for k in stale_claim_keys:
+            self.session.vars.pop(k, None)
+        return pool
+
+    def _try_form_one_results_group(
+        self,
+        am,
+        Constants,
+        current_part,
+        pool,
+        pool_key,
+        pool_version_key,
+        group_size,
+        can_proceed_key,
+        waiting_key,
+        ready_at_key,
+        now,
+    ):
+        """
+        Try to release one trio from ``pool``.
+        Returns ``(formed, updated_pool, stop_loop)``.
+        """
         first_ids = pool[:group_size]
         claim_key = f"results_group_claim_part_{current_part}_{'_'.join(map(str, first_ids))}"
         if self.session.vars.get(claim_key):
-            return
-        self.session.vars[claim_key] = True
+            return False, pool, True
 
+        self.session.vars[claim_key] = True
         payoffs_ready = False
         try:
             participants = self.session.get_participants()
             pmap = {p.id_in_session: p for p in participants}
             trio = [pmap.get(i) for i in first_ids]
             if any(p is None for p in trio):
-                # Drop stale IDs only when encountered.
                 pool = [x for x in pool if x in pmap]
                 self.session.vars[pool_key] = pool
-                return
+                return False, pool, False
+
             if any(p.vars.get(can_proceed_key) or p.vars.get('quit_to_prolific_results', False) for p in trio):
                 pool = [x for x in pool if x not in first_ids]
                 self.session.vars[pool_key] = pool
                 self.session.vars[pool_version_key] = int(self.session.vars.get(pool_version_key, 0)) + 1
-                return
+                return False, pool, False
 
             batch_id = first_ids[0]
             part_start_round = (current_part - 1) * Constants.rounds_per_part + 1
@@ -234,7 +289,7 @@ class BatchWaitForGroup(WaitPage):
                     "GROUP_FORMATION_FAILED",
                     f"part={current_part} expected={group_size} got={len(batch_players)}",
                 )
-                return
+                return False, pool, True
 
             self.session.vars[f'matching_group_members_part_{current_part}_{batch_id}'] = list(first_ids)
             for i, pl in enumerate(batch_players):
@@ -248,18 +303,18 @@ class BatchWaitForGroup(WaitPage):
                     "PAYOFFS_OR_RESULTS_NOT_READY",
                     f"part={current_part} batch_id={batch_id}",
                 )
-                return
+                return False, pool, True
 
             for p in trio:
-                p.vars[f'can_proceed_to_results_part_{current_part}'] = True
+                p.vars[can_proceed_key] = True
                 p.vars[ready_at_key] = now
                 p.vars[waiting_key] = False
-            self.session.vars[pool_key] = [x for x in pool if x not in first_ids]
+            pool = [x for x in pool if x not in first_ids]
+            self.session.vars[pool_key] = pool
             self.session.vars[pool_version_key] = int(self.session.vars.get(pool_version_key, 0)) + 1
-            # Claim no longer needed after success.
             self.session.vars.pop(claim_key, None)
+            return True, pool, False
         finally:
-            # If payoffs not ready yet, allow a future refresh to retry this trio claim.
             if not payoffs_ready:
                 self.session.vars.pop(claim_key, None)
 

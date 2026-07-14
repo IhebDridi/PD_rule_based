@@ -10,6 +10,12 @@ from shared.tg_data_helpers import (
     read_agent_first_map_from_player,
     read_human_first_map_from_player,
 )
+from shared.tg_human_block_vars import (
+    backfill_human_block_fields_on_player,
+    human_block_maps_from_vars,
+    record_human_first_choice,
+    record_human_second_choice,
+)
 
 from .model_bridge import get_constants
 from .page_helpers import _has_left_lobby_for_part, part_vars
@@ -95,7 +101,7 @@ class TgV2HumanDecisionsFirst(Page):
 
     template_name = "global/TgV2HumanDecisionsFirst.html"
     form_model = "player"
-    preserve_unsubmitted_inputs = True
+    preserve_unsubmitted_inputs = False
 
     def _part_and_step(self):
         Constants = get_constants(self.player)
@@ -145,15 +151,12 @@ class TgV2HumanDecisionsFirst(Page):
         Constants = get_constants(self.player)
         block_r = _human_block_round(self.player) or self.round_number
         part = Constants.get_part(block_r)
-        first_done_key, _, vars_key = _part_human_keys(part)
+        first_done_key, _, _ = _part_human_keys(part)
         step_key = _human_first_step_key(part)
         step = self.participant.vars.get(step_key, 0)
         round_i = step + 1
-        decisions = dict(self.participant.vars.get(vars_key, {}))
-        decisions[round_i] = self.player.field_maybe_none(
-            f"human_decision_no_delegation_round_{round_i}"
-        )
-        self.participant.vars[vars_key] = decisions
+        choice = self.player.field_maybe_none(f"human_decision_no_delegation_round_{round_i}")
+        record_human_first_choice(self.participant, part, round_i, choice)
         self.participant.vars[step_key] = round_i
         if round_i >= 10:
             self.participant.vars[first_done_key] = True
@@ -164,7 +167,7 @@ class TgV2HumanDecisionsSecond(Page):
 
     template_name = "global/TgV2HumanDecisionsSecond.html"
     form_model = "player"
-    preserve_unsubmitted_inputs = True
+    preserve_unsubmitted_inputs = False
 
     def _part_and_step(self):
         Constants = get_constants(self.player)
@@ -211,15 +214,11 @@ class TgV2HumanDecisionsSecond(Page):
         Constants = get_constants(self.player)
         block_r = _human_block_round(self.player) or self.round_number
         part = Constants.get_part(block_r)
-        _, _, vars_key = _part_human_keys(part)
-        first_map = merge_block_map(
-            self.participant, vars_key, self.player, read_human_first_map_from_player
-        )
-        second_map = {
-            i: values.get(f"human_second_no_delegation_round_{i}")
-            or self.player.field_maybe_none(f"human_second_no_delegation_round_{i}")
-            for i in range(1, 11)
-        }
+        first_map, second_map = human_block_maps_from_vars(self.participant, part)
+        round_i = step + 1
+        choice = values.get(f"human_second_no_delegation_round_{round_i}")
+        if choice in ("A", "B"):
+            second_map[round_i] = choice
         start_round = (part - 1) * Constants.rounds_per_part + 1
         block_err = validate_tg_block_maps(first_map, second_map, start_round)
         if block_err:
@@ -235,26 +234,20 @@ class TgV2HumanDecisionsSecond(Page):
         Constants = get_constants(self.player)
         block_r = _human_block_round(self.player) or self.round_number
         part = Constants.get_part(block_r)
-        _, done_key, vars_key = _part_human_keys(part)
+        _, done_key, _ = _part_human_keys(part)
         step_key = _human_second_step_key(part)
         step = self.participant.vars.get(step_key, 0)
         round_i = step + 1
+        choice = self.player.field_maybe_none(f"human_second_no_delegation_round_{round_i}")
+        record_human_second_choice(self.participant, part, round_i, choice)
         self.participant.vars[step_key] = round_i
         if round_i < 10:
             return
-        first_map = merge_block_map(
-            self.participant, vars_key, self.player, read_human_first_map_from_player
-        )
-        second_map = {
-            i: self.player.field_maybe_none(f"human_second_no_delegation_round_{i}")
-            for i in range(1, 11)
-        }
+        first_map, second_map = human_block_maps_from_vars(self.participant, part)
         start_round = (part - 1) * Constants.rounds_per_part + 1
         missing = []
         for i in range(1, 11):
-            f = first_map.get(i) or first_map.get(str(i))
-            s = second_map.get(i)
-            if f not in ("A", "B") or s not in ("A", "B"):
+            if first_map.get(i) not in ("A", "B") or second_map.get(i) not in ("A", "B"):
                 missing.append(str(start_round + i - 1))
         if missing:
             record_data_error(
@@ -263,6 +256,7 @@ class TgV2HumanDecisionsSecond(Page):
                 ",".join(missing),
             )
             return
+        backfill_human_block_fields_on_player(self.player, first_map, second_map)
         _copy_v2_human_to_rounds(self.player, start_round, first_map, second_map)
         self.participant.vars[done_key] = True
 

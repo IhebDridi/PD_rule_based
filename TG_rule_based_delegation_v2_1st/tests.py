@@ -1,4 +1,4 @@
-"""Bot tests for TG_rule_based_delegation_v2_1st."""
+"""Bot tests for TG_rule_based_delegation_v2_1st (delegation-first; human block in Part 2)."""
 
 import os
 import random
@@ -12,14 +12,11 @@ from shared.tg_bot_forms import (
     tg_human_first_form_round,
     tg_human_second_form_round,
 )
+from shared.tg_v2_bot_stress import patch_tg_v2_bot_runner
 
 from .models import Constants
-from pages_classes.tg_v2_pages import (
-    TgV2HumanDecisionsFirst,
-    TgV2HumanDecisionsSecond,
-)
+from pages_classes.tg_v2_pages import TgV2HumanDecisionsFirst, TgV2HumanDecisionsSecond
 from .pages import (
-    BatchWaitForGroup,
     ComprehensionTest,
     Debriefing,
     DelegationDecision,
@@ -71,6 +68,16 @@ def _exit_form():
     }
 
 
+def _yield_human_block():
+    for i in range(1, 11):
+        yield TgV2HumanDecisionsFirst, tg_human_first_form_round("A", i)
+    for i in range(1, 11):
+        yield TgV2HumanDecisionsSecond, tg_human_second_form_round("B", i)
+
+
+patch_tg_v2_bot_runner(delegation_first=DELEGATION_FIRST)
+
+
 class PlayerBot(Bot):
     def play_round(self):
         rnd = self.round_number
@@ -85,10 +92,7 @@ class PlayerBot(Bot):
                 yield TgV2AgentProgrammingSecond, tg_agent_second_form("B")
             else:
                 yield InstructionsNoDelegation
-                for i in range(1, 11):
-                    yield TgV2HumanDecisionsFirst, tg_human_first_form_round("A", i)
-                for i in range(1, 11):
-                    yield TgV2HumanDecisionsSecond, tg_human_second_form_round("B", i)
+                yield from _yield_human_block()
 
         if rnd == 10:
             yield Results
@@ -96,10 +100,7 @@ class PlayerBot(Bot):
         if rnd == 11:
             if DELEGATION_FIRST:
                 yield InstructionsNoDelegation
-                for i in range(1, 11):
-                    yield TgV2HumanDecisionsFirst, tg_human_first_form_round("A", i)
-                for i in range(1, 11):
-                    yield TgV2HumanDecisionsSecond, tg_human_second_form_round("B", i)
+                yield from _yield_human_block()
             else:
                 yield InstructionsDelegation
                 yield TgV2AgentProgrammingFirst, tg_agent_first_form("A")
@@ -110,11 +111,9 @@ class PlayerBot(Bot):
 
         if rnd == 21:
             yield InstructionsOptional
-            delegate = True
-            yield DelegationDecision, {"delegate_decision_optional": delegate}
-            if delegate:
-                yield TgV2AgentProgrammingFirst, tg_agent_first_form("A")
-                yield TgV2AgentProgrammingSecond, tg_agent_second_form("B")
+            yield DelegationDecision, {"delegate_decision_optional": True}
+            yield TgV2AgentProgrammingFirst, tg_agent_first_form("A")
+            yield TgV2AgentProgrammingSecond, tg_agent_second_form("B")
 
         if rnd == 30:
             yield Results

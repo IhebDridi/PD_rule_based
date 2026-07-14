@@ -145,63 +145,71 @@ def run_payoffs_for_matching_group_tg(
     if subsession.session.vars.get(run_key):
         return True
 
+    in_progress_key = f"{run_key}_in_progress"
+    if subsession.session.vars.get(in_progress_key):
+        return False
+    subsession.session.vars[in_progress_key] = True
+
     key = f"matching_group_members_part_{current_part}_{matching_group_id}"
     member_ids = subsession.session.vars.get(key)
-    if not member_ids or not isinstance(member_ids, (list, tuple)) or len(member_ids) < 3:
-        return None
+    try:
+        if not member_ids or not isinstance(member_ids, (list, tuple)) or len(member_ids) < 3:
+            return None
 
-    first_round_ss = subsession.in_round(start)
-    players_start = [
-        p for p in first_round_ss.get_players() if p.participant.id_in_session in member_ids
-    ]
-    if len(players_start) != 3:
-        return None
-    players_start = sorted(
-        players_start, key=lambda p: p.participant.vars.get("matching_group_position", 0)
-    )
+        first_round_ss = subsession.in_round(start)
+        players_start = [
+            p for p in first_round_ss.get_players() if p.participant.id_in_session in member_ids
+        ]
+        if len(players_start) != 3:
+            return None
+        players_start = sorted(
+            players_start, key=lambda p: p.participant.vars.get("matching_group_position", 0)
+        )
 
-    def _all_ready() -> bool:
+        def _all_ready() -> bool:
+            for r in range(start, end + 1):
+                for p0 in players_start:
+                    if not tg_choices_ready(p0.in_round(r)):
+                        return False
+            return True
+
+        if not _all_ready():
+            return False
+
+        N = len(member_ids)
+        if N not in _ROUND_ROBIN_CACHE:
+            _ROUND_ROBIN_CACHE[N] = compute_rr(N, Constants.rounds_per_part)
+        assignments = _ROUND_ROBIN_CACHE[N]
+
+        session_code = subsession.session.code
         for r in range(start, end + 1):
-            for p0 in players_start:
-                if not tg_choices_ready(p0.in_round(r)):
-                    return False
+            part_start = (current_part - 1) * Constants.rounds_per_part + 1
+            round_in_part = r - part_start
+            players_r = [p0.in_round(r) for p0 in players_start]
+            for i, p in enumerate(players_r):
+                opp_idx, _ = assignments[i][round_in_part]
+                if opp_idx is None:
+                    continue
+                opp = players_r[opp_idx]
+                pair_seed = hash(
+                    (session_code, r, min(p.participant.id_in_session, opp.participant.id_in_session),
+                     max(p.participant.id_in_session, opp.participant.id_in_session))
+                ) & 0xFFFFFFFF
+                apply_tg_payoffs_for_pair(p, opp, rng=random.Random(pair_seed), write_both=False)
+
+        write_tg_results_display_cache(
+            players_start,
+            assignments,
+            current_part,
+            start,
+            end,
+            Constants.rounds_per_part,
+        )
+
+        subsession.session.vars[run_key] = True
         return True
-
-    if not _all_ready():
-        return False
-
-    N = len(member_ids)
-    if N not in _ROUND_ROBIN_CACHE:
-        _ROUND_ROBIN_CACHE[N] = compute_rr(N, Constants.rounds_per_part)
-    assignments = _ROUND_ROBIN_CACHE[N]
-
-    session_code = subsession.session.code
-    for r in range(start, end + 1):
-        part_start = (current_part - 1) * Constants.rounds_per_part + 1
-        round_in_part = r - part_start
-        players_r = [p0.in_round(r) for p0 in players_start]
-        for i, p in enumerate(players_r):
-            opp_idx, _ = assignments[i][round_in_part]
-            if opp_idx is None:
-                continue
-            opp = players_r[opp_idx]
-            pair_seed = hash(
-                (session_code, r, min(p.participant.id_in_session, opp.participant.id_in_session),
-                 max(p.participant.id_in_session, opp.participant.id_in_session))
-            ) & 0xFFFFFFFF
-            apply_tg_payoffs_for_pair(p, opp, rng=random.Random(pair_seed), write_both=False)
-
-    write_tg_results_display_cache(
-        players_start,
-        assignments,
-        current_part,
-        start,
-        end,
-        Constants.rounds_per_part,
-    )
-
-    subsession.session.vars[run_key] = True
-    return True
+    finally:
+        subsession.session.vars.pop(in_progress_key, None)
 
 
 def _opponent_effective_choice(opponent, opp_role: Optional[str]) -> Optional[str]:

@@ -248,7 +248,7 @@ SESSION_CONFIGS = [
         display_name='TG_rule_based_delegation_v2_2nd',
         app_sequence=['TG_rule_based_delegation_v2_2nd'],
         num_demo_participants=10,
-        use_browser_bots=False,
+        use_browser_bots=True,
     ),
     dict(
         name='TG_supervised_learning_delegation_1st',

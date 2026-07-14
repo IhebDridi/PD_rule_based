@@ -237,8 +237,8 @@
 .badge-ok {
     font-size: 0.72rem;
     padding: 0.1rem 0.35rem;
-    background: #dcfce7;
-    color: #166534;
+    background: #166534 !important;
+    color: #ecfdf5 !important;
     border-radius: 4px;
     margin-left: 0.35rem;
 }
@@ -246,8 +246,8 @@
 .badge-warn {
     font-size: 0.72rem;
     padding: 0.1rem 0.35rem;
-    background: #fee2e2;
-    color: #991b1b;
+    background: #991b1b !important;
+    color: #fef2f2 !important;
     border-radius: 4px;
     margin-left: 0.35rem;
 }

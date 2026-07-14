@@ -609,3 +609,15 @@ html.otree-theme-midnight-teal .inspector-container .inspector-btn.secondary {
 html.otree-theme-midnight-teal .inspector-container .inspector-btn.secondary:hover {
   border-color: var(--accent) !important;
 }
+
+html.otree-theme-midnight-teal .inspector-container .badge-ok {
+  background: rgba(52, 211, 153, 0.22) !important;
+  color: #a7f3d0 !important;
+  border: 1px solid rgba(52, 211, 153, 0.45);
+}
+
+html.otree-theme-midnight-teal .inspector-container .badge-warn {
+  background: rgba(248, 113, 113, 0.22) !important;
+  color: #fecaca !important;
+  border: 1px solid rgba(248, 113, 113, 0.45);
+}

@@ -156,11 +156,15 @@ def run_payoffs_for_matching_group_tg(
         if not member_ids or not isinstance(member_ids, (list, tuple)) or len(member_ids) < 3:
             return None
 
-        first_round_ss = subsession.in_round(start)
-        players_start = [
-            p for p in first_round_ss.get_players() if p.participant.id_in_session in member_ids
-        ]
-        if len(players_start) != 3:
+        # Never call Subsession.get_players() here — with 300 participants that freezes the server.
+        from shared.tg_player_lookup import players_at_round_for_member_ids
+
+        players_start = players_at_round_for_member_ids(
+            subsession.session.id,
+            list(member_ids)[:3],
+            start,
+        )
+        if players_start is None or len(players_start) != 3:
             return None
         players_start = sorted(
             players_start, key=lambda p: p.participant.vars.get("matching_group_position", 0)

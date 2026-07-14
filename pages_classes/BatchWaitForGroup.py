@@ -1,10 +1,10 @@
 import time
 
 from otree.api import *
-from otree.models import Participant
 
 from shared.export_integrity import record_data_errors_for_participants
 from shared.session_part_lock import normalize_pool_ids, session_part_lock, try_session_part_lock
+from shared.tg_player_lookup import participants_by_id_in_session, players_at_round_for_member_ids
 
 from .model_bridge import app_models
 from .page_helpers import BATCH_WAIT_MIN_SECONDS, _has_left_lobby_for_part
@@ -15,18 +15,18 @@ class BatchWaitForGroup(WaitPage):
     End of each part (rounds 10, 20, 30): join a shared pool, form trios of 3,
     run payoffs, then proceed to Results.
 
-    Critical for large sessions: pool mutations use a *non-blocking* try-lock and
-    payoff computation runs *outside* that lock. Otherwise a busy Results wait
-    freezes unrelated pages (InformedConsent → MainInstructions, etc.) via
-    worker starvation and Session-row contention.
+    Large-session freeze rule: most wait-page polls must NOT touch session.vars
+    (oTree marks Session dirty on every vars access and rewrites the pickle).
+    Already-waiting participants only retry formation every few seconds.
     """
 
     @property
     def template_name(self):
         return "global/BatchWaitForGroup.html"
 
-    POOL_CLEANUP_EVERY_UPDATES = 75
     FIXED_RESULTS_GROUP_SIZE = 3
+    # How often an already-waiting participant may try lock / formation again.
+    FORMATION_RETRY_SECONDS = 5.0
 
     def is_displayed(self):
         Constants = app_models(self.player).Constants
@@ -40,8 +40,7 @@ class BatchWaitForGroup(WaitPage):
         return not self.participant.vars.get(can_proceed_key, False)
 
     def get(self):
-        am = app_models(self.player)
-        Constants = am.Constants
+        Constants = app_models(self.player).Constants
         _params = getattr(self.request, "GET", None) or getattr(self.request, "query_params", None)
         current_part = Constants.get_part(self.round_number)
         can_proceed_key = f"can_proceed_to_results_part_{current_part}"
@@ -53,7 +52,6 @@ class BatchWaitForGroup(WaitPage):
 
         if _params:
             if _params.get("quit"):
-                # Short blocking lock ok: rare user action, no payoffs.
                 with session_part_lock(self.session, current_part):
                     pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
                     pool = [sid for sid in pool if sid != self.participant.id_in_session]
@@ -73,7 +71,6 @@ class BatchWaitForGroup(WaitPage):
                         self.participant.vars[joined_at_key] = time.time()
                         self.participant.vars[wait_more_token_key] = "__legacy__"
 
-        # Ready participants must not re-enter formation / session locks.
         if self.participant.vars.get(can_proceed_key):
             return self._maybe_redirect_when_ready(can_proceed_key, ready_at_key)
 
@@ -106,41 +103,8 @@ class BatchWaitForGroup(WaitPage):
             return self._get_wait_page()
         return self._response_when_ready()
 
-    def _participants_by_ids(self, ids):
-        """Load only the needed participants (never scan the whole 300-person session)."""
-        if not ids:
-            return {}
-        from otree.database import db
-
-        wanted = [int(i) for i in ids]
-        rows = (
-            db.query(Participant)
-            .filter(
-                Participant.session_id == self.session.id,
-                Participant.id_in_session.in_(wanted),
-            )
-            .all()
-        )
-        return {p.id_in_session: p for p in rows}
-
-    def _players_at_round_for_ids(self, part_start_round, first_ids):
-        """Resolve Player rows for the trio without scanning every session player."""
-        pmap = self._participants_by_ids(first_ids)
-        out = []
-        for pid in first_ids:
-            part = pmap.get(pid)
-            if part is None:
-                return None
-            players = [
-                pl for pl in part.get_players() if getattr(pl, "round_number", None) == part_start_round
-            ]
-            if len(players) != 1:
-                return None
-            out.append(players[0])
-        return out
-
     def _update_results_pool_and_maybe_group(self):
-        """Join pool under try-lock; run at most one trio's payoffs outside the lock."""
+        """Join once; later polls are cheap unless formation is due."""
         am = app_models(self.player)
         Constants = am.Constants
         current_part = Constants.get_part(self.round_number)
@@ -151,24 +115,30 @@ class BatchWaitForGroup(WaitPage):
         pool_version_key = f"results_pool_version_part_{current_part}"
         first_join_key = f"results_first_join_part_{current_part}"
         joined_at_key = f"results_wait_joined_at_part_{current_part}"
+        attempt_key = f"results_form_attempt_at_part_{current_part}"
         claim_prefix = f"results_group_claim_part_{current_part}_"
         group_size = self.FIXED_RESULTS_GROUP_SIZE
         pid = self.participant.id_in_session
         now = time.time()
 
-        claimed = None  # (first_ids, batch_id, claim_key)
+        # Cheap idle path: already in the pool — do not touch session.vars.
+        if self.participant.vars.get(waiting_key) and not self.participant.vars.get(can_proceed_key):
+            last_attempt = float(self.participant.vars.get(attempt_key, 0) or 0)
+            if now - last_attempt < self.FORMATION_RETRY_SECONDS:
+                return
+            self.participant.vars[attempt_key] = now
+            # Fall through: occasional formation attempt only.
+
+        claimed = None
 
         with try_session_part_lock(self.session, current_part) as acquired:
             if not acquired:
-                # Another request is mutating the pool / claiming a trio.
-                # Return immediately so this worker stays free for other pages.
                 if not self.participant.vars.get(waiting_key):
                     self.participant.vars[waiting_key] = True
                     self.participant.vars[joined_at_key] = now
                 return
 
             pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
-            self.session.vars[pool_key] = pool
             if first_join_key not in self.session.vars:
                 self.session.vars[first_join_key] = now
 
@@ -188,18 +158,17 @@ class BatchWaitForGroup(WaitPage):
                 self.participant.vars[waiting_key] = True
                 self.participant.vars[joined_at_key] = now
             if pid not in pool:
-                pool.append(pid)
-                pool.sort()
+                pool = normalize_pool_ids(pool + [pid])
                 self.session.vars[pool_key] = pool
                 self.session.vars[pool_version_key] = int(
                     self.session.vars.get(pool_version_key, 0)
                 ) + 1
+            else:
+                # Already listed — do not rewrite session.vars unless forming.
+                pass
 
-            pool_version = int(self.session.vars.get(pool_version_key, 0))
-            if pool and (pool_version % self.POOL_CLEANUP_EVERY_UPDATES == 0):
-                pool = self._cleanup_results_pool_light(
-                    pool, pool_key, pool_version_key, pool_version, claim_prefix, group_size
-                )
+            # Cache displayed pool size on participant (avoids session.vars in template).
+            self.participant.vars[f"results_pool_seen_n_part_{current_part}"] = len(pool)
 
             if len(pool) < group_size:
                 return
@@ -209,8 +178,7 @@ class BatchWaitForGroup(WaitPage):
             if self.session.vars.get(claim_key):
                 return
 
-            # Claim under lock only — no payoffs here.
-            pmap = self._participants_by_ids(first_ids)
+            pmap = participants_by_id_in_session(self.session.id, first_ids)
             trio = [pmap.get(i) for i in first_ids]
             if any(p is None for p in trio):
                 pool = [x for x in pool if x in pmap]
@@ -229,7 +197,9 @@ class BatchWaitForGroup(WaitPage):
 
             batch_id = first_ids[0]
             part_start_round = (current_part - 1) * Constants.rounds_per_part + 1
-            batch_players = self._players_at_round_for_ids(part_start_round, first_ids)
+            batch_players = players_at_round_for_member_ids(
+                self.session.id, first_ids, part_start_round
+            )
             if batch_players is None or len(batch_players) != group_size:
                 record_data_errors_for_participants(
                     trio,
@@ -247,7 +217,6 @@ class BatchWaitForGroup(WaitPage):
                 pl.participant.vars["matching_group_position"] = i + 1
             claimed = (first_ids, batch_id, claim_key, trio)
 
-        # ---- Payoffs OUTSIDE the lock (must not block other participants) ----
         if not claimed:
             return
 
@@ -268,7 +237,6 @@ class BatchWaitForGroup(WaitPage):
                 p.vars[ready_at_key] = now
                 p.vars[waiting_key] = False
 
-            # Short blocking cleanup after success — must clear claim so later trios can form.
             with session_part_lock(self.session, current_part):
                 pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
                 pool = [x for x in pool if x not in first_ids]
@@ -283,36 +251,15 @@ class BatchWaitForGroup(WaitPage):
                     if acquired:
                         self.session.vars.pop(claim_key, None)
 
-    def _cleanup_results_pool_light(
-        self, pool, pool_key, pool_version_key, pool_version, claim_prefix, group_size
-    ):
-        """Drop claim keys only — avoid scanning 300 participants on the hot path."""
-        active_trio_claim = None
-        if len(pool) >= group_size:
-            active_ids = pool[:group_size]
-            active_trio_claim = f"{claim_prefix}{'_'.join(map(str, active_ids))}"
-        stale_claim_keys = [
-            k
-            for k in list(self.session.vars.keys())
-            if isinstance(k, str) and k.startswith(claim_prefix) and k != active_trio_claim
-        ]
-        for k in stale_claim_keys:
-            self.session.vars.pop(k, None)
-        self.session.vars[pool_key] = pool
-        self.session.vars[pool_version_key] = pool_version
-        return pool
-
     def vars_for_template(self):
+        """Avoid session.vars here — every access dirties the Session row in oTree."""
         Constants = app_models(self.player).Constants
         current_part = Constants.get_part(self.round_number)
-        pool_key = f"results_pool_part_{current_part}"
         group_size = self.FIXED_RESULTS_GROUP_SIZE
         joined_at_key = f"results_wait_joined_at_part_{current_part}"
         timeout_seconds = 300
         now = time.time()
-        # Read-only: do not create session.vars keys here (avoids dirty Session row).
-        pool = self.session.vars.get(pool_key, [])
-        n_in_pool = len(pool) if isinstance(pool, list) else 0
+        n_in_pool = int(self.participant.vars.get(f"results_pool_seen_n_part_{current_part}", 0) or 0)
         joined_at = self.participant.vars.get(joined_at_key, now)
         show_wait_or_quit_results = (now - joined_at) >= timeout_seconds
         path = getattr(self.request, "path", None) or getattr(self.request, "path_info", "") or ""
@@ -335,12 +282,11 @@ class BatchWaitForGroup(WaitPage):
 
     @staticmethod
     def live_method(player, data):
+        # Do not touch session.vars from live polls (would freeze the Session row).
         if not data or data.get("type") != "get_count":
             return
         Constants = app_models(player).Constants
         current_part = Constants.get_part(player.round_number)
-        pool_key = f"results_pool_part_{current_part}"
-        pool = player.session.vars.get(pool_key, [])
-        group_size = BatchWaitForGroup.FIXED_RESULTS_GROUP_SIZE
-        payload = {"n_arrived": len(pool) if isinstance(pool, list) else 0, "n_total": group_size}
+        n = int(player.participant.vars.get(f"results_pool_seen_n_part_{current_part}", 0) or 0)
+        payload = {"n_arrived": n, "n_total": BatchWaitForGroup.FIXED_RESULTS_GROUP_SIZE}
         return {player.id_in_group: payload}

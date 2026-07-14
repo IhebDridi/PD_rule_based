@@ -128,9 +128,10 @@ def get_opponent_in_round(player, round_number):
         if member_ids and isinstance(member_ids, (list, tuple)) and len(member_ids) >= 3:
             if me.participant.id_in_session not in member_ids:
                 return None
-            round_ss = player.subsession.in_round(round_number)
-            # Avoid ORM "IN" queries (oTree doesn't use Django's .objects). Filter in memory from this round's players.
-            players = [p for p in round_ss.get_players() if p.participant.id_in_session in member_ids]
+            from shared.tg_player_lookup import players_at_round_for_member_ids
+            players = players_at_round_for_member_ids(
+                player.session.id, list(member_ids), round_number
+            ) or []
             if len(players) >= 3:
                 players = sorted(players, key=lambda p: p.participant.vars.get("matching_group_position", 0))
                 N = len(players)

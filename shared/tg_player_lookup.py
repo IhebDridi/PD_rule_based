@@ -1,4 +1,9 @@
-"""Resolve a few Player rows without scanning the whole subsession."""
+"""Resolve a few Player rows without scanning the whole subsession.
+
+Used by matching, payoffs, Results, and BatchWait so large sessions (100–300)
+never call Subsession.get_players() on the hot path. Data written to Player/
+Participant fields is unchanged — only lookup cost changes.
+"""
 
 from __future__ import annotations
 
@@ -50,3 +55,21 @@ def players_at_round_for_member_ids(
             return None
         out.append(pl)
     return out
+
+
+def sorted_trio_at_round(
+    session_id: int,
+    member_ids: Sequence[int],
+    round_number: int,
+) -> Optional[List[Any]]:
+    """Trio sorted by matching_group_position (fallback: member_ids order)."""
+    players = players_at_round_for_member_ids(session_id, list(member_ids)[:3], round_number)
+    if players is None or len(players) != 3:
+        return None
+    return sorted(
+        players,
+        key=lambda p: (
+            p.participant.vars.get("matching_group_position", 0) or 0,
+            p.participant.id_in_session,
+        ),
+    )

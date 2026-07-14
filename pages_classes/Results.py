@@ -114,22 +114,24 @@ class Results(Page):
         if gid is not None and gid >= 0:
             member_ids = self.session.vars.get(f"matching_group_members_part_{current_part}_{gid}")
         member_ids = list(member_ids) if member_ids else []
-        member_set = set(member_ids)
         assignments = None
         if len(member_ids) >= 3:
             N = len(member_ids)
             assignments = compute_round_robin_assignments(N, Constants.rounds_per_part)
 
-        def _pick_three_players(round_ss):
+        def _pick_three_players(round_number):
+            from shared.tg_player_lookup import players_at_round_for_member_ids
+
             out = {}
-            if not member_set:
+            if not member_ids:
                 return out
-            for p in round_ss.get_players():
-                sid = p.participant.id_in_session
-                if sid in member_set:
-                    out[sid] = p
-                    if len(out) == len(member_set):
-                        break
+            trio = players_at_round_for_member_ids(
+                self.session.id, list(member_ids), round_number
+            )
+            if not trio:
+                return out
+            for p in trio:
+                out[p.participant.id_in_session] = p
             return out
 
         my_pos = self.participant.vars.get("matching_group_position", None)
@@ -150,7 +152,7 @@ class Results(Page):
                 round_in_part = r - part_start
                 opp_idx, _ = assignments[my_pos - 1][round_in_part]
                 opp_sid = member_ids[opp_idx] if opp_idx is not None else None
-                players_map = _pick_three_players(self.subsession.in_round(r))
+                players_map = _pick_three_players(r)
                 opp = players_map.get(opp_sid) if opp_sid else None
                 other_choice = opp.field_maybe_none("choice") if opp else None
                 if raw_payoff == 0 and my_choice and other_choice:
@@ -185,16 +187,66 @@ class Results(Page):
         part_end,
         player,
     ):
+        """
+        Prefer results_display_cache written at payoff time (cheap for navigators).
+        Rebuild from DB only on cache miss; heavy diagram/debug work only in debug mode
+        or when the cache is missing. Payoff DB fields remain the source of truth.
+        """
+        from shared.tg_data_helpers import get_tg_results_display_from_cache
+
         am = app_models(self.player)
         get_opponent_in_round = am.get_opponent_in_round
+        debug = is_otree_debug_mode()
 
-        rounds_data = []
-        for r in range(part_start, part_end + 1):
-            rr = player.in_round(r)
-            opp = get_opponent_in_round(player, r)
-            row = tg_results_row(rr, opp)
-            row["round"] = r - (current_part - 1) * Constants.rounds_per_part
-            rounds_data.append(row)
+        cache_part = get_tg_results_display_from_cache(
+            self.participant, current_part, Constants.rounds_per_part
+        )
+        if cache_part is not None:
+            rounds_data = [
+                {
+                    "round": entry.get("round"),
+                    "my_choice": entry.get("my_choice"),
+                    "other_choice": entry.get("other_choice"),
+                    "payoff": entry.get("payoff"),
+                    "role_assigned": entry.get("role_assigned"),
+                    "is_payoff_round": True,
+                }
+                for entry in cache_part
+            ]
+            out = dict(
+                current_part=current_part,
+                display_part=current_part,
+                rounds_data=rounds_data,
+                group_overview={},
+                round_diagrams=[],
+                all_rounds_tree={},
+                show_round_diagrams=False,
+            )
+            if not debug:
+                return out
+            # Debug: still attach diagrams/checks without blocking production users.
+        else:
+            rounds_data = []
+            for r in range(part_start, part_end + 1):
+                rr = player.in_round(r)
+                opp = get_opponent_in_round(player, r)
+                row = tg_results_row(rr, opp)
+                row["round"] = r - (current_part - 1) * Constants.rounds_per_part
+                rounds_data.append(row)
+            out = dict(
+                current_part=current_part,
+                display_part=current_part,
+                rounds_data=rounds_data,
+                show_round_diagrams=debug,
+            )
+            if not debug:
+                # Production cache-miss: show table from DB, skip diagram rebuild.
+                out.update(
+                    group_overview={},
+                    round_diagrams=[],
+                    all_rounds_tree={},
+                )
+                return out
 
         diagrams = build_tg_round_diagrams(
             player,
@@ -215,14 +267,11 @@ class Results(Page):
         debug_rounds = tg_debug["rounds"] if tg_debug else None
         annotate_diagrams_with_debug(diagrams["rounds"], debug_rounds)
         all_rounds_tree = build_all_rounds_tree(diagrams["overview"], diagrams["rounds"])
-        out = dict(
-            current_part=current_part,
-            display_part=current_part,
-            rounds_data=rounds_data,
+        out.update(
             group_overview=diagrams["overview"],
             round_diagrams=diagrams["rounds"],
             all_rounds_tree=all_rounds_tree,
-            show_round_diagrams=is_otree_debug_mode(),
+            show_round_diagrams=True,
         )
         if tg_debug is not None:
             out["tg_results_debug"] = {

@@ -23,7 +23,7 @@
             (function() {
                 // Lightweight safety refresh so custom get/post logic keeps advancing
                 // even if the browser misses some wait-page polling events.
-                var refreshSeconds = 20 + Math.floor(Math.random() * 5); // 20-24s
+                var refreshSeconds = 45 + Math.floor(Math.random() * 15); // 45-59s — waiters can wait; do not hammer the server
                 setTimeout(function() { window.location.reload(); }, refreshSeconds * 1000);
             })();
         </script>

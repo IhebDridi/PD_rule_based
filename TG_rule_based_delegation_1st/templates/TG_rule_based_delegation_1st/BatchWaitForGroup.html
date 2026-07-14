@@ -21,7 +21,7 @@
     {% if not show_wait_or_quit_results %}
         <script>
             (function() {
-                var refreshSeconds = 20 + Math.floor(Math.random() * 5); // keep server load low
+                var refreshSeconds = 45 + Math.floor(Math.random() * 15); // 45-59s — waiters can wait; do not hammer the server
                 setTimeout(function() { window.location.reload(); }, refreshSeconds * 1000);
             })();
         </script>

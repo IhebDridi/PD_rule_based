@@ -445,17 +445,17 @@ def build_tg_round_diagrams(
     }
 
     rounds: List[Dict[str, Any]] = []
+    from shared.tg_player_lookup import players_at_round_for_member_ids
+
     for r in range(part_start, part_end + 1):
         round_in_part = r - (current_part - 1) * rounds_per_part
-        round_ss = player.subsession.in_round(r)
+        ids_for_round = member_ids or [my_sid]
+        trio = players_at_round_for_member_ids(player.session.id, ids_for_round, r)
         by_sid = {
-            p.participant.id_in_session: p
-            for p in round_ss.get_players()
-            if not member_ids or p.participant.id_in_session in member_ids
+            p.participant.id_in_session: p for p in (trio or [])
         }
 
         members_out: List[Dict[str, Any]] = []
-        ids_for_round = member_ids or [my_sid]
         for sid in ids_for_round:
             p = by_sid.get(sid)
             if p is None:

@@ -26,7 +26,7 @@ class BatchWaitForGroup(WaitPage):
 
     FIXED_RESULTS_GROUP_SIZE = 3
     # How often an already-waiting participant may try lock / formation again.
-    FORMATION_RETRY_SECONDS = 5.0
+    FORMATION_RETRY_SECONDS = 8.0
 
     def is_displayed(self):
         Constants = app_models(self.player).Constants
@@ -279,14 +279,3 @@ class BatchWaitForGroup(WaitPage):
             "wait_more_url": wait_more_url,
             "quit_to_prolific_url": quit_url,
         }
-
-    @staticmethod
-    def live_method(player, data):
-        # Do not touch session.vars from live polls (would freeze the Session row).
-        if not data or data.get("type") != "get_count":
-            return
-        Constants = app_models(player).Constants
-        current_part = Constants.get_part(player.round_number)
-        n = int(player.participant.vars.get(f"results_pool_seen_n_part_{current_part}", 0) or 0)
-        payload = {"n_arrived": n, "n_total": BatchWaitForGroup.FIXED_RESULTS_GROUP_SIZE}
-        return {player.id_in_group: payload}

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from shared.tg_player_lookup import sorted_trio_at_round
+
 _BATCH_PLAYERS_CACHE: Dict[Tuple[str, int, int], List[Any]] = {}
 
 
@@ -19,7 +21,8 @@ def opponent_in_matching_batch(
     ``matching_group_id`` + ``matching_group_members_part_{part}_{gid}``.
 
     Returns None if the participant is not in a released batch or the opponent
-    cannot be resolved. Does not use the session-wide oTree group matrix.
+    cannot be resolved. Does not use the session-wide oTree group matrix or
+    Subsession.get_players().
     """
     part = C.get_part(round_number)
     part_start = (part - 1) * C.rounds_per_part + 1
@@ -44,17 +47,8 @@ def opponent_in_matching_batch(
     cache_key = (session.code, part, batch_gid)
     players_start = _BATCH_PLAYERS_CACHE.get(cache_key)
     if not players_start:
-        first_round_ss = pr.subsession.in_round(part_start)
-        players_start = [
-            p
-            for p in first_round_ss.get_players()
-            if p.participant.id_in_session in member_ids
-        ]
-        players_start = sorted(
-            players_start,
-            key=lambda p: p.participant.vars.get("matching_group_position", 0),
-        )
-        if len(players_start) != 3:
+        players_start = sorted_trio_at_round(session.id, member_ids, part_start)
+        if players_start is None:
             return None
         _BATCH_PLAYERS_CACHE[cache_key] = players_start
 
@@ -74,3 +68,8 @@ def opponent_in_matching_batch(
         return None
     opp_player_start = players_start[opp_idx]
     return opp_player_start.in_round(round_number)
+
+
+def clear_matching_batch_cache() -> None:
+    """Test helper."""
+    _BATCH_PLAYERS_CACHE.clear()

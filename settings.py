@@ -265,6 +265,13 @@ SESSION_CONFIGS = [
         use_browser_bots=False,
     ),
     dict(
+        name='TG_session_inspector',
+        display_name='TG session inspector (internal QA)',
+        app_sequence=['TG_session_inspector'],
+        num_demo_participants=1,
+        use_browser_bots=False,
+    ),
+    dict(
         name='prisoners_dilemma_automatic',
         display_name='prisoners_dilemma_automatic',
         app_sequence=['PD_goal_oriented_delegation_2nd'],

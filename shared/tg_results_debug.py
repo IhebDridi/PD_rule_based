@@ -160,6 +160,7 @@ def build_tg_results_debug(
     get_opponent_in_round: Callable[[Any, int], Any],
     *,
     rounds_per_part: int = 10,
+    force: bool = False,
 ) -> Optional[dict]:
     """
     Full Results integrity check for the viewing participant (DEBUG mode only).
@@ -171,8 +172,10 @@ def build_tg_results_debug(
     - their active choice (contingent selected by role)
     - opponent choice (opponent contingent for the complementary role)
     - their payoff (screen vs stored, and stored vs recomputed from DB moves)
+
+    Set ``force=True`` (e.g. TG session inspector) to run outside DEBUG mode.
     """
-    if not _otree_debug_mode():
+    if not force and not _otree_debug_mode():
         return None
 
     rows: List[dict] = []

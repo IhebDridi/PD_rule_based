@@ -1,0 +1,269 @@
+{% extends "global/Page.html" %}
+
+{% block content %}
+<div class="inspector-container">
+    {% if not report.ok %}
+    <h1 class="inspector-title">Scan failed</h1>
+    <p class="inspector-error">{{ report.error }}</p>
+    <form method="post" class="inspector-actions">
+        <input type="hidden" name="inspect_action" id="inspect_action" value="back">
+        <button type="submit" class="inspector-btn secondary"
+                onclick="document.getElementById('inspect_action').value='back';">
+            Back to session list
+        </button>
+    </form>
+    {% else %}
+    <h1 class="inspector-title">Session {{ report.session.code }}</h1>
+    <p class="inspector-meta">
+        <strong>{{ report.session.config_name }}</strong>
+        · {{ report.session.num_participants }} participants
+        {% if report.session.created_label %}· created {{ report.session.created_label }}{% endif %}
+        {% if report.session.label %}· {{ report.session.label }}{% endif %}
+        {% if report.summary.scanned_at %}· scanned {{ report.summary.scanned_at }}{% endif %}
+    </p>
+
+    <form method="post" class="inspector-actions">
+        <input type="hidden" name="inspect_action" id="inspect_action" value="done">
+        <button type="submit" class="inspector-btn"
+                onclick="document.getElementById('inspect_action').value='rescan';">
+            Rescan
+        </button>
+        <button type="submit" class="inspector-btn secondary"
+                onclick="document.getElementById('inspect_action').value='back';">
+            Back to session list
+        </button>
+        <button type="submit" class="inspector-btn secondary"
+                onclick="document.getElementById('inspect_action').value='done';">
+            Done
+        </button>
+    </form>
+
+    <section class="inspector-summary{% if report.summary.all_clear %} summary-ok{% else %} summary-warn{% endif %}">
+        {% if report.summary.all_clear %}
+        <strong>All clear</strong> — no integrity flags or export errors for any participant.
+        {% else %}
+        <strong>{{ report.summary.participants_with_issues }}</strong> of
+        {{ report.summary.participant_count }} participants have issues.
+        {% endif %}
+        {% if report.summary.flag_totals_list %}
+        <div class="flag-totals">
+            {% for flag, count in report.summary.flag_totals_list %}
+            <span class="flag-chip">{{ flag }}: {{ count }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% if report.summary.export_issue_count or report.summary.stored_issue_count %}
+        <div class="flag-totals">
+            {% if report.summary.export_issue_count %}
+            <span class="flag-chip">export errors: {{ report.summary.export_issue_count }}</span>
+            {% endif %}
+            {% if report.summary.stored_issue_count %}
+            <span class="flag-chip">stored errors: {{ report.summary.stored_issue_count }}</span>
+            {% endif %}
+        </div>
+        {% endif %}
+    </section>
+
+    {% if report.batches %}
+    <section class="inspector-section">
+        <h2>Matching batches (session.vars)</h2>
+        <table class="inspector-table">
+            <thead>
+                <tr><th>Part</th><th>Batch</th><th>Size</th><th>Member ids</th></tr>
+            </thead>
+            <tbody>
+                {% for b in report.batches %}
+                <tr{% if b.size != 3 %} class="row-warn"{% endif %}>
+                    <td>{{ b.part }}</td>
+                    <td>{{ b.batch_id }}</td>
+                    <td>{{ b.size }}</td>
+                    <td><code>{{ b.member_ids_text }}</code></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+
+    <section class="inspector-section">
+        <h2>Participants</h2>
+        {% for p in report.participants %}
+        <details class="participant-panel{% if p.has_issues %} has-issues{% endif %}">
+            <summary>
+                P{{ p.id_in_session }}
+                {% if p.label %}({{ p.label }}){% endif %}
+                · code {{ p.code }}
+                {% if p.has_issues %}<span class="badge-warn">{{ p.total_flags }} issue(s)</span>{% else %}<span class="badge-ok">ok</span>{% endif %}
+            </summary>
+
+            {% if p.stored_errors %}
+            <div class="issue-block">
+                <h3>Stored integrity errors</h3>
+                <ul>{% for e in p.stored_errors %}<li><code>{{ e }}</code></li>{% endfor %}</ul>
+            </div>
+            {% endif %}
+
+            {% if p.export_errors %}
+            <div class="issue-block">
+                <h3>Export-style errors</h3>
+                <ul>{% for e in p.export_errors %}<li><code>{{ e }}</code></li>{% endfor %}</ul>
+            </div>
+            {% endif %}
+
+            {% for part in p.parts %}
+            <div class="part-block">
+                <h3>Part {{ part.part }}{% if part.batch_id is not None %} · batch {{ part.batch_id }}{% endif %}
+                    {% if part.debug_ok %}<span class="badge-ok">debug ok</span>{% else %}<span class="badge-warn">{{ part.mismatch_count }} round flag(s)</span>{% endif %}
+                </h3>
+                {% if part.member_ids %}
+                <p class="small">Trio member ids: <code>{{ part.member_ids_text }}</code></p>
+                {% endif %}
+                {% if part.rounds %}
+                <table class="inspector-table inspector-table-sm">
+                    <thead>
+                        <tr>
+                            <th>R</th>
+                            <th>Flags</th>
+                            <th>Display role</th>
+                            <th>You</th>
+                            <th>Opp</th>
+                            <th>Pay</th>
+                            <th>DB role</th>
+                            <th>DB pay</th>
+                            <th>Detail</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in part.rounds %}
+                        <tr{% if row.flags %} class="row-warn"{% endif %}>
+                            <td>{{ row.round }}</td>
+                            <td>{% if row.flags_text %}<code>{{ row.flags_text }}</code>{% else %}—{% endif %}</td>
+                            <td>{{ row.display.role_assigned }}</td>
+                            <td><strong>{{ row.display.my_choice }}</strong></td>
+                            <td>{{ row.display.other_choice }}</td>
+                            <td><strong>{{ row.display.payoff }}</strong></td>
+                            <td><code>{{ row.db.role_assigned }}</code></td>
+                            <td><code>{{ row.db.payoff }}</code></td>
+                            <td class="small">{{ row.mismatch_summary }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </details>
+        {% endfor %}
+    </section>
+
+    <form method="post" class="inspector-actions bottom-actions">
+        <input type="hidden" name="inspect_action" id="inspect_action_bottom" value="done">
+        <button type="submit" class="inspector-btn"
+                onclick="document.getElementById('inspect_action_bottom').value='rescan';">
+            Rescan
+        </button>
+        <button type="submit" class="inspector-btn secondary"
+                onclick="document.getElementById('inspect_action_bottom').value='back';">
+            Back to session list
+        </button>
+        <button type="submit" class="inspector-btn secondary"
+                onclick="document.getElementById('inspect_action_bottom').value='done';">
+            Done
+        </button>
+    </form>
+    {% endif %}
+</div>
+
+<style>
+    .inspector-container {
+        max-width: 1200px;
+        margin: 1.5rem auto;
+        padding: 1.25rem;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+    }
+    .inspector-title { margin: 0 0 0.35rem; font-size: 1.5rem; }
+    .inspector-meta { color: #475569; margin-bottom: 0.75rem; }
+    .inspector-error { color: #b91c1c; font-weight: 600; }
+    .inspector-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .inspector-actions.bottom-actions { margin-top: 1.25rem; margin-bottom: 0; }
+    .inspector-btn {
+        padding: 0.5rem 1rem;
+        background: #0056b3;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.95rem;
+    }
+    .inspector-btn:hover { background: #003d80; }
+    .inspector-btn.secondary {
+        background: #e2e8f0;
+        color: #0f172a;
+    }
+    .inspector-btn.secondary:hover { background: #cbd5e1; }
+    .inspector-summary {
+        padding: 0.75rem 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.25rem;
+        line-height: 1.5;
+    }
+    .summary-ok { background: #ecfdf5; border: 1px solid #10b981; }
+    .summary-warn { background: #fef2f2; border: 1px solid #ef4444; }
+    .flag-totals { margin-top: 0.5rem; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+    .flag-chip {
+        font-size: 0.78rem;
+        padding: 0.15rem 0.45rem;
+        background: rgba(0,0,0,0.06);
+        border-radius: 4px;
+    }
+    .inspector-section { margin-bottom: 1.5rem; }
+    .inspector-section h2 { font-size: 1.15rem; margin-bottom: 0.65rem; }
+    .inspector-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.88rem;
+    }
+    .inspector-table th, .inspector-table td {
+        border: 1px solid #cbd5e1;
+        padding: 0.35rem 0.45rem;
+        vertical-align: top;
+    }
+    .inspector-table th { background: #f1f5f9; text-align: left; }
+    .inspector-table-sm { font-size: 0.8rem; }
+    .row-warn { background: #fff7ed; }
+    .participant-panel {
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        padding: 0.5rem 0.75rem;
+        margin-bottom: 0.65rem;
+    }
+    .participant-panel.has-issues { border-color: #f59e0b; }
+    .participant-panel summary { cursor: pointer; font-weight: 600; }
+    .badge-ok {
+        font-size: 0.72rem;
+        padding: 0.1rem 0.35rem;
+        background: #dcfce7;
+        color: #166534;
+        border-radius: 4px;
+        margin-left: 0.35rem;
+    }
+    .badge-warn {
+        font-size: 0.72rem;
+        padding: 0.1rem 0.35rem;
+        background: #fee2e2;
+        color: #991b1b;
+        border-radius: 4px;
+        margin-left: 0.35rem;
+    }
+    .issue-block, .part-block { margin: 0.75rem 0 0.5rem 0.5rem; }
+    .issue-block h3, .part-block h3 { font-size: 0.95rem; margin: 0 0 0.35rem; }
+    .small { font-size: 0.78rem; color: #475569; }
+</style>
+{% endblock %}

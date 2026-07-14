@@ -22,14 +22,12 @@ class SessionSelect(Page):
         "select_action",
     ]
 
-    @staticmethod
-    def is_displayed(player):
-        return inspector_step(player.participant) == "select"
+    def is_displayed(self):
+        return inspector_step(self.participant) == "select"
 
-    @staticmethod
-    def vars_for_template(player):
-        date_from = player.field_maybe_none("filter_date_from") or ""
-        date_to = player.field_maybe_none("filter_date_to") or ""
+    def vars_for_template(self):
+        date_from = self.player.field_maybe_none("filter_date_from") or ""
+        date_to = self.player.field_maybe_none("filter_date_to") or ""
         sessions = list_tg_sessions(
             limit=100,
             date_from=date_from or None,
@@ -42,8 +40,7 @@ class SessionSelect(Page):
             "filter_active": bool(date_from or date_to),
         }
 
-    @staticmethod
-    def error_message(player, values):
+    def error_message(self, values):
         action = (values.get("select_action") or "scan").strip()
         if action == "filter":
             d_from = (values.get("filter_date_from") or "").strip()
@@ -69,14 +66,13 @@ class SessionSelect(Page):
         if not report.get("ok"):
             return report.get("error") or "Could not load that session."
 
-    @staticmethod
-    def before_next_page(player, timeout_happened):
-        action = (player.field_maybe_none("select_action") or "scan").strip()
+    def before_next_page(self):
+        action = (self.player.field_maybe_none("select_action") or "scan").strip()
         if action == "filter":
-            player.selected_session_code = ""
-            set_inspector_step(player.participant, "select")
+            self.player.selected_session_code = ""
+            set_inspector_step(self.participant, "select")
         else:
-            set_inspector_step(player.participant, "inspect")
+            set_inspector_step(self.participant, "inspect")
 
 
 class InspectSession(Page):
@@ -86,25 +82,22 @@ class InspectSession(Page):
     form_model = "player"
     form_fields = ["inspect_action"]
 
-    @staticmethod
-    def is_displayed(player):
-        return inspector_step(player.participant) == "inspect"
+    def is_displayed(self):
+        return inspector_step(self.participant) == "inspect"
 
-    @staticmethod
-    def vars_for_template(player):
-        report = inspect_tg_session_by_code(player.selected_session_code)
+    def vars_for_template(self):
+        report = inspect_tg_session_by_code(self.player.selected_session_code)
         return {"report": report}
 
-    @staticmethod
-    def before_next_page(player, timeout_happened):
-        action = (player.field_maybe_none("inspect_action") or "done").strip()
+    def before_next_page(self):
+        action = (self.player.field_maybe_none("inspect_action") or "done").strip()
         if action == "rescan":
-            set_inspector_step(player.participant, "inspect")
+            set_inspector_step(self.participant, "inspect")
         elif action == "back":
-            player.selected_session_code = ""
-            set_inspector_step(player.participant, "select")
+            self.player.selected_session_code = ""
+            set_inspector_step(self.participant, "select")
         else:
-            set_inspector_step(player.participant, "done")
+            set_inspector_step(self.participant, "done")
 
 
 page_sequence = [SessionSelect, InspectSession]

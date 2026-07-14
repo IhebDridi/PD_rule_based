@@ -3,6 +3,7 @@
 from otree.api import *
 
 from shared.tg_session_inspector import (
+    _normalize_participant_limit,
     inspect_tg_session_by_code,
     inspector_step,
     list_tg_sessions,
@@ -72,6 +73,8 @@ class SessionSelect(Page):
             self.player.selected_session_code = ""
             set_inspector_step(self.participant, "select")
         else:
+            self.player.participant_limit = None
+            self.player.filter_prolific_id = ""
             set_inspector_step(self.participant, "inspect")
 
 
@@ -80,18 +83,45 @@ class InspectSession(Page):
 
     template_name = "TG_session_inspector/InspectSession.html"
     form_model = "player"
-    form_fields = ["inspect_action"]
+    form_fields = [
+        "inspect_action",
+        "participant_limit",
+        "filter_prolific_id",
+    ]
 
     def is_displayed(self):
         return inspector_step(self.participant) == "inspect"
 
+    def _inspect_report(self):
+        limit = _normalize_participant_limit(self.player.field_maybe_none("participant_limit"))
+        prolific = (self.player.field_maybe_none("filter_prolific_id") or "").strip() or None
+        return inspect_tg_session_by_code(
+            self.player.selected_session_code,
+            participant_limit=limit,
+            prolific_id=prolific,
+        )
+
     def vars_for_template(self):
-        report = inspect_tg_session_by_code(self.player.selected_session_code)
-        return {"report": report}
+        return {
+            "report": self._inspect_report(),
+            "participant_limit": self.player.field_maybe_none("participant_limit") or "",
+            "filter_prolific_id": self.player.field_maybe_none("filter_prolific_id") or "",
+        }
+
+    def error_message(self, values):
+        raw_limit = values.get("participant_limit")
+        if raw_limit not in (None, ""):
+            try:
+                n = int(raw_limit)
+            except (TypeError, ValueError):
+                return "Participant limit must be a positive number."
+            if n < 1:
+                return "Participant limit must be at least 1."
+        return None
 
     def before_next_page(self):
         action = (self.player.field_maybe_none("inspect_action") or "done").strip()
-        if action == "rescan":
+        if action in ("rescan", "apply_filters"):
             set_inspector_step(self.participant, "inspect")
         elif action == "back":
             self.player.selected_session_code = ""

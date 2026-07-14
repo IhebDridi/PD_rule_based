@@ -24,8 +24,55 @@
         {% if report.summary.scanned_at %}· scanned {{ report.summary.scanned_at }}{% endif %}
     </p>
 
-    <form method="post" class="inspector-actions">
+    <form method="post" class="inspector-form" id="inspector-inspect-form">
         <input type="hidden" name="inspect_action" id="inspect_action" value="done">
+
+        <fieldset class="inspector-filter">
+            <legend>Participant display</legend>
+            <div class="filter-row">
+                <label>
+                    Show at most
+                    <input type="number" name="participant_limit" min="1" step="1"
+                           value="{{ participant_limit }}" class="inspector-number"
+                           placeholder="all">
+                </label>
+                <label>
+                    Prolific ID
+                    <input type="text" name="filter_prolific_id"
+                           value="{{ filter_prolific_id }}" class="inspector-text"
+                           placeholder="exact match">
+                </label>
+                <button type="submit" class="inspector-btn secondary"
+                        onclick="document.getElementById('inspect_action').value='apply_filters';">
+                    Apply
+                </button>
+                <button type="submit" class="inspector-btn secondary"
+                        onclick="
+                          document.querySelector('[name=participant_limit]').value='';
+                          document.querySelector('[name=filter_prolific_id]').value='';
+                          document.getElementById('inspect_action').value='apply_filters';
+                        ">
+                    Clear
+                </button>
+            </div>
+            {% if report.summary.filter_active %}
+            <p class="inspector-hint">
+                Showing {{ report.summary.participant_count }} of
+                {{ report.summary.session_participant_count }} participants
+                {% if report.summary.participant_limit %} · limit {{ report.summary.participant_limit }}{% endif %}
+                {% if report.summary.filter_prolific_id %} · prolific {{ report.summary.filter_prolific_id }}{% endif %}
+            </p>
+            {% else %}
+            <p class="inspector-hint">
+                Showing all {{ report.summary.session_participant_count }} participants.
+            </p>
+            {% endif %}
+            {% if report.summary.prolific_not_found %}
+            <p class="inspector-error">No participant with that Prolific ID in this session.</p>
+            {% endif %}
+        </fieldset>
+
+        <div class="inspector-actions">
         <button type="submit" class="inspector-btn"
                 onclick="document.getElementById('inspect_action').value='rescan';">
             Rescan
@@ -38,14 +85,14 @@
                 onclick="document.getElementById('inspect_action').value='done';">
             Done
         </button>
-    </form>
+        </div>
 
     <section class="inspector-summary{% if report.summary.all_clear %} summary-ok{% else %} summary-warn{% endif %}">
         {% if report.summary.all_clear %}
         <strong>All clear</strong> — no integrity flags or export errors for any participant.
         {% else %}
         <strong>{{ report.summary.participants_with_issues }}</strong> of
-        {{ report.summary.participant_count }} participants have issues.
+        {{ report.summary.participant_count }} shown participants have issues.
         {% endif %}
         {% if report.summary.flag_totals_list %}
         <div class="flag-totals">
@@ -101,6 +148,7 @@
         <details class="participant-panel{% if p.has_issues %} has-issues{% endif %}">
             <summary>
                 P{{ p.id_in_session }}
+                {% if p.prolific_id %} · prolific {{ p.prolific_id }}{% endif %}
                 {% if p.label %}({{ p.label }}){% endif %}
                 · code {{ p.code }}
                 {% if p.has_issues %}<span class="badge-warn">{{ p.total_flags }} issue(s)</span>{% else %}<span class="badge-ok">ok</span>{% endif %}
@@ -134,8 +182,8 @@
                         <tr>
                             <th>R</th>
                             <th>Flags</th>
-                            <th>DB c1</th>
-                            <th>DB c2</th>
+                            <th>DB c1rst</th>
+                            <th>DB 2cnd</th>
                             <th>Display role</th>
                             <th>You</th>
                             <th>Opp</th>
@@ -170,20 +218,20 @@
         {% endfor %}
     </section>
 
-    <form method="post" class="inspector-actions bottom-actions">
-        <input type="hidden" name="inspect_action" id="inspect_action_bottom" value="done">
+        <div class="inspector-actions bottom-actions">
         <button type="submit" class="inspector-btn"
-                onclick="document.getElementById('inspect_action_bottom').value='rescan';">
+                onclick="document.getElementById('inspect_action').value='rescan';">
             Rescan
         </button>
         <button type="submit" class="inspector-btn secondary"
-                onclick="document.getElementById('inspect_action_bottom').value='back';">
+                onclick="document.getElementById('inspect_action').value='back';">
             Back to session list
         </button>
         <button type="submit" class="inspector-btn secondary"
-                onclick="document.getElementById('inspect_action_bottom').value='done';">
+                onclick="document.getElementById('inspect_action').value='done';">
             Done
         </button>
+        </div>
     </form>
     {% endif %}
 </div>

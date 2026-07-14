@@ -13,6 +13,8 @@ from shared.tg_results_debug import _build_mismatch_detail
 from shared.tg_session_inspector import (
     _batch_overview,
     _day_bounds,
+    _participant_prolific_id,
+    filter_session_participants,
     inspect_tg_session_by_code,
     is_tg_session_config,
     list_tg_sessions,
@@ -143,6 +145,24 @@ class TgSessionInspectorTests(unittest.TestCase):
         )
         self.assertIn("partial contingents", detail["summary"])
         self.assertIn("c1='A'", detail["summary"])
+
+    def test_filter_session_participants_by_limit_and_prolific(self):
+        def _players(pid):
+            return [SimpleNamespace(field_maybe_none=lambda n, p=pid: p if n == "prolific_id" else None)]
+
+        participants = [
+            SimpleNamespace(id_in_session=1, get_players=lambda: _players("AAA")),
+            SimpleNamespace(id_in_session=2, get_players=lambda: _players("BBB")),
+            SimpleNamespace(id_in_session=3, get_players=lambda: _players("CCC")),
+        ]
+
+        limited = filter_session_participants(participants, participant_limit=2)
+        self.assertEqual([p.id_in_session for p in limited], [1, 2])
+
+        by_prolific = filter_session_participants(participants, prolific_id="bbb")
+        self.assertEqual([p.id_in_session for p in by_prolific], [2])
+
+        self.assertEqual(_participant_prolific_id(participants[0]), "AAA")
 
 
 if __name__ == "__main__":

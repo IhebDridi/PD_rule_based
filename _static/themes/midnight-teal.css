@@ -547,7 +547,11 @@ html.otree-theme-midnight-teal .inspector-container .inspector-filter {
 }
 
 html.otree-theme-midnight-teal .inspector-container input[type="date"],
+html.otree-theme-midnight-teal .inspector-container input[type="number"],
+html.otree-theme-midnight-teal .inspector-container input[type="text"],
 html.otree-theme-midnight-teal .inspector-container .inspector-date,
+html.otree-theme-midnight-teal .inspector-container .inspector-number,
+html.otree-theme-midnight-teal .inspector-container .inspector-text,
 html.otree-theme-midnight-teal .inspector-container .inspector-select,
 html.otree-theme-midnight-teal .inspector-container select {
   background: rgba(8, 12, 20, 0.55) !important;

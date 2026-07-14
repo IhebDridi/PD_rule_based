@@ -33,5 +33,14 @@ class Player(BasePlayer):
     )
     # SessionSelect: "filter" | "scan"
     select_action = models.StringField(blank=True)
-    # InspectSession: "rescan" | "back" | "done"
+    # InspectSession: "rescan" | "back" | "done" | "apply_filters"
     inspect_action = models.StringField(blank=True)
+    participant_limit = models.IntegerField(
+        label="Show at most N participants (leave blank for all)",
+        blank=True,
+        min=1,
+    )
+    filter_prolific_id = models.StringField(
+        label="Only show participant with Prolific ID",
+        blank=True,
+    )

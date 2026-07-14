@@ -117,6 +117,44 @@ def list_tg_sessions(
     return rows
 
 
+def _participant_prolific_id(participant: Any) -> str:
+    players = participant.get_players()
+    if not players:
+        return ""
+    val = players[0].field_maybe_none("prolific_id")
+    return (val or "").strip()
+
+
+def filter_session_participants(
+    participants: List[Any],
+    *,
+    participant_limit: Optional[int] = None,
+    prolific_id: Optional[str] = None,
+) -> List[Any]:
+    """Return participants to scan, ordered by id_in_session."""
+    ordered = sorted(participants, key=lambda p: p.id_in_session)
+    prolific_q = (prolific_id or "").strip()
+    if prolific_q:
+        ordered = [
+            p
+            for p in ordered
+            if _participant_prolific_id(p).lower() == prolific_q.lower()
+        ]
+    if participant_limit is not None and participant_limit > 0:
+        ordered = ordered[:participant_limit]
+    return ordered
+
+
+def _normalize_participant_limit(value: Any) -> Optional[int]:
+    if value is None or value == "":
+        return None
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
 def _load_target_app(session: Any):
     app_name = (session.config or {}).get("app_sequence", [None])[0]
     if not app_name or not str(app_name).startswith("TG_"):
@@ -137,6 +175,7 @@ def _scan_participant(
             "id_in_session": participant.id_in_session,
             "code": participant.code,
             "label": participant.label or "",
+            "prolific_id": "",
             "error": "NO_PLAYER_ROWS",
             "parts": [],
             "export_errors": [],
@@ -237,6 +276,7 @@ def _scan_participant(
         "id_in_session": participant.id_in_session,
         "code": participant.code,
         "label": participant.label or "",
+        "prolific_id": _participant_prolific_id(participant),
         "matching_group_id": participant.vars.get("matching_group_id"),
         "parts": parts_out,
         "export_errors": export_errors,
@@ -277,13 +317,21 @@ def _batch_overview(session: Any) -> List[Dict[str, Any]]:
     return out
 
 
-def inspect_tg_session_by_code(session_code: str) -> Dict[str, Any]:
+def inspect_tg_session_by_code(
+    session_code: str,
+    *,
+    participant_limit: Optional[int] = None,
+    prolific_id: Optional[str] = None,
+) -> Dict[str, Any]:
     """Full integrity report for one TG session code."""
     from otree.models import Session
 
     code = (session_code or "").strip()
     if not code:
         return {"ok": False, "error": "No session code provided."}
+
+    limit = _normalize_participant_limit(participant_limit)
+    prolific_q = (prolific_id or "").strip() or None
 
     try:
         session = Session.objects_get(code=code)
@@ -305,9 +353,14 @@ def inspect_tg_session_by_code(session_code: str) -> Dict[str, Any]:
     Constants = models.Constants
     get_opponent = models.get_opponent_in_round
 
-    participants = list(session.get_participants())
+    all_participants = list(session.get_participants())
+    selected_participants = filter_session_participants(
+        all_participants,
+        participant_limit=limit,
+        prolific_id=prolific_q,
+    )
     participant_reports = [
-        _scan_participant(p, session, Constants, get_opponent) for p in participants
+        _scan_participant(p, session, Constants, get_opponent) for p in selected_participants
     ]
 
     flag_totals: Dict[str, int] = {}
@@ -320,6 +373,7 @@ def inspect_tg_session_by_code(session_code: str) -> Dict[str, Any]:
     participants_with_issues = sum(1 for r in participant_reports if r.get("has_issues"))
     partial_contingent_count = flag_totals.get("partial_contingent_choices", 0)
     scanned_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    filter_active = bool(limit or prolific_q)
 
     return {
         "ok": True,
@@ -335,14 +389,19 @@ def inspect_tg_session_by_code(session_code: str) -> Dict[str, Any]:
         "batches": _batch_overview(session),
         "summary": {
             "participant_count": len(participant_reports),
+            "session_participant_count": len(all_participants),
             "participants_with_issues": participants_with_issues,
             "flag_totals": flag_totals,
             "flag_totals_list": sorted(flag_totals.items(), key=lambda x: (-x[1], x[0])),
             "export_issue_count": export_issue_count,
             "stored_issue_count": stored_issue_count,
             "partial_contingent_count": partial_contingent_count,
-            "all_clear": participants_with_issues == 0,
+            "all_clear": participants_with_issues == 0 and bool(participant_reports),
             "scanned_at": scanned_at,
+            "filter_active": filter_active,
+            "participant_limit": limit,
+            "filter_prolific_id": prolific_q or "",
+            "prolific_not_found": bool(prolific_q and not participant_reports),
         },
         "participants": participant_reports,
     }

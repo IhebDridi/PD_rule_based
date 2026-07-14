@@ -6,6 +6,7 @@ import os
 from typing import Any, Callable, List, Optional, Tuple
 
 from shared.tg_payoffs import compute_tg_payoffs, tg_results_row
+from shared.tg_data_helpers import tg_round_has_partial_contingents
 
 
 def _otree_debug_mode() -> bool:
@@ -107,6 +108,11 @@ def _build_mismatch_detail(display: dict, db: dict, flags: List[str]) -> Optiona
     db_role_label = _role_label(db.get("role_assigned"))
 
     messages: List[str] = []
+    if "partial_contingent_choices" in flags:
+        messages.append(
+            f"partial contingents — DB c1={db.get('choice_first_mover')!r}, "
+            f"c2={db.get('choice_second_mover')!r} (expected both A/B or both null)"
+        )
     if "role_mismatch" in flags:
         messages.append(f"role — screen: {screen_role!r}, DB: {db_role_label!r} ({db.get('role_assigned')!r})")
     if "my_choice_mismatch" in flags:
@@ -209,6 +215,9 @@ def build_tg_results_debug(
         expected_payoff = _db_expected_payoff(db)
 
         flags: List[str] = []
+
+        if tg_round_has_partial_contingents(rr):
+            flags.append("partial_contingent_choices")
 
         # Role: screen label must match stored role
         if role in ("first", "second"):

@@ -6,11 +6,14 @@ from unittest.mock import MagicMock
 
 from shared.tg_data_helpers import (
     build_tg_results_cache_for_part,
+    copy_tg_contingent_maps_to_rounds,
     merge_block_map,
     read_human_first_map_from_player,
+    set_tg_round_contingent_choices,
     tg_effective_choice,
     tg_export_choice_getter,
     tg_part_has_choices,
+    tg_round_has_partial_contingents,
     write_tg_results_display_cache,
 )
 from shared.tg_payoffs import (
@@ -538,6 +541,54 @@ class TgDataFlowTests(unittest.TestCase):
         cache = players_start[0].participant.vars.get("results_display_cache")
         self.assertIn("part_1", cache)
         self.assertEqual(len(cache["part_1"]), 10)
+
+
+class TgContingentChoiceWriteTests(unittest.TestCase):
+    def test_partial_contingents_detected(self):
+        partial = _FakeFieldPlayer(choice_first_mover="A", choice_second_mover=None)
+        complete = _FakeFieldPlayer(choice_first_mover="A", choice_second_mover="B")
+        empty = _FakeFieldPlayer(choice_first_mover=None, choice_second_mover=None)
+        self.assertTrue(tg_round_has_partial_contingents(partial))
+        self.assertFalse(tg_round_has_partial_contingents(complete))
+        self.assertFalse(tg_round_has_partial_contingents(empty))
+
+    def test_set_tg_round_contingent_choices_atomic(self):
+        pr = SimpleNamespace(choice_first_mover="A", choice_second_mover="B")
+        pr.field_maybe_none = lambda name: getattr(pr, name, None)
+        set_tg_round_contingent_choices(pr, "A", "B")
+        self.assertEqual(pr.choice_first_mover, "A")
+        self.assertEqual(pr.choice_second_mover, "B")
+
+        set_tg_round_contingent_choices(pr, "A", None)
+        self.assertIsNone(pr.choice_first_mover)
+        self.assertIsNone(pr.choice_second_mover)
+
+        set_tg_round_contingent_choices(pr, None, "B")
+        self.assertIsNone(pr.choice_first_mover)
+        self.assertIsNone(pr.choice_second_mover)
+
+    def test_copy_tg_contingent_maps_to_rounds(self):
+        rounds = {}
+
+        class _Player:
+            def in_round(self, rn):
+                if rn not in rounds:
+                    rounds[rn] = SimpleNamespace(
+                        choice_first_mover=None,
+                        choice_second_mover=None,
+                    )
+                return rounds[rn]
+
+        copy_tg_contingent_maps_to_rounds(
+            _Player(),
+            start_round=1,
+            first_map={1: "A", 2: "A"},
+            second_map={1: "B", 2: None},
+        )
+        self.assertEqual(rounds[1].choice_first_mover, "A")
+        self.assertEqual(rounds[1].choice_second_mover, "B")
+        self.assertIsNone(rounds[2].choice_first_mover)
+        self.assertIsNone(rounds[2].choice_second_mover)
 
 
 if __name__ == "__main__":

@@ -8,7 +8,7 @@ from datetime import date, datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from shared.export_integrity import collect_export_integrity_errors, participant_batch_for_part
-from shared.tg_data_helpers import tg_export_choice_getter, tg_part_has_choices
+from shared.tg_data_helpers import tg_export_choice_getter, tg_part_has_round_data
 from shared.tg_results_debug import build_tg_results_debug
 
 
@@ -169,7 +169,7 @@ def _scan_participant(
     for part in (1, 2, 3):
         part_start = (part - 1) * rounds_per_part + 1
         part_end = part * rounds_per_part
-        if not tg_part_has_choices(players, part, rounds_per_part):
+        if not tg_part_has_round_data(players, part, rounds_per_part):
             continue
 
         dbg = build_tg_results_debug(
@@ -194,6 +194,7 @@ def _scan_participant(
                         "round": row.get("round"),
                         "flags": flags,
                         "flags_text": ", ".join(flags) if flags else "",
+                        "is_partial_contingent": "partial_contingent_choices" in flags,
                         "display": row.get("display") or {},
                         "db": row.get("db") or {},
                         "mismatch_summary": (row.get("mismatch") or {}).get("summary", ""),
@@ -314,6 +315,7 @@ def inspect_tg_session_by_code(session_code: str) -> Dict[str, Any]:
     export_issue_count = sum(len(r.get("export_errors") or []) for r in participant_reports)
     stored_issue_count = sum(len(r.get("stored_errors") or []) for r in participant_reports)
     participants_with_issues = sum(1 for r in participant_reports if r.get("has_issues"))
+    partial_contingent_count = flag_totals.get("partial_contingent_choices", 0)
     scanned_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     return {
@@ -335,6 +337,7 @@ def inspect_tg_session_by_code(session_code: str) -> Dict[str, Any]:
             "flag_totals_list": sorted(flag_totals.items(), key=lambda x: (-x[1], x[0])),
             "export_issue_count": export_issue_count,
             "stored_issue_count": stored_issue_count,
+            "partial_contingent_count": partial_contingent_count,
             "all_clear": participants_with_issues == 0,
             "scanned_at": scanned_at,
         },

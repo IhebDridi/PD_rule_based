@@ -5,6 +5,11 @@ from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from shared.tg_data_helpers import (
+    tg_part_has_round_data,
+    tg_round_has_partial_contingents,
+)
+from shared.tg_results_debug import _build_mismatch_detail
 from shared.tg_session_inspector import (
     _batch_overview,
     _day_bounds,
@@ -109,6 +114,35 @@ class TgSessionInspectorTests(unittest.TestCase):
         with patch("otree.models.Session.objects_filter", return_value=FakeQuery()):
             rows = list_tg_sessions(limit=10, date_from=today.isoformat(), date_to=today.isoformat())
         self.assertEqual([r["code"] for r in rows], ["new"])
+
+    def test_tg_part_has_round_data_detects_partial_only(self):
+        store = {}
+
+        def _round(rn):
+            if rn not in store:
+                store[rn] = SimpleNamespace(
+                    choice_first_mover=None,
+                    choice_second_mover=None,
+                    role_assigned=None,
+                    payoff=None,
+                )
+            pr = store[rn]
+            pr.field_maybe_none = lambda name, p=pr: getattr(p, name, None)
+            return pr
+
+        player = SimpleNamespace(in_round=_round)
+        _round(3).choice_first_mover = "A"
+        self.assertTrue(tg_part_has_round_data([player], 1, 10))
+        self.assertTrue(tg_round_has_partial_contingents(_round(3)))
+
+    def test_partial_contingent_mismatch_detail(self):
+        detail = _build_mismatch_detail(
+            {"my_choice": None, "other_choice": None, "role_assigned": "", "payoff": None},
+            {"choice_first_mover": "A", "choice_second_mover": None, "role_assigned": None, "payoff": None},
+            ["partial_contingent_choices"],
+        )
+        self.assertIn("partial contingents", detail["summary"])
+        self.assertIn("c1='A'", detail["summary"])
 
 
 if __name__ == "__main__":

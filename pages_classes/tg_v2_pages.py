@@ -5,6 +5,7 @@ from otree.api import *
 from shared.export_integrity import record_data_error
 from shared.tg_block_validation import validate_tg_block_maps
 from shared.tg_data_helpers import (
+    copy_tg_contingent_maps_to_rounds,
     merge_block_map,
     read_agent_first_map_from_player,
     read_human_first_map_from_player,
@@ -86,15 +87,7 @@ def _second_human_complete(values) -> bool:
 
 
 def _copy_v2_human_to_rounds(player, start_round: int, first_map: dict, second_map: dict) -> None:
-    for i in range(1, 11):
-        rn = start_round + i - 1
-        pr = player.in_round(rn)
-        first = first_map.get(i) or first_map.get(str(i))
-        second = second_map.get(i) or second_map.get(str(i))
-        if first in ("A", "B"):
-            pr.choice_first_mover = first
-        if second in ("A", "B"):
-            pr.choice_second_mover = second
+    copy_tg_contingent_maps_to_rounds(player, start_round, first_map, second_map)
 
 
 class TgV2HumanDecisionsFirst(Page):
@@ -386,15 +379,7 @@ def _agent_block_round(player) -> int | None:
 
 
 def _copy_v2_agent_to_rounds(player, start_round: int, first_map: dict, second_map: dict) -> None:
-    for i in range(1, 11):
-        rn = start_round + i - 1
-        pr = player.in_round(rn)
-        first = first_map.get(i) or first_map.get(str(i))
-        second = second_map.get(i) or second_map.get(str(i))
-        if first in ("A", "B"):
-            pr.choice_first_mover = first
-        if second in ("A", "B"):
-            pr.choice_second_mover = second
+    copy_tg_contingent_maps_to_rounds(player, start_round, first_map, second_map)
 
 
 class TgV2AgentProgrammingFirst(Page):

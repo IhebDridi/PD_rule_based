@@ -52,6 +52,14 @@
             {% endfor %}
         </div>
         {% endif %}
+        {% if report.summary.partial_contingent_count %}
+        <div class="flag-totals partial-alert">
+            <span class="flag-chip flag-chip-warn">
+                partial_contingent_choices: {{ report.summary.partial_contingent_count }}
+                (DB has only one of c1/c2 set — should be both A/B or both null)
+            </span>
+        </div>
+        {% endif %}
         {% if report.summary.export_issue_count or report.summary.stored_issue_count %}
         <div class="flag-totals">
             {% if report.summary.export_issue_count %}
@@ -124,6 +132,8 @@
                         <tr>
                             <th>R</th>
                             <th>Flags</th>
+                            <th>DB c1</th>
+                            <th>DB c2</th>
                             <th>Display role</th>
                             <th>You</th>
                             <th>Opp</th>
@@ -135,9 +145,11 @@
                     </thead>
                     <tbody>
                         {% for row in part.rounds %}
-                        <tr{% if row.flags %} class="row-warn"{% endif %}>
+                        <tr{% if row.is_partial_contingent %} class="row-partial"{% elif row.flags %} class="row-warn"{% endif %}>
                             <td>{{ row.round }}</td>
                             <td>{% if row.flags_text %}<code>{{ row.flags_text }}</code>{% else %}—{% endif %}</td>
+                            <td><code>{{ row.db.choice_first_mover }}</code></td>
+                            <td><code>{{ row.db.choice_second_mover }}</code></td>
                             <td>{{ row.display.role_assigned }}</td>
                             <td><strong>{{ row.display.my_choice }}</strong></td>
                             <td>{{ row.display.other_choice }}</td>
@@ -238,6 +250,9 @@
     .inspector-table th { background: #f1f5f9; text-align: left; }
     .inspector-table-sm { font-size: 0.8rem; }
     .row-warn { background: #fff7ed; }
+    .row-partial { background: #fef2f2; }
+    .flag-chip-warn { background: #fee2e2; color: #991b1b; font-weight: 600; }
+    .partial-alert { margin-top: 0.35rem; }
     .participant-panel {
         border: 1px solid #cbd5e1;
         border-radius: 8px;

@@ -3,6 +3,7 @@ import json
 from otree.api import *
 
 from shared.export_integrity import record_data_error
+from shared.tg_data_helpers import copy_tg_contingent_maps_to_rounds
 
 from .model_bridge import get_constants, is_tg_app
 from .page_helpers import _has_left_lobby_for_part, part_vars
@@ -26,15 +27,17 @@ def _tg_agent_decisions_complete(values):
 
 
 def _copy_tg_choices_to_rounds(player, start_round, first_by_round, second_by_round):
+    copy_tg_contingent_maps_to_rounds(player, start_round, first_by_round, second_by_round)
+
+
+def _tg_agent_round_maps_incomplete(start_round, first_by_round, second_by_round):
+    missing = []
     for i in range(1, 11):
-        rn = start_round + i - 1
-        pr = player.in_round(rn)
         first = first_by_round.get(i) or first_by_round.get(str(i))
         second = second_by_round.get(i) or second_by_round.get(str(i))
-        if first in ("A", "B"):
-            pr.choice_first_mover = first
-        if second in ("A", "B"):
-            pr.choice_second_mover = second
+        if first not in ("A", "B") or second not in ("A", "B"):
+            missing.append(str(start_round + i - 1))
+    return missing
 
 
 class AgentProgramming(Page):
@@ -224,7 +227,16 @@ class AgentProgramming(Page):
                         i: self.player.field_maybe_none(f"agent_decision_mandatory_second_round_{i}")
                         for i in range(1, 11)
                     }
-                _copy_tg_choices_to_rounds(self.player, 1, first, second)
+                missing_rounds = _tg_agent_round_maps_incomplete(1, first, second)
+                if missing_rounds:
+                    record_data_error(
+                        self.participant,
+                        "PART1_AGENT_CHOICES_INCOMPLETE",
+                        ",".join(missing_rounds),
+                    )
+                else:
+                    _copy_tg_choices_to_rounds(self.player, 1, first, second)
+                    self.participant.vars["agent_programming_done_part1"] = True
             else:
                 decisions = self.participant.vars.get('agent_programming_part1', {})
                 if not decisions:
@@ -238,7 +250,7 @@ class AgentProgramming(Page):
                     decision = decisions.get(i) or decisions.get(str(i))
                     if decision in ('A', 'B'):
                         self.player.in_round(i).choice = decision
-            self.participant.vars["agent_programming_done_part1"] = True
+                self.participant.vars["agent_programming_done_part1"] = True
 
         # ==========================================
         # Mandatory delegation Part 2 (rounds 11–20) — when not DELEGATION_FIRST
@@ -258,7 +270,16 @@ class AgentProgramming(Page):
                         i: self.player.field_maybe_none(f"agent_decision_mandatory_second_round_{i}")
                         for i in range(1, 11)
                     }
-                _copy_tg_choices_to_rounds(self.player, 11, first, second)
+                missing_rounds = _tg_agent_round_maps_incomplete(11, first, second)
+                if missing_rounds:
+                    record_data_error(
+                        self.participant,
+                        "PART2_AGENT_CHOICES_INCOMPLETE",
+                        ",".join(missing_rounds),
+                    )
+                else:
+                    _copy_tg_choices_to_rounds(self.player, 11, first, second)
+                    self.participant.vars["agent_programming_done_part2"] = True
             else:
                 decisions = self.participant.vars.get('agent_programming_part2', {})
                 if not decisions:
@@ -272,14 +293,13 @@ class AgentProgramming(Page):
                     decision = decisions.get(i) or decisions.get(str(i))
                     if decision in ('A', 'B'):
                         self.player.in_round(10 + i).choice = decision
-            self.participant.vars["agent_programming_done_part2"] = True
+                self.participant.vars["agent_programming_done_part2"] = True
 
         # ==========================================
         # PART 3 — Optional delegation (rounds 21–30)
         # ==========================================
         elif current_part == 3:
             start_round = 2 * Constants.rounds_per_part + 1  # 21
-            missing_rounds = []
             if is_tg_app(self.player):
                 payload = dict(self.participant.vars.get("agent_programming_part3", {}))
                 first = payload.get('first', {}) if isinstance(payload, dict) else {}
@@ -294,17 +314,18 @@ class AgentProgramming(Page):
                         i: self.player.field_maybe_none(f"agent_decision_mandatory_second_round_{i}")
                         for i in range(1, 11)
                     }
-                for i in range(1, 11):
-                    rn = start_round + i - 1
-                    f = first.get(i) or first.get(str(i))
-                    s = second.get(i) or second.get(str(i))
-                    if f in ("A", "B") and s in ("A", "B"):
-                        pr = self.player.in_round(rn)
-                        pr.choice_first_mover = f
-                        pr.choice_second_mover = s
-                    else:
-                        missing_rounds.append(str(rn))
+                missing_rounds = _tg_agent_round_maps_incomplete(start_round, first, second)
+                if missing_rounds:
+                    record_data_error(
+                        self.participant,
+                        "PART3_AGENT_CHOICES_INCOMPLETE",
+                        ",".join(missing_rounds),
+                    )
+                else:
+                    _copy_tg_choices_to_rounds(self.player, start_round, first, second)
+                    self.participant.vars["agent_programming_done_part3"] = True
             else:
+                missing_rounds = []
                 decisions = dict(self.participant.vars.get("agent_programming_part3", {}))
                 if not decisions:
                     for i in range(1, 11):
@@ -322,11 +343,11 @@ class AgentProgramming(Page):
                     else:
                         missing_rounds.append(str(round_number))
 
-            if missing_rounds:
-                record_data_error(
-                    self.participant,
-                    "PART3_AGENT_CHOICES_INCOMPLETE",
-                    ",".join(missing_rounds),
-                )
-            else:
-                self.participant.vars["agent_programming_done_part3"] = True
+                if missing_rounds:
+                    record_data_error(
+                        self.participant,
+                        "PART3_AGENT_CHOICES_INCOMPLETE",
+                        ",".join(missing_rounds),
+                    )
+                else:
+                    self.participant.vars["agent_programming_done_part3"] = True

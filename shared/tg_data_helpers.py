@@ -61,6 +61,26 @@ def tg_part_has_choices(rounds, part: int, rounds_per_part: int) -> bool:
     return False
 
 
+def tg_part_has_round_data(players, part: int, rounds_per_part: int) -> bool:
+    """True when any round in the part has TG DB fields worth inspecting."""
+    if not players:
+        return False
+    start = (part - 1) * rounds_per_part + 1
+    end = part * rounds_per_part
+    p = players[0]
+    for rn in range(start, end + 1):
+        pr = p.in_round(rn)
+        if pr.field_maybe_none("choice_first_mover") in ("A", "B"):
+            return True
+        if pr.field_maybe_none("choice_second_mover") in ("A", "B"):
+            return True
+        if pr.field_maybe_none("role_assigned") in ("first", "second"):
+            return True
+        if pr.field_maybe_none("payoff") is not None:
+            return True
+    return False
+
+
 def build_tg_results_cache_for_part(
     players_start,
     assignments,
@@ -139,3 +159,37 @@ def tg_export_choice_getter(pr) -> Optional[str]:
     if c1 in ("A", "B") and c2 in ("A", "B"):
         return "tg"
     return None
+
+
+def tg_round_has_partial_contingents(pr) -> bool:
+    """True when exactly one of choice_first_mover / choice_second_mover is set."""
+    c1 = pr.field_maybe_none("choice_first_mover")
+    c2 = pr.field_maybe_none("choice_second_mover")
+    ok1 = c1 in ("A", "B")
+    ok2 = c2 in ("A", "B")
+    return ok1 != ok2
+
+
+def set_tg_round_contingent_choices(pr, first, second) -> None:
+    """Write both contingent choices atomically: both A/B or both null."""
+    if first in ("A", "B") and second in ("A", "B"):
+        pr.choice_first_mover = first
+        pr.choice_second_mover = second
+    else:
+        pr.choice_first_mover = None
+        pr.choice_second_mover = None
+
+
+def copy_tg_contingent_maps_to_rounds(
+    player,
+    start_round: int,
+    first_map: dict,
+    second_map: dict,
+) -> None:
+    """Copy block maps into per-round contingent fields (all-or-nothing per round)."""
+    for i in range(1, 11):
+        rn = start_round + i - 1
+        pr = player.in_round(rn)
+        first = first_map.get(i) or first_map.get(str(i))
+        second = second_map.get(i) or second_map.get(str(i))
+        set_tg_round_contingent_choices(pr, first, second)

@@ -225,11 +225,15 @@ class BatchWaitForGroup(WaitPage):
         try:
             payoffs_ready = bool(am.run_payoffs_for_matching_group(self.subsession, batch_id))
             if not payoffs_ready:
-                record_data_errors_for_participants(
-                    trio,
-                    "PAYOFFS_OR_RESULTS_NOT_READY",
-                    f"part={current_part} batch_id={batch_id}",
-                )
+                # Log once per batch — retries are expected until choices are complete.
+                log_key = f"payoffs_not_ready_logged_part_{current_part}_{batch_id}"
+                if not self.session.vars.get(log_key):
+                    record_data_errors_for_participants(
+                        trio,
+                        "PAYOFFS_OR_RESULTS_NOT_READY",
+                        f"part={current_part} batch_id={batch_id}",
+                    )
+                    self.session.vars[log_key] = True
                 return
 
             for p in trio:
@@ -245,6 +249,9 @@ class BatchWaitForGroup(WaitPage):
                     self.session.vars.get(pool_version_key, 0)
                 ) + 1
                 self.session.vars.pop(claim_key, None)
+                self.session.vars.pop(
+                    f"payoffs_not_ready_logged_part_{current_part}_{batch_id}", None
+                )
         finally:
             if not payoffs_ready:
                 with try_session_part_lock(self.session, current_part) as acquired:

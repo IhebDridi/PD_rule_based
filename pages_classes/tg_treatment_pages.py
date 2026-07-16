@@ -374,6 +374,8 @@ class TgSupervisedAgentFirst(_TgAgentBlockFirst):
         if len(tokens) != 10 or not all(t in ("A", "B") for t in tokens):
             record_data_error(self.participant, "SUPERVISED_AGENT_FIRST_INCOMPLETE", "")
             return
+        # Persist first-block CSV so second block cannot erase it from research data.
+        self.participant.vars["_tg_supervised_csv_first"] = csv_val
         decisions = {i + 1: tokens[i] for i in range(10)}
         self._store_first_block(decisions)
 
@@ -406,7 +408,7 @@ class TgSupervisedAgentSecond(_TgAgentBlockSecond):
         return {player.id_in_group: {"response": response_str}}
 
     def _get_or_build_raw_datasets(self):
-        key = "_supervised_ab_datasets_cache"
+        key = "_supervised_ab_datasets_cache_second"
         cached = self.participant.vars.get(key)
         if cached is not None:
             return cached
@@ -431,13 +433,14 @@ class TgSupervisedAgentSecond(_TgAgentBlockSecond):
             )
         preview_rows = [{"round_num": i, "value": "-"} for i in range(1, 11)]
         show_confirm = False
-        csv_prev = self.player.field_maybe_none("supervised_last_generated_csv")
-        supervised_csv_hidden = csv_prev or ""
-        if csv_prev:
-            parts = [x.strip().upper() for x in csv_prev.split(",") if x.strip()]
-            if len(parts) == 10 and all(p in ("A", "B") for p in parts):
-                preview_rows = [{"round_num": i + 1, "value": parts[i]} for i in range(10)]
-                show_confirm = True
+        # Do not inherit first-block CSV as second-block preview.
+        pending = self.participant.vars.get("_tg_agent_second_pending") or {}
+        if len(pending) == 10 and all(pending.get(i) in ("A", "B") for i in range(1, 11)):
+            preview_rows = [{"round_num": i, "value": pending[i]} for i in range(1, 11)]
+            show_confirm = True
+            supervised_csv_hidden = ",".join(pending[i] for i in range(1, 11))
+        else:
+            supervised_csv_hidden = ""
         ctx.update(
             {
                 "datasets": formatted_datasets,
@@ -468,9 +471,12 @@ class TgSupervisedAgentSecond(_TgAgentBlockSecond):
             tokens = [x.strip().upper() for x in csv_val.split(",") if x.strip()]
             if len(tokens) == 10 and all(t in ("A", "B") for t in tokens):
                 second_map = {i + 1: tokens[i] for i in range(10)}
+                csv_val = ",".join(tokens)
         if len([d for d in second_map.values() if d in ("A", "B")]) < 10:
             record_data_error(self.participant, "SUPERVISED_AGENT_SECOND_INCOMPLETE", "")
             return
+        if csv_val:
+            self.participant.vars["_tg_supervised_csv_second"] = csv_val
         self._finalize_agent_block(second_map)
 
 

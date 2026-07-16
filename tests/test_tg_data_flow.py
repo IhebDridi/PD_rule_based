@@ -2,7 +2,7 @@
 
 import unittest
 from types import SimpleNamespace
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 from shared.tg_data_helpers import (
     build_tg_results_cache_for_part,
@@ -171,6 +171,7 @@ class TgDataFlowTests(unittest.TestCase):
                 role_assigned=my_role,
                 choice_first_mover=my_first,
                 choice_second_mover=my_second,
+                payoff=expected_pay,
             )
             opp = _FakeFieldPlayer(
                 role_assigned="first" if my_role == "second" else "second",
@@ -612,6 +613,79 @@ class TgContingentChoiceWriteTests(unittest.TestCase):
         self.assertIsNone(compute_tg_payoffs("X", "A"))
         self.assertIsNone(compute_tg_payoffs("A", "X"))
         self.assertIsNone(compute_tg_payoffs(None, None))
+
+    def test_tg_results_row_does_not_invent_payoff(self):
+        me = _FakeFieldPlayer(
+            role_assigned="first",
+            choice_first_mover="A",
+            choice_second_mover="B",
+            payoff=None,
+        )
+        opp = _FakeFieldPlayer(
+            role_assigned="second",
+            choice_first_mover="B",
+            choice_second_mover="B",
+        )
+        row = tg_results_row(me, opp)
+        self.assertIsNone(row["payoff"])
+
+    def test_tg_results_row_no_role_clears_payoff_display(self):
+        me = _FakeFieldPlayer(
+            role_assigned=None,
+            choice_first_mover="A",
+            choice_second_mover="B",
+            payoff=0,
+        )
+        row = tg_results_row(me, None)
+        self.assertIsNone(row["payoff"])
+
+    def test_opponent_resolves_after_matching_group_id_reset(self):
+        """Results sets matching_group_id=-1; export/debrief must still find Part opponents."""
+        from shared.matching_batch import clear_matching_batch_cache, opponent_in_matching_batch
+
+        clear_matching_batch_cache()
+
+        class C:
+            rounds_per_part = 10
+
+            @staticmethod
+            def get_part(r):
+                return 1 if r <= 10 else (2 if r <= 20 else 3)
+
+        def compute_rr(n, rounds):
+            # Minimal: position 0 always faces 1 in round 0
+            return [[(1, None)] + [(0, None)] * 9, [(0, None)] * 10, [(0, None)] * 10]
+
+        class FakeSession:
+            id = 42
+            code = "sess"
+            vars = {"matching_group_members_part_1_7": [1, 2, 3]}
+
+        class FakePart:
+            def __init__(self, pid, pos):
+                self.id_in_session = pid
+                self.vars = {"matching_group_id": -1, "matching_group_position": pos}
+
+        class FakePlayer:
+            def __init__(self, pid, pos, round_number=1):
+                self.participant = FakePart(pid, pos)
+                self.session = FakeSession()
+                self.round_number = round_number
+
+            def in_round(self, r):
+                return FakePlayer(self.participant.id_in_session, self.participant.vars["matching_group_position"], r)
+
+        # Patch sorted_trio to avoid DB
+        p1 = FakePlayer(1, 1)
+        p2 = FakePlayer(2, 2)
+        p3 = FakePlayer(3, 3)
+        with patch(
+            "shared.matching_batch.sorted_trio_at_round",
+            return_value=[p1, p2, p3],
+        ):
+            opp = opponent_in_matching_batch(p1, 1, C, compute_rr, {})
+        self.assertIsNotNone(opp)
+        self.assertEqual(opp.participant.id_in_session, 2)
 
     def test_part3_cache_other_delegated_preserves_none(self):
         """Unknown opponent delegation must stay None in results cache (not False)."""

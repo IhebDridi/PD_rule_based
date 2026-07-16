@@ -12,7 +12,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Iterator, List, Optional, Union
 
-from shared.export_integrity import collect_export_integrity_errors, participant_batch_for_part
+from shared.export_integrity import collect_export_integrity_errors
 from shared.matching_batch import opponent_in_matching_batch
 
 
@@ -44,6 +44,17 @@ def supervised_list_choices_export(pr: Any, get_fld: Callable[[Any, str], Any]) 
     csv_confirmed = get_fld(pr, "supervised_last_generated_csv")
     if csv_confirmed:
         payload["confirmed_csv"] = csv_confirmed
+    # TG: first/second blocks share one player row — keep both CSVs in participant.vars.
+    try:
+        pvars = getattr(getattr(pr, "participant", None), "vars", None) or {}
+        first_csv = pvars.get("_tg_supervised_csv_first")
+        second_csv = pvars.get("_tg_supervised_csv_second")
+        if first_csv:
+            payload["confirmed_csv_first"] = first_csv
+        if second_csv:
+            payload["confirmed_csv_second"] = second_csv
+    except Exception:
+        pass
     mean = get_fld(pr, "supervised_mean")
     if mean is not None and mean != "":
         payload["supervised_mean"] = mean
@@ -371,20 +382,8 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
     def resolve_opponent(pr, r):
         """Only opponents within the same released matching batch (never the whole session group)."""
         try:
-            opp = opponent_in_matching_batch(pr, r, C, spec.compute_rr, rr_cache)
-            if opp is None:
-                return None
-            batch_gid = pvars(pr, "matching_group_id", -1)
-            if batch_gid is not None and batch_gid >= 0:
-                if pvars(opp, "matching_group_id", -1) == batch_gid:
-                    return opp
-                return None
-            # matching_group_id may be -1 after Results; still allow if same member list
-            part = C.get_part(r)
-            batch = participant_batch_for_part(pr.session, pr.participant.id_in_session, part)
-            if batch and opp.participant.id_in_session in batch["member_ids"]:
-                return opp
-            return None
+            # Resolves via member lists even after Results sets matching_group_id = -1.
+            return opponent_in_matching_batch(pr, r, C, spec.compute_rr, rr_cache)
         except Exception:
             if spec.opponent_mode != "safe_wrap":
                 return None
@@ -473,13 +472,28 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                     if spec.game_used == "TG":
                         oc_first = get_fld(other, "choice_first_mover")
                         oc_second = get_fld(other, "choice_second_mover")
-                        oc_role = get_fld(other, "role_assigned")
-                        row[f"Round{r}CoplayerDecisionFirstMover"] = oc_first if oc_first is not None else ""
-                        row[f"Round{r}CoplayerDecisionSecondMover"] = oc_second if oc_second is not None else ""
-                        row[f"Round{r}CoplayerRoleAssigned"] = oc_role if oc_role is not None else ""
-                        row[f"Round{r}CoplayerEffectiveDecision"] = _tg_effective_choice(
-                            oc_role, oc_first, oc_second
+                        # Role the opponent played in THIS focal match (complement of focal role).
+                        # Do not use other.role_assigned (that is their own directed edge).
+                        if role_val == "first":
+                            match_opp_role = "second"
+                            row[f"Round{r}CoplayerEffectiveDecision"] = (
+                                oc_second if oc_second in ("A", "B") else ""
+                            )
+                        elif role_val == "second":
+                            match_opp_role = "first"
+                            row[f"Round{r}CoplayerEffectiveDecision"] = (
+                                oc_first if oc_first in ("A", "B") else ""
+                            )
+                        else:
+                            match_opp_role = ""
+                            row[f"Round{r}CoplayerEffectiveDecision"] = ""
+                        row[f"Round{r}CoplayerDecisionFirstMover"] = (
+                            oc_first if oc_first is not None else ""
                         )
+                        row[f"Round{r}CoplayerDecisionSecondMover"] = (
+                            oc_second if oc_second is not None else ""
+                        )
+                        row[f"Round{r}CoplayerRoleAssigned"] = match_opp_role
                         row[f"Round{r}CoplayerDecision"] = ""
                     else:
                         oc = get_fld(other, "choice")
@@ -494,6 +508,11 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                 else:
                     row[f"Round{r}CoplayerDecision"] = ""
                     row[f"Round{r}CoplayerID"] = ""
+                    if spec.game_used == "TG":
+                        row[f"Round{r}CoplayerDecisionFirstMover"] = ""
+                        row[f"Round{r}CoplayerDecisionSecondMover"] = ""
+                        row[f"Round{r}CoplayerRoleAssigned"] = ""
+                        row[f"Round{r}CoplayerEffectiveDecision"] = ""
 
                 if spec.layout == "first_person_agents":
                     if C.is_mandatory_delegation_round(r):

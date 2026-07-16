@@ -99,28 +99,13 @@ def apply_tg_payoffs_for_pair(
 
 
 def set_payoffs_tg_batch_group(group) -> None:
-    """TG variant of batch group payoffs (same matching_group_id, round-robin pairs)."""
-    import importlib
+    """
+    Legacy Group.set_payoffs entrypoint — intentionally a no-op.
 
-    m = importlib.import_module(type(group).__module__)
-    get_opponent_in_round = m.get_opponent_in_round
-
-    players = group.get_players()
-    if len(players) < 3:
-        return
-    gids = [p.participant.vars.get("matching_group_id", -1) for p in players]
-    if not all(g >= 0 for g in gids) or len(set(gids)) != 1:
-        return
-
-    rnd = group.round_number
-    seed = hash((group.session.code, rnd, gids[0])) & 0xFFFFFFFF
-    rng = random.Random(seed)
-    for p in players:
-        opp = get_opponent_in_round(p, rnd)
-        if opp is None:
-            continue
-        pair_seed = hash((group.session.code, rnd, min(p.id, opp.id), max(p.id, opp.id))) & 0xFFFFFFFF
-        apply_tg_payoffs_for_pair(p, opp, rng=random.Random(pair_seed), write_both=False)
+    Live TG payoffs run only via ``run_payoffs_for_matching_group_tg`` from BatchWait.
+    Calling ``group.get_players()`` here would freeze large sessions (one huge group).
+    """
+    return
 
 
 def run_payoffs_for_matching_group_tg(
@@ -262,6 +247,8 @@ def _tg_game_moves(player, opponent) -> Tuple[Optional[str], Optional[str]]:
 
 def _tg_payoff_from_db(player) -> Optional[int]:
     payoff = getattr(player, "payoff", None)
+    if payoff is None and hasattr(player, "field_maybe_none"):
+        payoff = player.field_maybe_none("payoff")
     if payoff is None:
         return None
     raw = getattr(payoff, "amount", payoff)
@@ -296,10 +283,9 @@ def tg_results_row(player, opponent, *, role: Optional[str] = None) -> dict:
     other_choice = _tg_opponent_display_choice(player, opponent)
 
     payoff_val = _tg_payoff_from_db(player)
-    # Display earnings = DB (source of truth). Recompute only if DB payoff is missing.
-    if payoff_val is None and first_move in ("A", "B") and second_move in ("A", "B"):
-        pay_first, pay_second = compute_tg_payoffs(first_move, second_move)
-        payoff_val = pay_first if assigned == "first" else pay_second
+    # DB is source of truth. Do not invent display payoffs when unset / no role.
+    if assigned not in ("first", "second"):
+        payoff_val = None
 
     return {
         "role_assigned": role_label,

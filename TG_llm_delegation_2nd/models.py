@@ -113,67 +113,19 @@ _ROUND_ROBIN_CACHE = {}
 
 def get_opponent_in_round(player, round_number):
     """
-    Return the Player who is this player's opponent in the given round (for payoffs and results).
+    Return this player's batch opponent in ``round_number``.
 
-    Uses round-robin assignments when group size N >= 3; orders players by id_in_group so
-    indices match compute_round_robin_assignments. Returns None for group size 0, 1, or 2.
+    Uses matching-group member lists only — never session-wide group.get_players()
+    (which freezes large TG sessions). Works after Results resets matching_group_id.
     """
-    me = player.in_round(round_number)
-    # Fast path: when we form groups without set_group_matrix, use session-stored member list.
-    gid = me.participant.vars.get("matching_group_id", -1)
-    if gid is not None and gid >= 0:
-        part = Constants.get_part(round_number)
-        key = f"matching_group_members_part_{part}_{gid}"
-        member_ids = player.session.vars.get(key)
-        if member_ids and isinstance(member_ids, (list, tuple)) and len(member_ids) >= 3:
-            if me.participant.id_in_session not in member_ids:
-                return None
-            from shared.tg_player_lookup import players_at_round_for_member_ids
-            players = players_at_round_for_member_ids(
-                player.session.id, list(member_ids), round_number
-            ) or []
-            if len(players) >= 3:
-                players = sorted(players, key=lambda p: p.participant.vars.get("matching_group_position", 0))
-                N = len(players)
-                my_pos = me.participant.vars.get("matching_group_position", None)
-                if not my_pos or my_pos < 1 or my_pos > N:
-                    return None
-                my_idx = my_pos - 1
-                part_start = (part - 1) * Constants.rounds_per_part + 1
-                round_in_part = round_number - part_start
-                if N not in _ROUND_ROBIN_CACHE:
-                    _ROUND_ROBIN_CACHE[N] = compute_round_robin_assignments(N, Constants.rounds_per_part)
-                opp_idx, _ = _ROUND_ROBIN_CACHE[N][my_idx][round_in_part]
-                if opp_idx is None or opp_idx < 0 or opp_idx >= N:
-                    return None
-                return players[opp_idx]
-    group_players = list(me.group.get_players())
-    N = len(group_players)
-    if N == 0 or N == 1:
-        return None
-    if N == 2:
-        return None  # No groups of 2; should not occur
-    # N >= 3: round-robin with id_in_group order
-    sorted_players = sorted(group_players, key=lambda p: p.id_in_group)
-    if len(sorted_players) != N:
-        return None
-    my_idx = me.id_in_group - 1  # 1-based id_in_group -> 0-based index
-    if my_idx < 0 or my_idx >= N:
-        return None
-    part = Constants.get_part(round_number)
-    part_start = (part - 1) * Constants.rounds_per_part + 1
-    round_in_part = round_number - part_start
-    if round_in_part < 0 or round_in_part >= Constants.rounds_per_part:
-        return None
-    if N not in _ROUND_ROBIN_CACHE:
-        _ROUND_ROBIN_CACHE[N] = compute_round_robin_assignments(N, Constants.rounds_per_part)
-    assignments = _ROUND_ROBIN_CACHE[N]
-    if round_in_part >= len(assignments[my_idx]):
-        return None
-    opp_idx, _ = assignments[my_idx][round_in_part]
-    if opp_idx is None or opp_idx < 0 or opp_idx >= N:
-        return None
-    return sorted_players[opp_idx]
+    from shared.matching_batch import get_opponent_from_batch
+    return get_opponent_from_batch(
+        player,
+        round_number,
+        Constants,
+        compute_round_robin_assignments,
+        _ROUND_ROBIN_CACHE,
+    )
 
 
 # =============================================================================

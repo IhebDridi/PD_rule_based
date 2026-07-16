@@ -711,10 +711,12 @@ class TgContingentChoiceWriteTests(unittest.TestCase):
         with patch(
             "shared.matching_batch.sorted_trio_at_round",
             return_value=[p1, p2, p3],
-        ):
+        ) as mock_trio:
             opp = opponent_in_matching_batch(p1, 1, C, compute_rr, {})
         self.assertIsNotNone(opp)
         self.assertEqual(opp.participant.id_in_session, 2)
+        # Must load the target round fresh (never cache start-round ORM rows).
+        mock_trio.assert_called_with(42, [1, 2, 3], 1)
 
     def test_part3_cache_other_delegated_preserves_none(self):
         """Unknown opponent delegation must stay None in results cache (not False)."""

@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from shared.export_integrity import participant_batch_for_part
 from shared.tg_player_lookup import sorted_trio_at_round
 
-_BATCH_PLAYERS_CACHE: Dict[Tuple[str, int, int], List[Any]] = {}
+# Cache only plain member-id dicts — never ORM Player instances (those go detached
+# across requests and cause DetachedInstanceError on .in_round() / .participant).
 _BATCH_LOOKUP_CACHE: Dict[Tuple[int, int, int], Optional[dict]] = {}
 
 
 def clear_matching_batch_cache() -> None:
     """Test helper."""
-    _BATCH_PLAYERS_CACHE.clear()
     _BATCH_LOOKUP_CACHE.clear()
 
 
@@ -66,6 +66,9 @@ def opponent_in_matching_batch(
     batch member lists in session.vars (never Subsession/group.get_players()).
 
     Works even after Results sets ``matching_group_id = -1`` (Parts 1–2).
+
+    Always loads fresh Player rows for ``round_number`` — never reuses cached ORM
+    instances from a previous request.
     """
     part = C.get_part(round_number)
     part_start = (part - 1) * C.rounds_per_part + 1
@@ -81,23 +84,9 @@ def opponent_in_matching_batch(
     if not batch:
         return None
 
-    batch_gid = batch["batch_id"]
     member_ids = batch["member_ids"]
     if my_id not in member_ids or len(member_ids) < 3:
         return None
-
-    session = pr.session
-    try:
-        cache_key = (session.code, part, int(batch_gid))
-    except (TypeError, ValueError):
-        cache_key = (session.code, part, str(batch_gid))
-
-    players_start = _BATCH_PLAYERS_CACHE.get(cache_key)
-    if not players_start:
-        players_start = sorted_trio_at_round(session.id, member_ids[:3], part_start)
-        if players_start is None:
-            return None
-        _BATCH_PLAYERS_CACHE[cache_key] = players_start
 
     N = len(member_ids)
     if N not in rr_cache:
@@ -117,11 +106,12 @@ def opponent_in_matching_batch(
     opp_idx, _ = assignments[my_idx][round_in_part]
     if opp_idx is None or opp_idx < 0 or opp_idx >= N:
         return None
-    # players_start is sorted by matching_group_position; index by opp_idx in that order
-    if opp_idx >= len(players_start):
+
+    # Fresh trio at this round (sorted by matching_group_position).
+    players_r = sorted_trio_at_round(pr.session.id, member_ids[:3], round_number)
+    if players_r is None or opp_idx >= len(players_r):
         return None
-    opp_player_start = players_start[opp_idx]
-    return opp_player_start.in_round(round_number)
+    return players_r[opp_idx]
 
 
 def get_opponent_from_batch(

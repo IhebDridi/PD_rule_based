@@ -2,6 +2,7 @@ import random
 
 from otree.api import *
 
+from shared.tg_data_helpers import tg_optional_delegate_tri_state
 from shared.tg_payoffs import tg_results_row
 
 from .model_bridge import app_models, is_tg_app
@@ -105,7 +106,7 @@ class Debriefing(Page):
                         "round": r - (part - 1) * Constants.rounds_per_part,
                         "my_choice": my_choice,
                         "other_choice": other_choice,
-                        "other_delegated": bool(other and other.field_maybe_none("delegate_decision_optional")),
+                        "other_delegated": tg_optional_delegate_tri_state(other),
                         "payoff": display_payoff,
                     })
                     total += display_payoff
@@ -133,7 +134,7 @@ class Debriefing(Page):
                     "round": r - 2 * Constants.rounds_per_part,
                     "my_choice": my_choice,
                     "other_choice": other_choice,
-                    "other_delegated": bool(other and other.field_maybe_none("delegate_decision_optional")),
+                    "other_delegated": tg_optional_delegate_tri_state(other),
                     "payoff": me.field_maybe_none("guess_payoff"),
                 })
 
@@ -143,7 +144,13 @@ class Debriefing(Page):
         guessing_bonus = 0
 
         for row in guess_rounds_data:
-            guessing_bonus += row["payoff"] or 0
+            p = row["payoff"]
+            if p is None:
+                continue
+            try:
+                guessing_bonus += float(getattr(p, "amount", p))
+            except (TypeError, ValueError):
+                continue
 
         total_bonus = results_by_part[payoff_part]["total_payoff"] + guessing_bonus
         # Ecoins -> cents: 10 Ecoins = 1 cent for bonus text
@@ -155,10 +162,18 @@ class Debriefing(Page):
         guessing_bonus_cents = guessing_bonus_ecoins
         total_bonus_cents = total_payoff_cents + guessing_bonus_cents
         total_bonus_dollars = round(total_bonus_cents / 100, 2)
-        # Part 4 guess payoffs: 10 cu = 1 cent -> display "0.1" or "0"
+        # Part 4: known correct → "0.1", known wrong → "0", unknown → "—"
         for row in guess_rounds_data:
-            p = row.get("payoff") or 0
-            row["payoff_dollars"] = "0.1" if p else "0"
+            p = row.get("payoff")
+            if p is None:
+                row["payoff_dollars"] = "—"
+                continue
+            try:
+                amount = float(getattr(p, "amount", p))
+            except (TypeError, ValueError):
+                row["payoff_dollars"] = "—"
+                continue
+            row["payoff_dollars"] = "0.1" if amount > 0 else "0"
         return {
             "results_by_part": results_by_part,
             "random_payoff_part": payoff_part,

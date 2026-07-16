@@ -31,9 +31,9 @@ def tg_choices_ready(player) -> bool:
     return c1 in ("A", "B") and c2 in ("A", "B")
 
 
-def compute_tg_payoffs(first_move: str, second_move: str) -> Tuple[int, int]:
+def compute_tg_payoffs(first_move: str, second_move: str) -> Optional[Tuple[int, int]]:
     """
-    Return (1st mover payoff, 2nd mover payoff) in Ecoins.
+    Return (1st mover payoff, 2nd mover payoff) in Ecoins, or None if moves are invalid.
     If 1st chooses B, 2nd's choice is ignored and both get 30.
     """
     if first_move == "B":
@@ -43,7 +43,7 @@ def compute_tg_payoffs(first_move: str, second_move: str) -> Tuple[int, int]:
             return 70, 70
         if second_move == "B":
             return 0, 100
-    return 0, 0
+    return None
 
 
 def apply_tg_payoffs_for_pair(
@@ -78,7 +78,10 @@ def apply_tg_payoffs_for_pair(
         a_is_first = False
         first_move, second_move = b_first, a_second
 
-    pay_first, pay_second = compute_tg_payoffs(first_move, second_move)
+    payoffs = compute_tg_payoffs(first_move, second_move)
+    if payoffs is None:
+        return False
+    pay_first, pay_second = payoffs
 
     if a_is_first:
         player_a.role_assigned = "first"

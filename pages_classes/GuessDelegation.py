@@ -1,5 +1,6 @@
 from otree.api import *
 
+from shared.tg_data_helpers import tg_optional_delegate_tri_state
 from shared.tg_payoffs import tg_results_row
 
 from .model_bridge import app_models, is_tg_app
@@ -89,12 +90,19 @@ class GuessDelegation(Page):
 
             if self.participant.vars.get("matching_group_id", -1) >= 0 and guess in ("yes", "no"):
                 if use_cache:
-                    actual = bool(cache_3[i - 1].get("other_delegated", False))
+                    # Do not default missing → False (that invents "did not delegate").
+                    actual = tg_optional_delegate_tri_state(
+                        cache_3[i - 1].get("other_delegated")
+                    )
                 else:
                     other = get_opponent_in_round(self.player, r)
-                    actual = bool(other and other.field_maybe_none("delegate_decision_optional"))
-                future_player.guess_payoff = (
-                    cu(10) if (guess == "yes") == actual else cu(0)
-                )
+                    actual = tg_optional_delegate_tri_state(other)
+                if actual is True or actual is False:
+                    future_player.guess_payoff = (
+                        cu(10) if (guess == "yes") == actual else cu(0)
+                    )
+                else:
+                    # Truth unknown: leave null (not 0).
+                    future_player.guess_payoff = None
 
         self.participant.vars["guess_submitted"] = True

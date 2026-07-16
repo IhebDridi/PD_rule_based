@@ -590,6 +590,63 @@ class TgContingentChoiceWriteTests(unittest.TestCase):
         self.assertIsNone(rounds[2].choice_first_mover)
         self.assertIsNone(rounds[2].choice_second_mover)
 
+    def test_optional_delegate_tri_state_and_format(self):
+        from shared.tg_data_helpers import format_delegated_yes_no, tg_optional_delegate_tri_state
+
+        self.assertTrue(tg_optional_delegate_tri_state(True))
+        self.assertFalse(tg_optional_delegate_tri_state(False))
+        self.assertIsNone(tg_optional_delegate_tri_state(None))
+        self.assertIsNone(tg_optional_delegate_tri_state(_FakeFieldPlayer()))
+        opp_true = _FakeFieldPlayer(delegate_decision_optional=True)
+        opp_false = _FakeFieldPlayer(delegate_decision_optional=False)
+        self.assertTrue(tg_optional_delegate_tri_state(opp_true))
+        self.assertFalse(tg_optional_delegate_tri_state(opp_false))
+        self.assertEqual(format_delegated_yes_no(True), "Yes")
+        self.assertEqual(format_delegated_yes_no(False), "No")
+        self.assertEqual(format_delegated_yes_no(None), "—")
+
+    def test_compute_tg_payoffs_invalid_returns_none(self):
+        self.assertEqual(compute_tg_payoffs("B", "A"), (30, 30))
+        self.assertEqual(compute_tg_payoffs("A", "A"), (70, 70))
+        self.assertEqual(compute_tg_payoffs("A", "B"), (0, 100))
+        self.assertIsNone(compute_tg_payoffs("X", "A"))
+        self.assertIsNone(compute_tg_payoffs("A", "X"))
+        self.assertIsNone(compute_tg_payoffs(None, None))
+
+    def test_part3_cache_other_delegated_preserves_none(self):
+        """Unknown opponent delegation must stay None in results cache (not False)."""
+        assignments = [
+            [(1, None)] + [(0, None)] * 9,
+            [(0, None)] + [(0, None)] * 9,
+            [(0, None)] + [(0, None)] * 9,
+        ]
+
+        class _P:
+            def __init__(self, pid, delegated=None):
+                self.participant = SimpleNamespace(id_in_session=pid, vars={})
+                self._delegated = delegated
+                self.role_assigned = "first"
+                self.choice_first_mover = "A"
+                self.choice_second_mover = "B"
+                self.payoff = 70
+
+            def field_maybe_none(self, name):
+                if name == "delegate_decision_optional":
+                    return self._delegated
+                return getattr(self, name, None)
+
+            def in_round(self, r):
+                return self
+
+        players = [_P(1), _P(2, delegated=None), _P(3, delegated=True)]
+        cache = build_tg_results_cache_for_part(
+            players, assignments, current_part=3, start=21, end=21, rounds_per_part=10
+        )
+        # Player 0's opponent is index 1 → unknown → None
+        self.assertIsNone(cache[0][0]["other_delegated"])
+        # Player 1's opponent is index 0 → unknown → None
+        self.assertIsNone(cache[1][0]["other_delegated"])
+
 
 if __name__ == "__main__":
     unittest.main()

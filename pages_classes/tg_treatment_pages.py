@@ -170,7 +170,8 @@ class TgGoalOrientedFirst(_TgAgentBlockFirst):
         try:
             slider_value = float(data.get("slider_value"))
         except (TypeError, ValueError):
-            slider_value = 0.5
+            # Invalid payload: do not invent a 0.5 slider / A-B map.
+            return
         decisions = _goal_slider_decisions(slider_value)
         allocations = [100 if decisions[i + 1] == "A" else 0 for i in range(10)]
         Constants = get_constants(player)
@@ -231,7 +232,8 @@ class TgGoalOrientedSecond(_TgAgentBlockSecond):
         try:
             slider_value = float(data.get("slider_value"))
         except (TypeError, ValueError):
-            slider_value = 0.5
+            # Invalid payload: do not invent a 0.5 slider / A-B map.
+            return
         decisions = _goal_slider_decisions(slider_value)
         allocations = [100 if decisions[i + 1] == "A" else 0 for i in range(10)]
         _append_agent_prog_history(

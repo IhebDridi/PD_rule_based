@@ -2,7 +2,37 @@
 
 from __future__ import annotations
 
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
+
+
+def tg_optional_delegate_tri_state(source: Any = None) -> Optional[bool]:
+    """
+    Return True/False when Part-3 optional delegation is known, else None.
+
+    ``source`` may be:
+    - an opponent Player (reads ``delegate_decision_optional``), or
+    - an explicit True/False/None value (e.g. from results cache).
+    """
+    if source is None:
+        return None
+    if hasattr(source, "field_maybe_none"):
+        raw = source.field_maybe_none("delegate_decision_optional")
+    else:
+        raw = source
+    if raw is True:
+        return True
+    if raw is False:
+        return False
+    return None
+
+
+def format_delegated_yes_no(val: Optional[bool]) -> str:
+    """Display helper: known True/False → Yes/No; unknown → em dash."""
+    if val is True:
+        return "Yes"
+    if val is False:
+        return "No"
+    return "—"
 
 
 def read_block_map_from_player(player, field_prefix: str) -> Dict[int, str]:
@@ -109,9 +139,8 @@ def build_tg_results_cache_for_part(
                 "role_assigned": row.get("role_assigned"),
             }
             if current_part == 3:
-                entry["other_delegated"] = bool(
-                    opp and opp.field_maybe_none("delegate_decision_optional")
-                )
+                # True / False / None — never coerce unknown to False.
+                entry["other_delegated"] = tg_optional_delegate_tri_state(opp)
             cache_by_player[i].append(entry)
     return cache_by_player
 

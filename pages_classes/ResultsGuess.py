@@ -1,5 +1,7 @@
 from otree.api import *
 
+from shared.tg_data_helpers import format_delegated_yes_no, tg_optional_delegate_tri_state
+
 from .model_bridge import app_models
 
 
@@ -46,11 +48,13 @@ class ResultsGuess(Page):
                     my_decision = "Yes"
                 else:
                     my_decision = "No"
-                other_delegated = cache_3[i - 1].get("other_delegated", False)
+                other_delegated = tg_optional_delegate_tri_state(
+                    cache_3[i - 1].get("other_delegated")
+                )
                 rows.append({
                     "round": i,
                     "my_decision": my_decision,
-                    "other_decision": "Yes" if other_delegated else "No",
+                    "other_decision": format_delegated_yes_no(other_delegated),
                     "earnings": _guess_earnings_display(me),
                 })
         else:
@@ -68,9 +72,8 @@ class ResultsGuess(Page):
                 rows.append({
                     "round": r - 2 * Constants.rounds_per_part,
                     "my_decision": my_decision,
-                    "other_decision": (
-                        "Yes" if other and other.field_maybe_none("delegate_decision_optional")
-                        else ("No" if other else "—")
+                    "other_decision": format_delegated_yes_no(
+                        tg_optional_delegate_tri_state(other)
                     ),
                     "earnings": _guess_earnings_display(me),
                 })

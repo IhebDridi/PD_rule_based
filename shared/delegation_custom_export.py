@@ -456,11 +456,17 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                         role_val, first_val, second_val
                     )
                     row[f"Round{r}Decision"] = ""
+                    # Only export Ecoins when roles/payoffs were actually applied.
+                    # Framework default Currency(0) must not look like a real TG outcome.
+                    if role_val in ("first", "second"):
+                        pay_float = player_pay_float(pr)
+                    else:
+                        pay_float = None
                 else:
                     choice_val = get_fld(pr, "choice")
                     row[f"Round{r}Decision"] = choice_val if choice_val is not None else ""
+                    pay_float = player_pay_float(pr)
 
-                pay_float = player_pay_float(pr)
                 row[f"Round{r}Ecoins"] = _export_ecoins_cell(pay_float)
 
                 if other:
@@ -577,12 +583,25 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
             else:
                 delegated_part1 = 0
                 delegated_part2 = 1
-            delegated_part3 = 0
-            for pr in rounds:
-                if C.get_part(pr.round_number) == 3:
-                    if get_fld(pr, "delegate_decision_optional"):
-                        delegated_part3 = 1
-                        break
+            if spec.game_used == "TG":
+                # Three-way: 1 / 0 / "" — never invent "did not delegate" from None.
+                delegated_part3 = ""
+                for pr in rounds:
+                    if C.get_part(pr.round_number) == 3:
+                        v = get_fld(pr, "delegate_decision_optional")
+                        if v is True:
+                            delegated_part3 = 1
+                            break
+                        if v is False:
+                            delegated_part3 = 0
+                            break
+            else:
+                delegated_part3 = 0
+                for pr in rounds:
+                    if C.get_part(pr.round_number) == 3:
+                        if get_fld(pr, "delegate_decision_optional"):
+                            delegated_part3 = 1
+                            break
             row["DelegatedPart1"] = delegated_part1
             row["DelegatedPart2"] = delegated_part2
             row["DelegatedPart3"] = delegated_part3
@@ -621,7 +640,15 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                     round(part4_dollars, 4) if part4_dollars is not None else ""
                 )
                 parts123 = row["TotalEarningsParts123Dollars"]
-                if parts123 != "" or part4_dollars is not None:
+                if spec.game_used == "TG":
+                    # Only sum when both sides are known; never fill missing with 0.0.
+                    if parts123 != "" and part4_dollars is not None:
+                        row["BonusPaymentTotal"] = round(
+                            float(parts123) + float(part4_dollars), 4
+                        )
+                    else:
+                        row["BonusPaymentTotal"] = ""
+                elif parts123 != "" or part4_dollars is not None:
                     parts123_val = float(parts123) if parts123 != "" else 0.0
                     part4_val = part4_dollars if part4_dollars is not None else 0.0
                     row["BonusPaymentTotal"] = round(parts123_val + part4_val, 4)

@@ -30,8 +30,17 @@ def coarse_agent_from_condition_app(condition: str, app_name: str) -> str:
     return "no-agent"
 
 
-def supervised_list_choices_export(pr: Any, get_fld: Callable[[Any, str], Any]) -> str:
-    """Supervised TG/PD agent blocks: history shown + confirmed CSV (not agent_prog_allocation)."""
+def supervised_list_choices_export(
+    pr: Any,
+    get_fld: Callable[[Any, str], Any],
+    *,
+    part: Optional[int] = None,
+) -> str:
+    """Supervised TG/PD agent blocks: history shown + confirmed CSV (not agent_prog_allocation).
+
+    For TG, pass ``part`` so first/second CSVs are read from part-scoped participant.vars
+    (mandatory vs optional never overwrite each other).
+    """
     if not pr:
         return ""
     payload: dict = {}
@@ -44,11 +53,19 @@ def supervised_list_choices_export(pr: Any, get_fld: Callable[[Any, str], Any]) 
     csv_confirmed = get_fld(pr, "supervised_last_generated_csv")
     if csv_confirmed:
         payload["confirmed_csv"] = csv_confirmed
-    # TG: first/second blocks share one player row — keep both CSVs in participant.vars.
     try:
         pvars = getattr(getattr(pr, "participant", None), "vars", None) or {}
-        first_csv = pvars.get("_tg_supervised_csv_first")
-        second_csv = pvars.get("_tg_supervised_csv_second")
+        first_csv = second_csv = None
+        if part is not None:
+            first_key = f"_tg_supervised_csv_first_part_{part}"
+            second_key = f"_tg_supervised_csv_second_part_{part}"
+            first_csv = pvars.get(first_key)
+            second_csv = pvars.get(second_key)
+        # Legacy unscoped keys (pre part-scope) — only if part-scoped missing.
+        if not first_csv:
+            first_csv = pvars.get("_tg_supervised_csv_first")
+        if not second_csv:
+            second_csv = pvars.get("_tg_supervised_csv_second")
         if first_csv:
             payload["confirmed_csv_first"] = first_csv
         if second_csv:
@@ -741,11 +758,12 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                     or ""
                 )
             elif spec.extension == "supervised":
+                delegation_part = 1 if C.DELEGATION_FIRST else 2
                 row["SupervisedListChoicesDelegation"] = supervised_list_choices_export(
-                    deleg_pr, get_fld
+                    deleg_pr, get_fld, part=delegation_part
                 )
                 row["SupervisedListChoicesOptional"] = (
-                    supervised_list_choices_export(opt_pr, get_fld)
+                    supervised_list_choices_export(opt_pr, get_fld, part=3)
                     if opt_pr and get_fld(opt_pr, "delegate_decision_optional") is True
                     else ""
                 )

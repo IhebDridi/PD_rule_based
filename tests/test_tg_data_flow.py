@@ -1,5 +1,6 @@
 """Unit tests for TG data flow helpers and payoff/cache logic."""
 
+import json
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -590,6 +591,34 @@ class TgContingentChoiceWriteTests(unittest.TestCase):
         self.assertEqual(rounds[1].choice_second_mover, "B")
         self.assertIsNone(rounds[2].choice_first_mover)
         self.assertIsNone(rounds[2].choice_second_mover)
+
+    def test_supervised_export_part_scoped_csvs(self):
+        from shared.delegation_custom_export import supervised_list_choices_export
+
+        class Pr:
+            def __init__(self):
+                self.participant = SimpleNamespace(
+                    vars={
+                        "_tg_supervised_csv_first_part_1": "A,A,A,A,A,A,A,A,A,A",
+                        "_tg_supervised_csv_second_part_1": "B,B,B,B,B,B,B,B,B,B",
+                        "_tg_supervised_csv_first_part_3": "A,B,A,B,A,B,A,B,A,B",
+                        "_tg_supervised_csv_second_part_3": "B,A,B,A,B,A,B,A,B,A",
+                        # Legacy unscoped should be ignored when part-scoped exist
+                        "_tg_supervised_csv_first": "LEGACY",
+                    }
+                )
+
+            def field_maybe_none(self, name):
+                return None
+
+        pr = Pr()
+        get_fld = lambda p, n: p.field_maybe_none(n)
+        out1 = json.loads(supervised_list_choices_export(pr, get_fld, part=1))
+        out3 = json.loads(supervised_list_choices_export(pr, get_fld, part=3))
+        self.assertEqual(out1["confirmed_csv_first"], "A,A,A,A,A,A,A,A,A,A")
+        self.assertEqual(out1["confirmed_csv_second"], "B,B,B,B,B,B,B,B,B,B")
+        self.assertEqual(out3["confirmed_csv_first"], "A,B,A,B,A,B,A,B,A,B")
+        self.assertEqual(out3["confirmed_csv_second"], "B,A,B,A,B,A,B,A,B,A")
 
     def test_optional_delegate_tri_state_and_format(self):
         from shared.tg_data_helpers import format_delegated_yes_no, tg_optional_delegate_tri_state

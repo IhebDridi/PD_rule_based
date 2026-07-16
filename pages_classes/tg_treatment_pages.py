@@ -22,6 +22,19 @@ from .tg_v2_pages import (
 )
 
 
+def _tg_supervised_csv_keys(part: int) -> tuple:
+    """Part-scoped keys so mandatory vs optional supervised CSVs never overwrite each other."""
+    return (
+        f"_tg_supervised_csv_first_part_{part}",
+        f"_tg_supervised_csv_second_part_{part}",
+    )
+
+
+def _tg_supervised_datasets_key(part: int, *, second: bool = False) -> str:
+    suffix = "_second" if second else ""
+    return f"_supervised_ab_datasets_cache{suffix}_part_{part}"
+
+
 def _goal_slider_decisions(slider_value: float) -> dict:
     slider_value = max(0.0, min(1.0, float(slider_value)))
     p_a = 0.05 + 0.90 * slider_value
@@ -236,6 +249,13 @@ class TgGoalOrientedSecond(_TgAgentBlockSecond):
             return
         decisions = _goal_slider_decisions(slider_value)
         allocations = [100 if decisions[i + 1] == "A" else 0 for i in range(10)]
+        Constants = get_constants(player)
+        block_r = _agent_block_round(player)
+        part = (
+            Constants.get_part(block_r)
+            if block_r is not None
+            else Constants.get_part(player.round_number)
+        )
         _append_agent_prog_history(
             player,
             player.round_number,
@@ -246,13 +266,18 @@ class TgGoalOrientedSecond(_TgAgentBlockSecond):
                 "decisions": [decisions[i] for i in range(1, 11)],
             },
         )
-        player.participant.vars["_tg_agent_second_pending"] = decisions
+        player.participant.vars[f"_tg_agent_second_pending_part_{part}"] = decisions
         allocations_str = ",".join(str(x) for x in allocations)
         decisions_str = ",".join(decisions[i] for i in range(1, 11))
         return {player.id_in_group: {"response": allocations_str, "decisions": decisions_str}}
 
     def error_message(self, values):
-        second_map = dict(self.participant.vars.get("_tg_agent_second_pending", {}) or {})
+        Constants = get_constants(self.player)
+        block_r = _agent_block_round(self.player) or self.round_number
+        part = Constants.get_part(block_r)
+        second_map = dict(
+            self.participant.vars.get(f"_tg_agent_second_pending_part_{part}", {}) or {}
+        )
         if len([d for d in second_map.values() if d in ("A", "B")]) < 10:
             record_data_error(
                 self.participant,
@@ -263,7 +288,12 @@ class TgGoalOrientedSecond(_TgAgentBlockSecond):
         return self._block_finalize_error_message(second_map)
 
     def before_next_page(self):
-        second_map = dict(self.participant.vars.pop("_tg_agent_second_pending", {}) or {})
+        Constants = get_constants(self.player)
+        block_r = _agent_block_round(self.player) or self.round_number
+        part = Constants.get_part(block_r)
+        second_map = dict(
+            self.participant.vars.pop(f"_tg_agent_second_pending_part_{part}", {}) or {}
+        )
         if len([d for d in second_map.values() if d in ("A", "B")]) < 10:
             record_data_error(
                 self.participant,
@@ -314,7 +344,10 @@ class TgSupervisedAgentFirst(_TgAgentBlockFirst):
         return {player.id_in_group: {"response": response_str}}
 
     def _get_or_build_raw_datasets(self):
-        key = "_supervised_ab_datasets_cache"
+        Constants = get_constants(self.player)
+        block_r = _agent_block_round(self.player) or self.round_number
+        part = Constants.get_part(block_r)
+        key = _tg_supervised_datasets_key(part, second=False)
         cached = self.participant.vars.get(key)
         if cached is not None:
             return cached
@@ -374,8 +407,11 @@ class TgSupervisedAgentFirst(_TgAgentBlockFirst):
         if len(tokens) != 10 or not all(t in ("A", "B") for t in tokens):
             record_data_error(self.participant, "SUPERVISED_AGENT_FIRST_INCOMPLETE", "")
             return
-        # Persist first-block CSV so second block cannot erase it from research data.
-        self.participant.vars["_tg_supervised_csv_first"] = csv_val
+        Constants = get_constants(self.player)
+        block_r = _agent_block_round(self.player) or self.round_number
+        part = Constants.get_part(block_r)
+        first_key, _ = _tg_supervised_csv_keys(part)
+        self.participant.vars[first_key] = csv_val
         decisions = {i + 1: tokens[i] for i in range(10)}
         self._store_first_block(decisions)
 
@@ -402,13 +438,19 @@ class TgSupervisedAgentSecond(_TgAgentBlockSecond):
         decisions_list = _sample_10_decisions(p_a)
         response_str = ",".join(decisions_list)
         player.supervised_last_generated_csv = response_str
-        player.participant.vars["_tg_agent_second_pending"] = {
+        Constants = get_constants(player)
+        block_r = _agent_block_round(player)
+        part = Constants.get_part(block_r) if block_r is not None else Constants.get_part(player.round_number)
+        player.participant.vars[f"_tg_agent_second_pending_part_{part}"] = {
             i + 1: decisions_list[i] for i in range(10)
         }
         return {player.id_in_group: {"response": response_str}}
 
     def _get_or_build_raw_datasets(self):
-        key = "_supervised_ab_datasets_cache_second"
+        Constants = get_constants(self.player)
+        block_r = _agent_block_round(self.player) or self.round_number
+        part = Constants.get_part(block_r)
+        key = _tg_supervised_datasets_key(part, second=True)
         cached = self.participant.vars.get(key)
         if cached is not None:
             return cached
@@ -418,6 +460,9 @@ class TgSupervisedAgentSecond(_TgAgentBlockSecond):
 
     def vars_for_template(self):
         ctx = super().vars_for_template()
+        Constants = get_constants(self.player)
+        block_r = _agent_block_round(self.player) or self.round_number
+        part = Constants.get_part(block_r)
         supervised_dataset = self._get_or_build_raw_datasets()
         formatted_datasets = []
         for i in range(5):
@@ -434,7 +479,7 @@ class TgSupervisedAgentSecond(_TgAgentBlockSecond):
         preview_rows = [{"round_num": i, "value": "-"} for i in range(1, 11)]
         show_confirm = False
         # Do not inherit first-block CSV as second-block preview.
-        pending = self.participant.vars.get("_tg_agent_second_pending") or {}
+        pending = self.participant.vars.get(f"_tg_agent_second_pending_part_{part}") or {}
         if len(pending) == 10 and all(pending.get(i) in ("A", "B") for i in range(1, 11)):
             preview_rows = [{"round_num": i, "value": pending[i]} for i in range(1, 11)]
             show_confirm = True
@@ -453,19 +498,28 @@ class TgSupervisedAgentSecond(_TgAgentBlockSecond):
         return ctx
 
     def error_message(self, values):
+        Constants = get_constants(self.player)
+        block_r = _agent_block_round(self.player) or self.round_number
+        part = Constants.get_part(block_r)
         csv_val = (values.get("supervised_last_generated_csv") or "").strip()
         if not csv_val:
             return "Please select a dataset, click Generate, then Confirm."
         parts = [p.strip().upper() for p in csv_val.split(",") if p.strip()]
         if len(parts) != 10 or not all(p in ("A", "B") for p in parts):
             return "Please select a dataset, click Generate, then Confirm."
-        second_map = dict(self.participant.vars.get("_tg_agent_second_pending", {}) or {})
+        second_map = dict(
+            self.participant.vars.get(f"_tg_agent_second_pending_part_{part}", {}) or {}
+        )
         if len(second_map) < 10:
             second_map = {i + 1: parts[i] for i in range(10)}
         return self._block_finalize_error_message(second_map)
 
     def before_next_page(self):
-        second_map = dict(self.participant.vars.pop("_tg_agent_second_pending", {}) or {})
+        Constants = get_constants(self.player)
+        block_r = _agent_block_round(self.player) or self.round_number
+        part = Constants.get_part(block_r)
+        pending_key = f"_tg_agent_second_pending_part_{part}"
+        second_map = dict(self.participant.vars.pop(pending_key, {}) or {})
         csv_val = (self.player.field_maybe_none("supervised_last_generated_csv") or "").strip()
         if len(second_map) < 10 and csv_val:
             tokens = [x.strip().upper() for x in csv_val.split(",") if x.strip()]
@@ -476,7 +530,8 @@ class TgSupervisedAgentSecond(_TgAgentBlockSecond):
             record_data_error(self.participant, "SUPERVISED_AGENT_SECOND_INCOMPLETE", "")
             return
         if csv_val:
-            self.participant.vars["_tg_supervised_csv_second"] = csv_val
+            _, second_key = _tg_supervised_csv_keys(part)
+            self.participant.vars[second_key] = csv_val
         self._finalize_agent_block(second_map)
 
 

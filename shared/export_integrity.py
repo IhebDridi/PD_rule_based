@@ -23,25 +23,66 @@ def record_data_errors_for_participants(participants: Iterable[Any], code: str, 
         record_data_error(participant, code, detail)
 
 
-def participant_batch_for_part(session: Any, participant_id: int, part: int) -> Optional[dict]:
+def participant_batch_for_part(
+    session: Any,
+    participant_id: int,
+    part: int,
+    preferred_batch_id: Any = None,
+) -> Optional[dict]:
     """
     Return {'batch_id': int, 'member_ids': list} if this participant is listed for the part,
     else None. Uses session.vars keys written by BatchWaitForGroup.
+
+    When ``preferred_batch_id`` is set (successful GroupPartN), that list is preferred so a
+    stale provisional key from a failed claim cannot win.
     """
     prefix = f"matching_group_members_part_{part}_"
+
+    def _from_key(batch_id) -> Optional[dict]:
+        key = f"{prefix}{batch_id}"
+        value = session.vars.get(key)
+        if not value or not isinstance(value, (list, tuple)):
+            return None
+        if participant_id not in value:
+            return None
+        try:
+            bid = int(batch_id)
+        except (TypeError, ValueError):
+            bid = batch_id
+        return {"batch_id": bid, "member_ids": list(value)}
+
+    if preferred_batch_id is not None and preferred_batch_id != "" and preferred_batch_id != -1:
+        hit = _from_key(preferred_batch_id)
+        if hit is not None:
+            return hit
+
+    matches: List[dict] = []
     for key, value in session.vars.items():
         if not isinstance(key, str) or not key.startswith(prefix):
             continue
         if not value or not isinstance(value, (list, tuple)):
             continue
-        if participant_id in value:
-            try:
-                batch_id = int(key[len(prefix) :])
-            except (TypeError, ValueError):
-                batch_id = key[len(prefix) :]
-            return {"batch_id": batch_id, "member_ids": list(value)}
-    return None
+        if participant_id not in value:
+            continue
+        try:
+            batch_id = int(key[len(prefix) :])
+        except (TypeError, ValueError):
+            batch_id = key[len(prefix) :]
+        matches.append({"batch_id": batch_id, "member_ids": list(value)})
+    if not matches:
+        return None
+    if len(matches) == 1:
+        return matches[0]
+    # Multiple lists (should be rare after failed-claim cleanup): prefer highest batch_id.
+    def _sort_key(m):
+        bid = m["batch_id"]
+        try:
+            return (0, int(bid))
+        except (TypeError, ValueError):
+            return (1, str(bid))
 
+    matches.sort(key=_sort_key)
+    return matches[-1]
 
 def _part_has_choices(rounds: Sequence[Any], part: int, rounds_per_part: int, get_choice) -> bool:
     start = (part - 1) * rounds_per_part + 1

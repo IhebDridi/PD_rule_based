@@ -65,12 +65,15 @@ class Results(Page):
 
     def before_next_page(self):
         # So that Part 2/3 lobbies form new groups: reset matching_group_id when leaving Part 1 or Part 2.
-        # Persist group_part_N first so export still has GroupPart1/GroupPart2 after the reset.
+        # Persist group_part_N only when this part actually completed matching (can_proceed).
         if self.round_number in (10, 20):
             Constants = app_models(self.player).Constants
             part = Constants.get_part(self.round_number)
+            can_proceed = bool(
+                self.participant.vars.get(f"can_proceed_to_results_part_{part}", False)
+            )
             gid = self.participant.vars.get("matching_group_id", -1)
-            if gid is not None and gid >= 0:
+            if can_proceed and gid is not None and gid >= 0:
                 self.participant.vars.setdefault(f"group_part_{part}", gid)
                 pos = self.participant.vars.get("matching_group_position")
                 if pos is not None:

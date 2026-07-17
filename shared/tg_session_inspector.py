@@ -274,6 +274,7 @@ def _scan_participant(
         )
 
     total_flags = sum(flag_counts.values()) + len(export_errors) + len(stored_errors)
+    group_parts = _group_parts_from_participant(participant)
 
     return {
         "id_in_session": participant.id_in_session,
@@ -281,6 +282,8 @@ def _scan_participant(
         "label": participant.label or "",
         "prolific_id": _participant_prolific_id(participant),
         "matching_group_id": participant.vars.get("matching_group_id"),
+        "group_parts": group_parts["parts"],
+        "group_parts_summary": group_parts["summary_text"],
         "parts": parts_out,
         "export_errors": export_errors,
         "stored_errors": stored_errors,
@@ -292,7 +295,13 @@ def _scan_participant(
 
 
 def _batch_overview(session: Any) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
+    """
+    List matching trios from session.vars (written by BatchWaitForGroup).
+
+    ``batch_id`` is the lowest participant id_in_session in the trio (not 1..N).
+    ``trio_index`` is a human-friendly 1..N counter within that part.
+    """
+    raw: List[Dict[str, Any]] = []
     for key, value in (session.vars or {}).items():
         if not isinstance(key, str) or not key.startswith("matching_group_members_part_"):
             continue
@@ -307,18 +316,60 @@ def _batch_overview(session: Any) -> List[Dict[str, Any]]:
             batch_id = int(batch_str)
         except ValueError:
             continue
-        out.append(
+        member_ids = [int(x) for x in value]
+        raw.append(
             {
                 "part": part,
                 "batch_id": batch_id,
-                "member_ids": list(value),
-                "member_ids_text": ", ".join(str(x) for x in value),
-                "size": len(value),
+                "member_ids": member_ids,
+                "member_ids_text": ", ".join(str(x) for x in member_ids),
+                "member_labels": ", ".join(f"P{x}" for x in member_ids),
+                "size": len(member_ids),
             }
         )
-    out.sort(key=lambda x: (x["part"], x["batch_id"]))
+    raw.sort(key=lambda x: (x["part"], x["batch_id"]))
+    # Assign sequential trio # within each part for readable display.
+    per_part_count: Dict[int, int] = {}
+    out: List[Dict[str, Any]] = []
+    for row in raw:
+        part = row["part"]
+        per_part_count[part] = per_part_count.get(part, 0) + 1
+        trio_index = per_part_count[part]
+        out.append(
+            {
+                **row,
+                "trio_index": trio_index,
+                "label": f"Part {part} · trio #{trio_index}",
+            }
+        )
     return out
 
+
+def _group_parts_from_participant(participant: Any) -> Dict[str, Any]:
+    """Durable per-part group ids from participant.vars (GroupPart1/2/3 export source)."""
+    vars_ = participant.vars or {}
+    parts: List[Dict[str, Any]] = []
+    for part in (1, 2, 3):
+        gid = vars_.get(f"group_part_{part}")
+        pos = vars_.get(f"group_position_part_{part}")
+        has = gid is not None and gid != -1 and gid != ""
+        parts.append(
+            {
+                "part": part,
+                "group_id": gid if has else None,
+                "position": pos if has else None,
+                "has_group": has,
+                "label": f"G{gid}" if has else "—",
+                "position_label": f"pos {pos}" if has and pos is not None else "",
+            }
+        )
+    return {
+        "parts": parts,
+        "summary_text": " · ".join(
+            f"P{p['part']}:{p['label']}" + (f"({p['position_label']})" if p["position_label"] else "")
+            for p in parts
+        ),
+    }
 
 def inspect_tg_session_by_code(
     session_code: str,
@@ -388,6 +439,13 @@ def inspect_tg_session_by_code(
     elif p_to is not None:
         range_label = f"up to P{p_to}"
 
+    batches = _batch_overview(session)
+    batches_by_part: Dict[int, List[Dict[str, Any]]] = {1: [], 2: [], 3: []}
+    for b in batches:
+        part = b.get("part")
+        if part in batches_by_part:
+            batches_by_part[part].append(b)
+
     return {
         "ok": True,
         "session": {
@@ -399,7 +457,15 @@ def inspect_tg_session_by_code(
             "label": session.label or "",
             **_created_meta(session),
         },
-        "batches": _batch_overview(session),
+        "batches": batches,
+        "batches_by_part": [
+            {
+                "part": part,
+                "count": len(batches_by_part[part]),
+                "batches": batches_by_part[part],
+            }
+            for part in (1, 2, 3)
+        ],
         "summary": {
             "participant_count": len(participant_reports),
             "session_participant_count": len(all_participants),
@@ -409,6 +475,10 @@ def inspect_tg_session_by_code(
             "export_issue_count": export_issue_count,
             "stored_issue_count": stored_issue_count,
             "partial_contingent_count": partial_contingent_count,
+            "batch_count": len(batches),
+            "batch_count_part1": len(batches_by_part[1]),
+            "batch_count_part2": len(batches_by_part[2]),
+            "batch_count_part3": len(batches_by_part[3]),
             "all_clear": participants_with_issues == 0 and bool(participant_reports),
             "scanned_at": scanned_at,
             "filter_active": filter_active,

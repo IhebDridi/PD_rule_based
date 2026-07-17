@@ -546,7 +546,9 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                     else:
                         oc = get_fld(other, "choice")
                         row[f"Round{r}CoplayerDecision"] = oc if oc is not None else ""
-                    pos = pvars(other, "matching_group_position")
+                    pos = pvars(other, f"group_position_part_{C.get_part(r)}")
+                    if pos is None or pos == "" or pos == -1:
+                        pos = pvars(other, "matching_group_position")
                     if pos is not None and pos != "" and pos != -1:
                         row[f"Round{r}CoplayerID"] = str(pos)
                     else:

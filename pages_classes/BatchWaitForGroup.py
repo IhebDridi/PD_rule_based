@@ -211,6 +211,7 @@ class BatchWaitForGroup(WaitPage):
                 return
 
             self.session.vars[claim_key] = True
+            # Provisional member list for the payoff runner; removed if payoffs fail.
             self.session.vars[f"matching_group_members_part_{current_part}_{batch_id}"] = list(
                 first_ids
             )
@@ -223,6 +224,7 @@ class BatchWaitForGroup(WaitPage):
             return
 
         first_ids, batch_id, claim_key, trio = claimed
+        members_key = f"matching_group_members_part_{current_part}_{batch_id}"
         payoffs_ready = False
         try:
             payoffs_ready = bool(am.run_payoffs_for_matching_group(self.subsession, batch_id))
@@ -261,9 +263,28 @@ class BatchWaitForGroup(WaitPage):
                 )
         finally:
             if not payoffs_ready:
+                # Do not leave a half-formed match: clear live ids + provisional member list
+                # so Guess/export/opponent lookup cannot treat a failed claim as real.
+                for p in trio:
+                    if p is None:
+                        continue
+                    if p.vars.get("matching_group_id") == batch_id:
+                        p.vars["matching_group_id"] = -1
+                    # Position was only provisional for this claim attempt.
+                    p.vars.pop("matching_group_position", None)
+                    # Never keep durable GroupPart from a failed claim.
+                    p.vars.pop(f"group_part_{current_part}", None)
+                    p.vars.pop(f"group_position_part_{current_part}", None)
+                # Prefer non-blocking lock; if contended, still clear session keys
+                # (stale provisional lists are worse than a brief unlocked write).
                 with try_session_part_lock(self.session, current_part) as acquired:
-                    if acquired:
-                        self.session.vars.pop(claim_key, None)
+                    self.session.vars.pop(claim_key, None)
+                    self.session.vars.pop(members_key, None)
+                    if not acquired:
+                        # Retry once under blocking lock so cleanup is not skipped.
+                        with session_part_lock(self.session, current_part):
+                            self.session.vars.pop(claim_key, None)
+                            self.session.vars.pop(members_key, None)
 
     def vars_for_template(self):
         """Avoid session.vars here — every access dirties the Session row in oTree."""

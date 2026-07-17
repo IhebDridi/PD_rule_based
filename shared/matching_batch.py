@@ -9,7 +9,8 @@ from shared.tg_player_lookup import sorted_trio_at_round
 
 # Cache only plain member-id dicts — never ORM Player instances (those go detached
 # across requests and cause DetachedInstanceError on .in_round() / .participant).
-_BATCH_LOOKUP_CACHE: Dict[Tuple[int, int, int], Optional[dict]] = {}
+# Key: (session_id, part, participant_id, live_gid, preferred_gid)
+_BATCH_LOOKUP_CACHE: Dict[Tuple[int, int, int, int, int], Optional[dict]] = {}
 
 
 def clear_matching_batch_cache() -> None:
@@ -23,21 +24,35 @@ def resolve_batch_for_participant(
     part: int,
     *,
     matching_group_id: Any = None,
+    preferred_batch_id: Any = None,
 ) -> Optional[dict]:
     """
     Return {'batch_id', 'member_ids'} for this participant in ``part``.
 
-    Prefers ``matching_group_id`` + session member list when id >= 0.
+    Prefers live ``matching_group_id`` + session member list when id >= 0.
+    Else prefers durable ``preferred_batch_id`` (GroupPartN).
     After Results resets id to -1, recovers via ``participant_batch_for_part``.
     """
     sid = int(getattr(session, "id", 0) or 0)
-    cache_key = (sid, int(part), int(participant_id))
+    live_id = matching_group_id if matching_group_id is not None and matching_group_id >= 0 else None
+    prefer = preferred_batch_id if preferred_batch_id not in (None, "", -1) else None
+    try:
+        live_k = int(live_id) if live_id is not None else -1
+    except (TypeError, ValueError):
+        live_k = -1
+    try:
+        prefer_k = int(prefer) if prefer is not None else -2
+    except (TypeError, ValueError):
+        prefer_k = -2
+    cache_key = (sid, int(part), int(participant_id), live_k, prefer_k)
     if cache_key in _BATCH_LOOKUP_CACHE:
         return _BATCH_LOOKUP_CACHE[cache_key]
 
     result = None
-    if matching_group_id is not None and matching_group_id >= 0:
-        key_members = f"matching_group_members_part_{part}_{matching_group_id}"
+    lookup_id = live_id if live_id is not None else prefer
+
+    if lookup_id is not None:
+        key_members = f"matching_group_members_part_{part}_{lookup_id}"
         member_ids = session.vars.get(key_members)
         if (
             member_ids
@@ -45,10 +60,12 @@ def resolve_batch_for_participant(
             and len(member_ids) >= 3
             and participant_id in member_ids
         ):
-            result = {"batch_id": int(matching_group_id), "member_ids": list(member_ids)}
+            result = {"batch_id": int(lookup_id), "member_ids": list(member_ids)}
 
     if result is None:
-        result = participant_batch_for_part(session, participant_id, part)
+        result = participant_batch_for_part(
+            session, participant_id, part, preferred_batch_id=prefer
+        )
 
     _BATCH_LOOKUP_CACHE[cache_key] = result
     return result
@@ -78,8 +95,13 @@ def opponent_in_matching_batch(
 
     my_id = pr.participant.id_in_session
     batch_gid = pr.participant.vars.get("matching_group_id", -1)
+    preferred = pr.participant.vars.get(f"group_part_{part}")
     batch = resolve_batch_for_participant(
-        pr.session, my_id, part, matching_group_id=batch_gid
+        pr.session,
+        my_id,
+        part,
+        matching_group_id=batch_gid,
+        preferred_batch_id=preferred,
     )
     if not batch:
         return None
@@ -93,7 +115,9 @@ def opponent_in_matching_batch(
         rr_cache[N] = compute_rr(N, C.rounds_per_part)
     assignments = rr_cache[N]
 
-    my_pos = pr.participant.vars.get("matching_group_position", None)
+    my_pos = pr.participant.vars.get(f"group_position_part_{part}")
+    if not my_pos or my_pos < 1 or my_pos > N:
+        my_pos = pr.participant.vars.get("matching_group_position", None)
     if not my_pos or my_pos < 1 or my_pos > N:
         # Recover position from member_ids order after id reset.
         try:
@@ -112,7 +136,6 @@ def opponent_in_matching_batch(
     if players_r is None or opp_idx >= len(players_r):
         return None
     return players_r[opp_idx]
-
 
 def get_opponent_from_batch(
     player: Any,

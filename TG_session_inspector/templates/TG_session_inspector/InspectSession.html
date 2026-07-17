@@ -126,28 +126,61 @@
             {% endif %}
         </div>
         {% endif %}
+    {% if report.summary.batch_count %}
+    <div class="flag-totals">
+        <span class="flag-chip">matching trios: {{ report.summary.batch_count }}</span>
+        <span class="flag-chip">Part1: {{ report.summary.batch_count_part1 }}</span>
+        <span class="flag-chip">Part2: {{ report.summary.batch_count_part2 }}</span>
+        <span class="flag-chip">Part3: {{ report.summary.batch_count_part3 }}</span>
+    </div>
+    {% endif %}
     </section>
 
-    {% if report.batches %}
     <section class="inspector-section">
-        <h2>Matching batches (session.vars)</h2>
-        <table class="inspector-table">
-            <thead>
-                <tr><th>Part</th><th>Batch</th><th>Size</th><th>Member ids</th></tr>
-            </thead>
-            <tbody>
-                {% for b in report.batches %}
-                <tr{% if b.size != 3 %} class="row-warn"{% endif %}>
-                    <td>{{ b.part }}</td>
-                    <td>{{ b.batch_id }}</td>
-                    <td>{{ b.size }}</td>
-                    <td><code>{{ b.member_ids_text }}</code></td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <h2>Matching groups (who played together)</h2>
+        <p class="inspector-hint">
+            Each trio is one matching group. <strong>Batch id</strong> =
+            lowest participant id in the trio (same as export <code>GroupPartN</code>),
+            not a sequential 1…N counter. <strong>Trio #</strong> is the readable
+            1…N index within that part.
+        </p>
+        {% if report.batches %}
+            {% for part_block in report.batches_by_part %}
+            <h3>Part {{ part_block.part }}
+                <span class="badge-ok">{{ part_block.count }} trio(s)</span>
+            </h3>
+            {% if part_block.batches %}
+            <table class="inspector-table">
+                <thead>
+                    <tr>
+                        <th>Trio #</th>
+                        <th>Batch id (GroupPart{{ part_block.part }})</th>
+                        <th>Size</th>
+                        <th>Members</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for b in part_block.batches %}
+                    <tr{% if b.size != 3 %} class="row-warn"{% endif %}>
+                        <td>{{ b.trio_index }}</td>
+                        <td><code>{{ b.batch_id }}</code></td>
+                        <td>{{ b.size }}</td>
+                        <td><code>{{ b.member_labels }}</code></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="inspector-hint">No matching trios recorded for Part {{ part_block.part }} yet.</p>
+            {% endif %}
+            {% endfor %}
+        {% else %}
+        <p class="inspector-hint">
+            No matching trios in session.vars yet (participants have not completed
+            BatchWait / payoffs for any part).
+        </p>
+        {% endif %}
     </section>
-    {% endif %}
 
     <section class="inspector-section">
         <h2>Participants</h2>
@@ -158,8 +191,29 @@
                 {% if p.prolific_id %} · prolific {{ p.prolific_id }}{% endif %}
                 {% if p.label %}({{ p.label }}){% endif %}
                 · code {{ p.code }}
+                {% if p.group_parts_summary %} · groups {{ p.group_parts_summary }}{% endif %}
                 {% if p.has_issues %}<span class="badge-warn">{{ p.total_flags }} issue(s)</span>{% else %}<span class="badge-ok">ok</span>{% endif %}
             </summary>
+
+            {% if p.group_parts %}
+            <div class="part-block">
+                <h3>Export groups (GroupPart1/2/3)</h3>
+                <table class="inspector-table inspector-table-sm">
+                    <thead>
+                        <tr><th>Part</th><th>GroupPart</th><th>Position</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for gp in p.group_parts %}
+                        <tr>
+                            <td>{{ gp.part }}</td>
+                            <td>{% if gp.has_group %}<code>{{ gp.group_id }}</code>{% else %}—{% endif %}</td>
+                            <td>{% if gp.position %}<code>{{ gp.position }}</code>{% else %}—{% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
 
             {% if p.stored_errors %}
             <div class="issue-block">
@@ -181,7 +235,7 @@
                     {% if part.debug_ok %}<span class="badge-ok">debug ok</span>{% else %}<span class="badge-warn">{{ part.mismatch_count }} round flag(s)</span>{% endif %}
                 </h3>
                 {% if part.member_ids %}
-                <p class="small">Trio member ids: <code>{{ part.member_ids_text }}</code></p>
+                <p class="small">Trio together: <code>{% for mid in part.member_ids %}P{{ mid }}{% if not forloop.last %}, {% endif %}{% endfor %}</code></p>
                 {% endif %}
                 {% if part.rounds %}
                 <table class="inspector-table inspector-table-sm">
@@ -224,7 +278,6 @@
         </details>
         {% endfor %}
     </section>
-
         <div class="inspector-actions bottom-actions">
         <button type="submit" class="inspector-btn"
                 onclick="document.getElementById('inspect_action').value='rescan';">

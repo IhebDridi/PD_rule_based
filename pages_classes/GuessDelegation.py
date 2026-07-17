@@ -91,7 +91,11 @@ class GuessDelegation(Page):
             setattr(future_player, guess_field, guess)
             future_player.guess_opponent_delegated = guess
 
-            if self.participant.vars.get("matching_group_id", -1) >= 0 and guess in ("yes", "no"):
+            if (
+                self.participant.vars.get("group_part_3") not in (None, "", -1)
+                and self.participant.vars.get("can_proceed_to_results_part_3", False)
+                and guess in ("yes", "no")
+            ):
                 if use_cache:
                     # Do not default missing → False (that invents "did not delegate").
                     actual = tg_optional_delegate_tri_state(
@@ -107,5 +111,7 @@ class GuessDelegation(Page):
                 else:
                     # Truth unknown: leave null (not 0).
                     future_player.guess_payoff = None
-
+            else:
+                # No successful Part 3 match (quit / failed claim): do not invent earnings.
+                future_player.guess_payoff = None
         self.participant.vars["guess_submitted"] = True

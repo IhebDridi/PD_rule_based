@@ -718,6 +718,79 @@ class TgContingentChoiceWriteTests(unittest.TestCase):
         # Must load the target round fresh (never cache start-round ORM rows).
         mock_trio.assert_called_with(42, [1, 2, 3], 1)
 
+    def test_opponent_prefers_durable_group_part_over_stale_member_list(self):
+        """If a stale provisional list exists, GroupPartN wins."""
+        from shared.matching_batch import clear_matching_batch_cache, opponent_in_matching_batch
+
+        clear_matching_batch_cache()
+
+        class C:
+            rounds_per_part = 10
+
+            @staticmethod
+            def get_part(r):
+                return 1
+
+        def compute_rr(n, rounds):
+            return [[(1, None)] + [(0, None)] * 9, [(0, None)] * 10, [(0, None)] * 10]
+
+        class FakeSession:
+            id = 99
+            code = "sess"
+            vars = {
+                # Stale failed claim (wrong members) — should be ignored when GroupPart prefers 7.
+                "matching_group_members_part_1_1": [1, 99, 98],
+                "matching_group_members_part_1_7": [1, 2, 3],
+            }
+
+        class FakePart:
+            def __init__(self, pid, pos):
+                self.id_in_session = pid
+                self.vars = {
+                    "matching_group_id": -1,
+                    "matching_group_position": pos,
+                    "group_part_1": 7,
+                    "group_position_part_1": pos,
+                }
+
+        class FakePlayer:
+            def __init__(self, pid, pos, round_number=1):
+                self.participant = FakePart(pid, pos)
+                self.session = FakeSession()
+                self.round_number = round_number
+
+            def in_round(self, r):
+                return FakePlayer(
+                    self.participant.id_in_session,
+                    self.participant.vars["group_position_part_1"],
+                    r,
+                )
+
+        p1 = FakePlayer(1, 1)
+        p2 = FakePlayer(2, 2)
+        p3 = FakePlayer(3, 3)
+        with patch(
+            "shared.matching_batch.sorted_trio_at_round",
+            return_value=[p1, p2, p3],
+        ) as mock_trio:
+            opp = opponent_in_matching_batch(p1, 1, C, compute_rr, {})
+        self.assertIsNotNone(opp)
+        self.assertEqual(opp.participant.id_in_session, 2)
+        mock_trio.assert_called_with(99, [1, 2, 3], 1)
+
+    def test_participant_batch_prefers_preferred_id(self):
+        from shared.export_integrity import participant_batch_for_part
+
+        session = SimpleNamespace(
+            vars={
+                "matching_group_members_part_1_1": [1, 99, 98],
+                "matching_group_members_part_1_7": [1, 2, 3],
+            }
+        )
+        hit = participant_batch_for_part(session, 1, 1, preferred_batch_id=7)
+        self.assertEqual(hit["batch_id"], 7)
+        self.assertEqual(hit["member_ids"], [1, 2, 3])
+
     def test_part3_cache_other_delegated_preserves_none(self):
         """Unknown opponent delegation must stay None in results cache (not False)."""
         assignments = [

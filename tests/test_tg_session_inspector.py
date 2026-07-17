@@ -62,6 +62,34 @@ class TgSessionInspectorTests(unittest.TestCase):
         self.assertEqual(batches[0]["part"], 1)
         self.assertEqual(batches[0]["size"], 3)
         self.assertEqual(batches[0]["member_ids_text"], "1, 2, 3")
+        self.assertEqual(batches[0]["member_labels"], "P1, P2, P3")
+        self.assertEqual(batches[0]["trio_index"], 1)
+        self.assertEqual(batches[1]["part"], 2)
+        self.assertEqual(batches[1]["trio_index"], 1)
+
+    def test_batch_overview_assigns_sequential_trio_index_within_part(self):
+        session = SimpleNamespace(
+            vars={
+                "matching_group_members_part_1_1": [1, 2, 3],
+                "matching_group_members_part_1_4": [4, 5, 6],
+                "matching_group_members_part_1_7": [7, 8, 9],
+            }
+        )
+        batches = _batch_overview(session)
+        self.assertEqual([b["trio_index"] for b in batches], [1, 2, 3])
+        self.assertEqual([b["batch_id"] for b in batches], [1, 4, 7])
+
+    def test_group_parts_from_participant(self):
+        from shared.tg_session_inspector import _group_parts_from_participant
+
+        p = SimpleNamespace(
+            vars={"group_part_1": 1, "group_position_part_1": 2, "group_part_3": 21}
+        )
+        out = _group_parts_from_participant(p)
+        self.assertTrue(out["parts"][0]["has_group"])
+        self.assertEqual(out["parts"][0]["group_id"], 1)
+        self.assertFalse(out["parts"][1]["has_group"])
+        self.assertEqual(out["parts"][2]["group_id"], 21)
 
     def test_inspect_missing_session(self):
         with patch("otree.models.Session.objects_get", side_effect=Exception("missing")):

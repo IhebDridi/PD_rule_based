@@ -55,8 +55,7 @@ def _append_agent_prog_history(player, round_number: int, payload: dict) -> None
 
 def _safe_set_player_field(player, name: str, value) -> None:
     """Set a Player DB field only if it exists; never raise into the live request."""
-    if not hasattr(player, name):
-        return
+    # Avoid hasattr(player, name): oTree raises TypeError when the field is null.
     try:
         setattr(player, name, value)
     except Exception:

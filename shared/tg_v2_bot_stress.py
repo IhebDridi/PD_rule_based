@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 import re
 import time
 from typing import Any, Dict, List, Optional, Tuple
@@ -273,9 +274,11 @@ def verify_tg_v2_bot_stress_session_by_code(session_code: Optional[str], *, skip
     session = Session.objects_get(code=session_code)
     delegation_first = session.config.get("delegation_first", None)
     if delegation_first is None:
-        # Infer from first app Constants when not in session_config
-        from TG_rule_based_delegation_v2_2nd.models import Constants
-
+        # Infer from first app in session app_sequence (avoids hardcoding a v2 app).
+        app_sequence = session.config.get("app_sequence") or []
+        if not app_sequence:
+            raise AssertionError("Cannot infer DELEGATION_FIRST: empty app_sequence")
+        Constants = importlib.import_module(f"{app_sequence[0]}.models").Constants
         delegation_first = Constants.DELEGATION_FIRST
     summary = verify_tg_v2_bot_stress_session(session, delegation_first=delegation_first)
     session.vars["bot_stress_last_summary"] = summary

@@ -435,16 +435,16 @@ class TgV2AgentProgrammingFirst(Page):
         self.participant.vars[vars_key] = decisions
         self.participant.vars[first_done_key] = True
         # Part 3 optional audit columns only when they chose to delegate.
+        # Do not use hasattr(player, field): oTree raises TypeError on null fields.
         if part == 3 and self.player.field_maybe_none("delegate_decision_optional") is True:
             for i in range(1, 11):
                 d = decisions.get(i)
                 if d in ("A", "B"):
                     field = f"decision_optional_delegation_round_{i}"
-                    if hasattr(self.player, field):
-                        try:
-                            setattr(self.player, field, d)
-                        except Exception:
-                            pass
+                    try:
+                        setattr(self.player, field, d)
+                    except Exception:
+                        pass
 
 
 class TgV2AgentProgrammingSecond(Page):

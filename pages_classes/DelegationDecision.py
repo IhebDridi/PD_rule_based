@@ -3,6 +3,7 @@ from starlette.responses import RedirectResponse
 from otree.api import *
 
 from .model_bridge import get_constants
+from .page_helpers import is_excluded_from_study
 
 
 class DelegationDecision(Page):
@@ -26,6 +27,8 @@ class DelegationDecision(Page):
         return super().get()
 
     def is_displayed(self):
+        if is_excluded_from_study(self.player):
+            return False
         Constants = get_constants(self.player)
         # show ONCE at start of Part 3 (round 21)
         if self.round_number > Constants.num_rounds:
@@ -42,7 +45,16 @@ class DelegationDecision(Page):
         end_round = 3 * Constants.rounds_per_part        # 30
         self.participant.vars["entered_part3"] = True
 
+        decided = self.player.delegate_decision_optional
         for r in range(start_round, end_round + 1):
-            self.player.in_round(r).delegate_decision_optional = (
-                    self.player.delegate_decision_optional
-                )
+            pr = self.player.in_round(r)
+            pr.delegate_decision_optional = decided
+            # Human path: clear any leftover optional-agent audit cells (no invented data).
+            if decided is False:
+                for i in range(1, 11):
+                    field = f"decision_optional_delegation_round_{i}"
+                    if hasattr(pr, field):
+                        try:
+                            setattr(pr, field, None)
+                        except Exception:
+                            pass

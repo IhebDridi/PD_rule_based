@@ -7,7 +7,7 @@ from shared.session_part_lock import normalize_pool_ids, session_part_lock, try_
 from shared.tg_player_lookup import participants_by_id_in_session, players_at_round_for_member_ids
 
 from .model_bridge import app_models
-from .page_helpers import BATCH_WAIT_MIN_SECONDS, _has_left_lobby_for_part
+from .page_helpers import BATCH_WAIT_MIN_SECONDS, _has_left_lobby_for_part, is_excluded_from_study
 
 
 class BatchWaitForGroup(WaitPage):
@@ -29,6 +29,8 @@ class BatchWaitForGroup(WaitPage):
     FORMATION_RETRY_SECONDS = 8.0
 
     def is_displayed(self):
+        if is_excluded_from_study(self.player):
+            return False
         Constants = app_models(self.player).Constants
         r = self.round_number
         if r % Constants.rounds_per_part != 0:
@@ -236,10 +238,15 @@ class BatchWaitForGroup(WaitPage):
                     self.session.vars[log_key] = True
                 return
 
+            # Durable export ids only after payoffs succeed (avoid polluting failed claims).
             for p in trio:
                 p.vars[can_proceed_key] = True
                 p.vars[ready_at_key] = now
                 p.vars[waiting_key] = False
+                p.vars[f"group_part_{current_part}"] = batch_id
+                pos = p.vars.get("matching_group_position")
+                if pos is not None:
+                    p.vars[f"group_position_part_{current_part}"] = pos
 
             with session_part_lock(self.session, current_part):
                 pool = normalize_pool_ids(self.session.vars.get(pool_key, []))

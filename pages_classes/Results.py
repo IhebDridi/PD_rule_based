@@ -9,6 +9,7 @@ from shared.tg_results_diagrams import (
 )
 
 from .model_bridge import app_models, is_tg_app
+from .page_helpers import is_excluded_from_study
 
 
 class Results(Page):
@@ -21,6 +22,8 @@ class Results(Page):
         return "global/Results.html"
 
     def is_displayed(self):
+        if is_excluded_from_study(self.player):
+            return False
         am = app_models(self.player)
         Constants = am.Constants
         r = self.round_number
@@ -61,9 +64,18 @@ class Results(Page):
         return False
 
     def before_next_page(self):
-        # So that Part 2/3 lobbies form new groups: reset matching_group_id when leaving Part 1 or Part 2
+        # So that Part 2/3 lobbies form new groups: reset matching_group_id when leaving Part 1 or Part 2.
+        # Persist group_part_N first so export still has GroupPart1/GroupPart2 after the reset.
         if self.round_number in (10, 20):
-            self.participant.vars['matching_group_id'] = -1
+            Constants = app_models(self.player).Constants
+            part = Constants.get_part(self.round_number)
+            gid = self.participant.vars.get("matching_group_id", -1)
+            if gid is not None and gid >= 0:
+                self.participant.vars.setdefault(f"group_part_{part}", gid)
+                pos = self.participant.vars.get("matching_group_position")
+                if pos is not None:
+                    self.participant.vars.setdefault(f"group_position_part_{part}", pos)
+            self.participant.vars["matching_group_id"] = -1
 
     def vars_for_template(self):
         am = app_models(self.player)

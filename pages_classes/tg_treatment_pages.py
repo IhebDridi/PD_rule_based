@@ -14,7 +14,7 @@ from shared.tg_data_helpers import merge_block_map, read_agent_first_map_from_pl
 
 from .MistralPage import ChatGPTPage, _parse_strict_ten_ab
 from .model_bridge import app_package_name, get_constants, is_tg_app
-from .page_helpers import _has_left_lobby_for_part, part_vars
+from .page_helpers import _has_left_lobby_for_part, is_excluded_from_study, part_vars
 from .tg_v2_pages import (
     _agent_block_round,
     _copy_v2_agent_to_rounds,
@@ -53,18 +53,42 @@ def _append_agent_prog_history(player, round_number: int, payload: dict) -> None
     player.agent_prog_allocation = json.dumps(history)
 
 
-def _write_agent_first_fields(player, decisions: dict) -> None:
+def _safe_set_player_field(player, name: str, value) -> None:
+    """Set a Player DB field only if it exists; never raise into the live request."""
+    if not hasattr(player, name):
+        return
+    try:
+        setattr(player, name, value)
+    except Exception:
+        return
+
+
+def _write_agent_first_fields(player, decisions: dict, *, part: int | None = None) -> None:
+    """Write 1st-mover agent block fields.
+
+    Part 3 optional audit columns are filled only when the participant actually
+    chose to delegate (never invent optional agent data on the human path).
+    """
+    try:
+        mirror_optional = (
+            part == 3 and player.field_maybe_none("delegate_decision_optional") is True
+        )
+    except Exception:
+        mirror_optional = False
     for i in range(1, 11):
         d = decisions.get(i) or decisions.get(str(i))
         if d in ("A", "B"):
-            setattr(player, f"agent_decision_mandatory_delegation_round_{i}", d)
+            _safe_set_player_field(player, f"agent_decision_mandatory_delegation_round_{i}", d)
+            if mirror_optional:
+                _safe_set_player_field(player, f"decision_optional_delegation_round_{i}", d)
 
 
-def _write_agent_second_fields(player, decisions: dict) -> None:
+def _write_agent_second_fields(player, decisions: dict, *, part: int | None = None) -> None:
+    """Write 2nd-mover agent block fields (mandatory_* only; no optional_*_second schema)."""
     for i in range(1, 11):
         d = decisions.get(i) or decisions.get(str(i))
         if d in ("A", "B"):
-            setattr(player, f"agent_decision_mandatory_second_round_{i}", d)
+            _safe_set_player_field(player, f"agent_decision_mandatory_second_round_{i}", d)
 
 
 def _agent_block_finalize_error(participant, player, second_map: dict):
@@ -88,6 +112,8 @@ class _TgAgentBlockFirst(Page):
     role_label = "1st mover"
 
     def is_displayed(self):
+        if is_excluded_from_study(self.player):
+            return False
         Constants = get_constants(self.player)
         block_r = _agent_block_round(self.player)
         if block_r is None or self.round_number != block_r:
@@ -114,7 +140,7 @@ class _TgAgentBlockFirst(Page):
         block_r = _agent_block_round(self.player) or self.round_number
         part = Constants.get_part(block_r)
         first_done_key, _, vars_key = _part_agent_keys(part)
-        _write_agent_first_fields(self.player, decisions)
+        _write_agent_first_fields(self.player, decisions, part=part)
         self.participant.vars[vars_key] = decisions
         self.participant.vars[first_done_key] = True
 
@@ -125,6 +151,8 @@ class _TgAgentBlockSecond(Page):
     role_label = "2nd mover"
 
     def is_displayed(self):
+        if is_excluded_from_study(self.player):
+            return False
         Constants = get_constants(self.player)
         block_r = _agent_block_round(self.player)
         if block_r is None or self.round_number != block_r:
@@ -157,7 +185,7 @@ class _TgAgentBlockSecond(Page):
         first_map = merge_block_map(
             self.participant, vars_key, self.player, read_agent_first_map_from_player
         )
-        _write_agent_second_fields(self.player, second_map)
+        _write_agent_second_fields(self.player, second_map, part=part)
         start_round = (part - 1) * Constants.rounds_per_part + 1
         block_err = validate_tg_block_maps(first_map, second_map, start_round)
         if block_err:
@@ -598,7 +626,7 @@ class TgLlmAgentFirst(ChatGPTPage):
         block_r = _agent_block_round(self.player) or self.round_number
         part = Constants.get_part(block_r)
         first_done_key, _, vars_key = _part_agent_keys(part)
-        _write_agent_first_fields(self.player, decisions)
+        _write_agent_first_fields(self.player, decisions, part=part)
         self.participant.vars[vars_key] = decisions
         self.participant.vars[first_done_key] = True
 
@@ -671,7 +699,7 @@ class TgLlmAgentSecond(ChatGPTPage):
         first_map = merge_block_map(
             self.participant, vars_key, self.player, read_agent_first_map_from_player
         )
-        _write_agent_second_fields(self.player, second_map)
+        _write_agent_second_fields(self.player, second_map, part=part)
         start_round = (part - 1) * Constants.rounds_per_part + 1
         if _agent_block_finalize_error(self.participant, self.player, second_map):
             return

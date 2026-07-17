@@ -4,6 +4,7 @@ from shared.tg_data_helpers import tg_optional_delegate_tri_state
 from shared.tg_payoffs import tg_results_row
 
 from .model_bridge import app_models, is_tg_app
+from .page_helpers import is_excluded_from_study
 
 
 class GuessDelegation(Page):
@@ -12,6 +13,8 @@ class GuessDelegation(Page):
     form_model = 'player'
 
     def is_displayed(self):
+        if is_excluded_from_study(self.player):
+            return False
         Constants = app_models(self.player).Constants
         return self.round_number == 3 * Constants.rounds_per_part
 

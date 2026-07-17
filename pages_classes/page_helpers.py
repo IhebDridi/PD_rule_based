@@ -20,6 +20,15 @@ def _has_left_lobby_for_part(participant, part):
 BOT_PROLIFIC_CODE = "1234567890GenerativeAI4U"
 
 
+def is_excluded_from_study(player) -> bool:
+    """True when comprehension failed (is_excluded); those participants must not enter the task."""
+    try:
+        return bool(player.field_maybe_none("is_excluded"))
+    except Exception:
+        # Missing field / unexpected player type must never block a live session.
+        return False
+
+
 def _is_bot_suspected(participant):
     return bool(participant.vars.get("bot_suspected", False))
 

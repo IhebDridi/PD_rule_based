@@ -98,6 +98,11 @@ body {
     pointer-events: none;
 }
 
+/* Excluded participants must not advance into the task via Next. */
+.otree-btn-next {
+    display: none !important;
+}
+
 /* Button Styling */
 .modern-btn {
     display: block;
@@ -135,6 +140,18 @@ body {
 </style>
 
 <script>
+    document.addEventListener("DOMContentLoaded", function () {
+        var btn = document.querySelector(".otree-btn-next");
+        if (btn) {
+            btn.remove();
+        }
+        var form = document.querySelector("form");
+        if (form) {
+            form.addEventListener("submit", function (e) {
+                e.preventDefault();
+            });
+        }
+    });
     setTimeout(function() {
         window.location.href = "https://app.prolific.com/submissions/complete?cc=CK1M535Q";
     }, 10000);  // 10000 ms = 10 seconds

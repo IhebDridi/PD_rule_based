@@ -1,7 +1,7 @@
 from otree.api import *
 
 from .model_bridge import app_models
-from .page_helpers import _has_left_lobby_for_part, part_vars
+from .page_helpers import _has_left_lobby_for_part, is_excluded_from_study, part_vars
 
 
 class InstructionsDelegation(Page):
@@ -9,6 +9,8 @@ class InstructionsDelegation(Page):
     template_name = 'global/InstructionsDelegation.html'
 
     def is_displayed(self):
+        if is_excluded_from_study(self.player):
+            return False
         Constants = app_models(self.player).Constants
         if self.round_number == 1 and not _has_left_lobby_for_part(self.participant, 1):
             return False

@@ -753,5 +753,97 @@ class TgContingentChoiceWriteTests(unittest.TestCase):
         self.assertIsNone(cache[1][0]["other_delegated"])
 
 
+class GroupPartAndOptionalAgentTests(unittest.TestCase):
+    def test_export_header_includes_group_parts(self):
+        from shared.delegation_custom_export import canonical_delegation_export_header
+
+        header = canonical_delegation_export_header()
+        self.assertIn("GroupPart1", header)
+        self.assertIn("GroupPart2", header)
+        self.assertIn("GroupPart3", header)
+        # Keep Group before the part columns for backward-compatible column order.
+        self.assertLess(header.index("Group"), header.index("GroupPart1"))
+
+    def test_group_part_cells_prefer_durable_ids_over_reset(self):
+        """After Results resets matching_group_id=-1, export must use group_part_*."""
+        from shared.delegation_custom_export import canonical_delegation_export_header
+
+        header = canonical_delegation_export_header()
+        p0 = SimpleNamespace(
+            participant=SimpleNamespace(
+                vars={
+                    "matching_group_id": -1,
+                    "matching_group_position": 2,
+                    "group_part_1": 11,
+                    "group_part_2": 22,
+                    "group_part_3": 33,
+                    "is_simulated": True,
+                }
+            ),
+            session=SimpleNamespace(code="sess"),
+        )
+        pvars = lambda p, k, default=None: p.participant.vars.get(k, default)
+
+        def _group_part_cell(part: int):
+            v = pvars(p0, f"group_part_{part}")
+            if v is None or v == -1 or v == "":
+                return ""
+            return v
+
+        gp1, gp2, gp3 = _group_part_cell(1), _group_part_cell(2), _group_part_cell(3)
+        row = dict.fromkeys(header, "")
+        row["GroupPart1"] = gp1
+        row["GroupPart2"] = gp2
+        row["GroupPart3"] = gp3
+        row["Group"] = gp3 or gp2 or gp1 or ""
+        self.assertEqual(row["GroupPart1"], 11)
+        self.assertEqual(row["GroupPart2"], 22)
+        self.assertEqual(row["GroupPart3"], 33)
+        self.assertEqual(row["Group"], 33)
+        self.assertNotEqual(row["Group"], -1)
+
+    def test_part3_agent_writes_optional_audit_fields(self):
+        from pages_classes.tg_treatment_pages import _write_agent_first_fields
+
+        class _P:
+            def __init__(self, delegated):
+                self._delegated = delegated
+                for i in range(1, 11):
+                    setattr(self, f"agent_decision_mandatory_delegation_round_{i}", None)
+                    setattr(self, f"decision_optional_delegation_round_{i}", None)
+
+            def field_maybe_none(self, name):
+                if name == "delegate_decision_optional":
+                    return self._delegated
+                return getattr(self, name, None)
+
+        decisions = {i: ("A" if i % 2 else "B") for i in range(1, 11)}
+
+        # Part 3 + delegated Yes → mirror optional audit fields.
+        player = _P(True)
+        _write_agent_first_fields(player, decisions, part=3)
+        self.assertEqual(player.agent_decision_mandatory_delegation_round_1, "A")
+        self.assertEqual(player.decision_optional_delegation_round_1, "A")
+        self.assertEqual(player.decision_optional_delegation_round_2, "B")
+
+        # Part 1 mandatory → never touch optional columns.
+        player2 = _P(None)
+        _write_agent_first_fields(player2, decisions, part=1)
+        self.assertEqual(player2.agent_decision_mandatory_delegation_round_1, "A")
+        self.assertIsNone(player2.decision_optional_delegation_round_1)
+
+        # Part 3 but not delegated → no optional pollution.
+        player3 = _P(False)
+        _write_agent_first_fields(player3, decisions, part=3)
+        self.assertEqual(player3.agent_decision_mandatory_delegation_round_1, "A")
+        self.assertIsNone(player3.decision_optional_delegation_round_1)
+    def test_export_header_includes_player_id_parts(self):
+        from shared.delegation_custom_export import canonical_delegation_export_header
+
+        header = canonical_delegation_export_header()
+        self.assertIn("PlayerIDPart1", header)
+        self.assertIn("PlayerIDPart2", header)
+        self.assertIn("PlayerIDPart3", header)
+
 if __name__ == "__main__":
     unittest.main()

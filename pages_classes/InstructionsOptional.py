@@ -1,6 +1,6 @@
 from otree.api import *
 
-from .page_helpers import _has_left_lobby_for_part, part_vars
+from .page_helpers import _has_left_lobby_for_part, is_excluded_from_study, part_vars
 
 
 class InstructionsOptional(Page):
@@ -8,6 +8,8 @@ class InstructionsOptional(Page):
     template_name = 'global/InstructionsOptional.html'
 
     def is_displayed(self):
+        if is_excluded_from_study(self.player):
+            return False
         return self.round_number == 21 and _has_left_lobby_for_part(self.participant, 3)
 
     def vars_for_template(self):

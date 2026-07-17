@@ -212,7 +212,13 @@ def canonical_delegation_export_header() -> List[str]:
         "ProlificID",
         "Session",
         "Group",
+        "GroupPart1",
+        "GroupPart2",
+        "GroupPart3",
         "PlayerID",
+        "PlayerIDPart1",
+        "PlayerIDPart2",
+        "PlayerIDPart3",
         "ExportErrors",
         "IsSimulated",
         "Gender",
@@ -436,8 +442,33 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
             else:
                 row["Session"] = p0.session.code
 
-            row["Group"] = pvars(p0, "matching_group_id")
-            row["PlayerID"] = pvars(p0, "matching_group_position")
+            # Per-part batch ids survive Results resetting matching_group_id to -1.
+            # Only set after successful payoffs — empty means that part never completed matching.
+            def _part_cell(prefix: str, part: int):
+                v = pvars(p0, f"{prefix}_{part}")
+                if v is None or v == -1 or v == "":
+                    return ""
+                return v
+
+            def _first_present(*vals):
+                for v in vals:
+                    if v is not None and v != "" and v != -1:
+                        return v
+                return ""
+
+            gp1, gp2, gp3 = _part_cell("group_part", 1), _part_cell("group_part", 2), _part_cell("group_part", 3)
+            pp1 = _part_cell("group_position_part", 1)
+            pp2 = _part_cell("group_position_part", 2)
+            pp3 = _part_cell("group_position_part", 3)
+            row["GroupPart1"] = gp1
+            row["GroupPart2"] = gp2
+            row["GroupPart3"] = gp3
+            row["PlayerIDPart1"] = pp1
+            row["PlayerIDPart2"] = pp2
+            row["PlayerIDPart3"] = pp3
+            # Legacy columns: prefer Part 3, else 2, else 1 (never export live -1 after reset).
+            row["Group"] = _first_present(gp3, gp2, gp1)
+            row["PlayerID"] = _first_present(pp3, pp2, pp1, pvars(p0, "matching_group_position"))
             row["IsSimulated"] = 1 if is_simulated else 0
             p_last = rounds[-1] if rounds else p0
             row["Gender"] = get_fld(p_last, "gender")

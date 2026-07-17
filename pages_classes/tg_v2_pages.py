@@ -18,10 +18,12 @@ from shared.tg_human_block_vars import (
 )
 
 from .model_bridge import get_constants
-from .page_helpers import _has_left_lobby_for_part, part_vars
+from .page_helpers import _has_left_lobby_for_part, is_excluded_from_study, part_vars
 
 
 def _human_decision_displayed(player, participant) -> bool:
+    if is_excluded_from_study(player):
+        return False
     Constants = get_constants(player)
     part = Constants.get_part(player.round_number)
     if player.round_number in (1, 11, 21) and not _has_left_lobby_for_part(participant, part):
@@ -111,6 +113,8 @@ class TgV2HumanDecisionsFirst(Page):
         return part, step
 
     def is_displayed(self):
+        if is_excluded_from_study(self.player):
+            return False
         block_r = _human_block_round(self.player)
         if block_r is None or self.round_number != block_r:
             return False
@@ -177,6 +181,8 @@ class TgV2HumanDecisionsSecond(Page):
         return part, step
 
     def is_displayed(self):
+        if is_excluded_from_study(self.player):
+            return False
         block_r = _human_block_round(self.player)
         if block_r is None or self.round_number != block_r:
             return False
@@ -384,6 +390,8 @@ class TgV2AgentProgrammingFirst(Page):
     preserve_unsubmitted_inputs = True
 
     def is_displayed(self):
+        if is_excluded_from_study(self.player):
+            return False
         Constants = get_constants(self.player)
         block_r = _agent_block_round(self.player)
         if block_r is None or self.round_number != block_r:
@@ -426,6 +434,17 @@ class TgV2AgentProgrammingFirst(Page):
         }
         self.participant.vars[vars_key] = decisions
         self.participant.vars[first_done_key] = True
+        # Part 3 optional audit columns only when they chose to delegate.
+        if part == 3 and self.player.field_maybe_none("delegate_decision_optional") is True:
+            for i in range(1, 11):
+                d = decisions.get(i)
+                if d in ("A", "B"):
+                    field = f"decision_optional_delegation_round_{i}"
+                    if hasattr(self.player, field):
+                        try:
+                            setattr(self.player, field, d)
+                        except Exception:
+                            pass
 
 
 class TgV2AgentProgrammingSecond(Page):
@@ -436,6 +455,8 @@ class TgV2AgentProgrammingSecond(Page):
     preserve_unsubmitted_inputs = True
 
     def is_displayed(self):
+        if is_excluded_from_study(self.player):
+            return False
         Constants = get_constants(self.player)
         block_r = _agent_block_round(self.player)
         if block_r is None or self.round_number != block_r:

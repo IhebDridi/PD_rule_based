@@ -6,6 +6,7 @@ from shared.tg_data_helpers import tg_optional_delegate_tri_state
 from shared.tg_payoffs import tg_results_row
 
 from .model_bridge import app_models, is_tg_app
+from .page_helpers import is_excluded_from_study
 
 
 def _sum_known_payoffs(entries) -> int:
@@ -29,6 +30,8 @@ class Debriefing(Page):
     template_name = 'global/Debriefing.html'
 
     def is_displayed(self):
+        if is_excluded_from_study(self.player):
+            return False
         Constants = app_models(self.player).Constants
         return self.round_number == Constants.num_rounds
 

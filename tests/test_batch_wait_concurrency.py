@@ -11,13 +11,13 @@ from shared.session_part_lock import (
 
 
 class BatchWaitConcurrencyTests(unittest.TestCase):
-    def test_normalize_pool_dedupes_and_sorts(self):
-        self.assertEqual(normalize_pool_ids([3, 1, 2, 2, 1]), [1, 2, 3])
+    def test_normalize_pool_dedupes_preserves_order(self):
+        self.assertEqual(normalize_pool_ids([3, 1, 2, 2, 1]), [3, 1, 2])
 
-    def test_pop_next_trio_deterministic_lowest_ids(self):
+    def test_pop_next_trio_front_of_queue(self):
         trio, remaining = pop_next_trio_ids([5, 2, 9, 1, 7])
-        self.assertEqual(trio, [1, 2, 5])
-        self.assertEqual(remaining, [7, 9])
+        self.assertEqual(trio, [5, 2, 9])
+        self.assertEqual(remaining, [1, 7])
 
     def test_drain_forty_participants_into_thirteen_trios(self):
         pool = list(range(1, 41))

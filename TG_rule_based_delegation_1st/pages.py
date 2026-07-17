@@ -74,9 +74,7 @@ class DelegationDecision(_DelegationDecision):
 
 
 class BatchWaitForGroup(_BatchWaitForGroup):
-    @property
-    def template_name(self):
-        return _tpl("BatchWaitForGroup")
+    # Use shared global/BatchWaitForGroup.html (status poll).
 
 
 class TimeOutquit(_TimeOutquit):

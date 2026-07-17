@@ -4,26 +4,82 @@
 {% block title %}Please wait{% endblock %}
 
 {% block content %}
-    {% if show_wait_or_quit_results %}
+    <div id="batch-wait-config"
+         data-status-url="{{ batch_wait_status_url }}"
+         data-advance-url="{{ batch_wait_advance_url }}"
+         hidden></div>
+    <div id="batch-wait-main" {% if show_wait_or_quit_results %}style="display:none"{% endif %}>
+        <p>Waiting for the other participants in your group to finish this part.</p>
+        <p class="text-muted small">
+            Matching pool: <span id="batch-wait-n-arrived">{{ n_arrived }}</span> / {{ batch_size }}
+        </p>
+    </div>
+    <div id="batch-wait-quit" {% if not show_wait_or_quit_results %}style="display:none"{% endif %}>
         <p>Not enough participants have joined yet. Would you like to wait 5 more minutes for a match, or return to Prolific and receive a $1 compensation?</p>
         <p>
             <a class="btn btn-primary" href="{{ wait_more_url }}">Wait 5 more minutes</a>
             <a class="btn btn-secondary" href="{{ quit_to_prolific_url }}">Return to Prolific</a>
         </p>
-    {% else %}
-        <p>Waiting for the other participants in your group to finish this part.</p>
-        <p class="text-muted small">This page will refresh automatically.</p>
-    {% endif %}
+    </div>
 {% endblock %}
 
 {% block internal_scripts %}
-    {{ super() }}
-    {% if not show_wait_or_quit_results %}
-        <script>
-            (function() {
-                var refreshSeconds = 45 + Math.floor(Math.random() * 15); // 45-59s — waiters can wait; do not hammer the server
-                setTimeout(function() { window.location.reload(); }, refreshSeconds * 1000);
-            })();
-        </script>
-    {% endif %}
+    {# Intentionally skip stock WaitPage group-wait polling: with players_per_group=None it waits for the whole session and hammers the server. #}
+    <script>
+        (function() {
+            var cfg = document.getElementById("batch-wait-config");
+            if (!cfg) return;
+            var statusUrl = cfg.getAttribute("data-status-url");
+            var advanceUrl = cfg.getAttribute("data-advance-url");
+            var stopped = false;
+
+            function scheduleNext(ms) {
+                if (stopped) return;
+                setTimeout(tick, ms);
+            }
+
+            function tick() {
+                if (stopped) return;
+                fetch(statusUrl, {
+                    method: "GET",
+                    credentials: "same-origin",
+                    headers: { "Accept": "application/json" },
+                    cache: "no-store"
+                }).then(function(resp) {
+                    if (!resp.ok) throw new Error("status " + resp.status);
+                    return resp.json();
+                }).then(function(data) {
+                    if (!data || stopped) return;
+
+                    if (typeof data.n_arrived === "number") {
+                        var el = document.getElementById("batch-wait-n-arrived");
+                        if (el) el.textContent = String(data.n_arrived);
+                    }
+                    if (data.show_quit) {
+                        var main = document.getElementById("batch-wait-main");
+                        var quit = document.getElementById("batch-wait-quit");
+                        if (main) main.style.display = "none";
+                        if (quit) quit.style.display = "";
+                    }
+                    if (data.ready) {
+                        stopped = true;
+                        window.location.href = advanceUrl;
+                        return;
+                    }
+                    if (data.form_due) {
+                        stopped = true;
+                        // Rare full reload: formation / payoff retry only (touches session.vars).
+                        window.location.href = advanceUrl;
+                        return;
+                    }
+                    // ~2.5–4s jitter so 300 waiters do not align on one tick.
+                    scheduleNext(2500 + Math.floor(Math.random() * 1500));
+                }).catch(function() {
+                    scheduleNext(4000 + Math.floor(Math.random() * 2000));
+                });
+            }
+
+            scheduleNext(800 + Math.floor(Math.random() * 700));
+        })();
+    </script>
 {% endblock %}

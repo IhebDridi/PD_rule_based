@@ -1,6 +1,7 @@
 import time
 
 from otree.api import *
+from starlette.responses import JSONResponse
 
 from shared.export_integrity import record_data_errors_for_participants
 from shared.session_part_lock import normalize_pool_ids, session_part_lock, try_session_part_lock
@@ -18,6 +19,9 @@ class BatchWaitForGroup(WaitPage):
     Large-session freeze rule: most wait-page polls must NOT touch session.vars
     (oTree marks Session dirty on every vars access and rewrites the pickle).
     Already-waiting participants only retry formation every few seconds.
+
+    Browser wakeup uses ?status=1 (read-only participant.vars JSON). Formation and
+    session.vars writes happen only on full page loads / rare form_due reloads.
     """
 
     @property
@@ -27,6 +31,7 @@ class BatchWaitForGroup(WaitPage):
     FIXED_RESULTS_GROUP_SIZE = 3
     # How often an already-waiting participant may try lock / formation again.
     FORMATION_RETRY_SECONDS = 8.0
+    QUIT_PROMPT_SECONDS = 300
 
     def is_displayed(self):
         if is_excluded_from_study(self.player):
@@ -41,6 +46,57 @@ class BatchWaitForGroup(WaitPage):
         can_proceed_key = f"can_proceed_to_results_part_{current_part}"
         return not self.participant.vars.get(can_proceed_key, False)
 
+    def _batch_wait_status_payload(self):
+        """
+        Read-only wakeup payload. Must not write participant.vars or session.vars.
+        Formation stays on full GET (3rd joiner / form_due reload).
+        """
+        Constants = app_models(self.player).Constants
+        current_part = Constants.get_part(self.round_number)
+        can_proceed_key = f"can_proceed_to_results_part_{current_part}"
+        waiting_key = f"results_waiting_part_{current_part}"
+        ready_at_key = f"results_ready_at_part_{current_part}"
+        attempt_key = f"results_form_attempt_at_part_{current_part}"
+        joined_at_key = f"results_wait_joined_at_part_{current_part}"
+        seen_n_key = f"results_pool_seen_n_part_{current_part}"
+
+        pvars = self.participant.vars
+        ready = bool(pvars.get(can_proceed_key)) or bool(pvars.get("quit_to_prolific_results"))
+        waiting = bool(pvars.get(waiting_key))
+        last_attempt = pvars.get(attempt_key)
+        now = time.time()
+        # Only nudge a full reload after a real attempt timestamp exists (set on join).
+        form_due = False
+        if waiting and not ready and last_attempt is not None:
+            form_due = (now - float(last_attempt)) >= self.FORMATION_RETRY_SECONDS
+
+        joined_at = pvars.get(joined_at_key)
+        show_quit = False
+        if joined_at is not None:
+            show_quit = (now - float(joined_at)) >= self.QUIT_PROMPT_SECONDS
+
+        # Respect BATCH_WAIT_MIN_SECONDS before telling the client to advance.
+        advance = ready
+        if ready and not pvars.get("quit_to_prolific_results"):
+            ready_at = pvars.get(ready_at_key)
+            if ready_at is None or (now - float(ready_at)) < BATCH_WAIT_MIN_SECONDS:
+                advance = False
+
+        return {
+            "ready": bool(advance),
+            "matched": bool(pvars.get(can_proceed_key)),
+            "form_due": bool(form_due),
+            "show_quit": bool(show_quit),
+            "n_arrived": int(pvars.get(seen_n_key, 0) or 0),
+            "batch_size": self.FIXED_RESULTS_GROUP_SIZE,
+        }
+
+    def _batch_wait_status_response(self):
+        return JSONResponse(
+            self._batch_wait_status_payload(),
+            headers={"Cache-Control": "no-store"},
+        )
+
     def get(self):
         Constants = app_models(self.player).Constants
         _params = getattr(self.request, "GET", None) or getattr(self.request, "query_params", None)
@@ -51,6 +107,10 @@ class BatchWaitForGroup(WaitPage):
         pool_version_key = f"results_pool_version_part_{current_part}"
         joined_at_key = f"results_wait_joined_at_part_{current_part}"
         wait_more_token_key = f"results_wait_more_token_part_{current_part}"
+
+        # Lightweight browser poll: no formation, no session.vars.
+        if _params and _params.get("status"):
+            return self._batch_wait_status_response()
 
         if _params:
             if _params.get("quit"):
@@ -138,6 +198,7 @@ class BatchWaitForGroup(WaitPage):
                 if not self.participant.vars.get(waiting_key):
                     self.participant.vars[waiting_key] = True
                     self.participant.vars[joined_at_key] = now
+                    self.participant.vars[attempt_key] = now
                 return
 
             pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
@@ -159,6 +220,8 @@ class BatchWaitForGroup(WaitPage):
             if not self.participant.vars.get(waiting_key):
                 self.participant.vars[waiting_key] = True
                 self.participant.vars[joined_at_key] = now
+                # Start form_due clock so status polls can nudge a rare full reload.
+                self.participant.vars[attempt_key] = now
             if pid not in pool:
                 pool = normalize_pool_ids(pool + [pid])
                 self.session.vars[pool_key] = pool
@@ -275,16 +338,26 @@ class BatchWaitForGroup(WaitPage):
                     # Never keep durable GroupPart from a failed claim.
                     p.vars.pop(f"group_part_{current_part}", None)
                     p.vars.pop(f"group_position_part_{current_part}", None)
-                # Prefer non-blocking lock; if contended, still clear session keys
-                # (stale provisional lists are worse than a brief unlocked write).
-                with try_session_part_lock(self.session, current_part) as acquired:
+
+                def _clear_claim_and_rotate_failed_trio():
                     self.session.vars.pop(claim_key, None)
                     self.session.vars.pop(members_key, None)
+                    # Rotate failed trio to the back so later arrivals can match.
+                    pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
+                    rest = [x for x in pool if x not in first_ids]
+                    rotated = normalize_pool_ids(rest + list(first_ids))
+                    if rotated != pool:
+                        self.session.vars[pool_key] = rotated
+                        self.session.vars[pool_version_key] = int(
+                            self.session.vars.get(pool_version_key, 0)
+                        ) + 1
+
+                with try_session_part_lock(self.session, current_part) as acquired:
+                    _clear_claim_and_rotate_failed_trio()
                     if not acquired:
                         # Retry once under blocking lock so cleanup is not skipped.
                         with session_part_lock(self.session, current_part):
-                            self.session.vars.pop(claim_key, None)
-                            self.session.vars.pop(members_key, None)
+                            _clear_claim_and_rotate_failed_trio()
 
     def vars_for_template(self):
         """Avoid session.vars here — every access dirties the Session row in oTree."""
@@ -292,25 +365,25 @@ class BatchWaitForGroup(WaitPage):
         current_part = Constants.get_part(self.round_number)
         group_size = self.FIXED_RESULTS_GROUP_SIZE
         joined_at_key = f"results_wait_joined_at_part_{current_part}"
-        timeout_seconds = 300
         now = time.time()
         n_in_pool = int(self.participant.vars.get(f"results_pool_seen_n_part_{current_part}", 0) or 0)
         joined_at = self.participant.vars.get(joined_at_key, now)
-        show_wait_or_quit_results = (now - joined_at) >= timeout_seconds
+        show_wait_or_quit_results = (now - float(joined_at)) >= self.QUIT_PROMPT_SECONDS
         path = getattr(self.request, "path", None) or getattr(self.request, "path_info", "") or ""
         build_uri = getattr(self.request, "build_absolute_uri", None)
         base_url = (build_uri(path) if build_uri and path else path) or ""
+        # Strip prior query so status/quit/wait_more links stay clean.
+        base_path = base_url.split("?", 1)[0]
         wait_more_token = str(int(now * 1000))
-        wait_more_url = (
-            base_url
-            + ("&" if "?" in base_url else "?")
-            + f"wait_more=1&wait_more_token={wait_more_token}"
-        )
-        quit_url = base_url + ("&" if "?" in base_url else "?") + "quit=1"
+        wait_more_url = f"{base_path}?wait_more=1&wait_more_token={wait_more_token}"
+        quit_url = f"{base_path}?quit=1"
+        status_url = f"{base_path}?status=1"
         return {
             "n_arrived": n_in_pool,
             "batch_size": group_size,
             "show_wait_or_quit_results": show_wait_or_quit_results,
             "wait_more_url": wait_more_url,
             "quit_to_prolific_url": quit_url,
+            "batch_wait_status_url": status_url,
+            "batch_wait_advance_url": base_path,
         }

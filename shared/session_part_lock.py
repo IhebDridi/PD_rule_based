@@ -33,21 +33,33 @@ def advisory_lock_id(session: Any, part: int) -> int:
 
 
 def normalize_pool_ids(pool: Any) -> List[int]:
+    """Dedupe pool IDs while preserving arrival order (no sort).
+
+    Sorting by id made the same lowest-ID trio retry forever when payoffs soft-failed
+    (incomplete choices), blocking later arrivals indefinitely.
+    """
     if not isinstance(pool, list):
         return []
-    return sorted({int(pid) for pid in pool})
+    seen = set()
+    out: List[int] = []
+    for raw in pool:
+        pid = int(raw)
+        if pid not in seen:
+            seen.add(pid)
+            out.append(pid)
+    return out
 
 
 def pop_next_trio_ids(pool: List[int], group_size: int = 3) -> Tuple[Optional[List[int]], List[int]]:
     """
-    Deterministic trio selection: lowest ``group_size`` IDs first.
+    Trio selection: first ``group_size`` waiters in arrival order.
     Returns ``(trio_ids, remaining_pool)`` or ``(None, pool)`` when too few waiters.
     """
     normalized = normalize_pool_ids(pool)
     if len(normalized) < group_size:
         return None, normalized
     trio = normalized[:group_size]
-    remaining = [pid for pid in normalized if pid not in trio]
+    remaining = normalized[group_size:]
     return trio, remaining
 
 

@@ -8,6 +8,7 @@ from shared.matching_batch import clear_matching_batch_cache
 from shared.session_part_lock import (
     normalize_pool_ids,
     persist_session_state,
+    refresh_session_state,
     session_part_lock,
     try_session_part_lock,
 )
@@ -296,9 +297,6 @@ class BatchWaitForGroup(WaitPage):
                 self.session.vars.get(pool_version_key, 0)
             ) + 1
             self.session.vars.pop(claim_key, None)
-            self.session.vars.pop(
-                f"payoffs_not_ready_logged_part_{current_part}_{batch_id}", None
-            )
             clear_matching_batch_cache()
 
     def _run_claimed_payoffs(
@@ -387,14 +385,17 @@ class BatchWaitForGroup(WaitPage):
                 return
 
             if status is False:
+                # Dedupe on a participant row (under part lock) — avoid Session.vars
+                # dirtying for a log-only flag.
                 log_key = f"payoffs_not_ready_logged_part_{current_part}_{batch_id}"
-                if not self.session.vars.get(log_key):
+                anchor = next((p for p in trio if p is not None), None)
+                if anchor is not None and not anchor.vars.get(log_key):
                     record_data_errors_for_participants(
                         trio,
                         "PAYOFFS_OR_RESULTS_NOT_READY",
                         f"part={current_part} batch_id={batch_id}",
                     )
-                    self.session.vars[log_key] = True
+                    anchor.vars[log_key] = True
 
             self._clear_provisional_claim_ids(trio, batch_id, current_part, can_proceed_key)
             self._rotate_failed_trio_under_lock(
@@ -434,6 +435,9 @@ class BatchWaitForGroup(WaitPage):
         live_gid = self.participant.vars.get("matching_group_id")
         if live_gid is None or int(live_gid) < 0:
             return False
+        # Cheap Session reload only (no part lock): mid-claim is rare vs status polls.
+        # Avoids acting on a stale claim/members snapshot without slowing the wait path.
+        refresh_session_state(self.session)
         batch_id = int(live_gid)
         members_key = f"matching_group_members_part_{current_part}_{batch_id}"
         member_ids = self.session.vars.get(members_key)

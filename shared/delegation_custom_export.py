@@ -697,7 +697,9 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
             part_chosen = get_fld(p_last, "random_payoff_part")
             if isinstance(part_chosen, str) and part_chosen.strip().isdigit():
                 part_chosen = int(part_chosen.strip())
-            if pvars(p0, "quit_to_prolific"):
+            # Live BatchWait/TimeOut quit sets quit_to_prolific_results; older
+            # paths may still use quit_to_prolific. Treat either as show-up quit.
+            if pvars(p0, "quit_to_prolific") or pvars(p0, "quit_to_prolific_results"):
                 row["PartChosenBonus"] = "quit"
                 row["TotalEarningsParts123Dollars"] = 0.0
                 row["TotalEarningsPart4Dollars"] = 0.0

@@ -355,8 +355,14 @@ SESSION_CONFIG_DEFAULTS = dict(
 )
 
 # Render bot_stop_at (and any future select fields) as dropdowns in Create Session.
+# Must NOT import otree.session here (settings still loading → circular NameError).
+# install_session_config_select_import_hook only registers a meta_path hook.
 try:
-    import shared.otree_session_config_selects  # noqa: F401
+    from shared.otree_session_config_selects import (
+        install_session_config_select_import_hook,
+    )
+
+    install_session_config_select_import_hook()
 except Exception:
     pass
 

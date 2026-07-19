@@ -77,6 +77,7 @@ class DelegationDecision(_DelegationDecision):
 
 class BatchWaitForGroup(_BatchWaitForGroup):
     # Use shared global/BatchWaitForGroup.html (status poll).
+    pass
 
 
 class TimeOutquit(_TimeOutquit):

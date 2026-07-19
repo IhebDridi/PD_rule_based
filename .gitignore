@@ -19,8 +19,10 @@ ddd.sqlite3
 .vscode/
 .cursor/
 
-### Notes & docs (local only)
+### Notes & docs (local only) — keep per-folder README.md visible on GitHub
 *.md
+!README.md
+!**/README.md
 
 ### Local data exports & scratch
 prolific_export_*.csv

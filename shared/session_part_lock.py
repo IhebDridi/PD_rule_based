@@ -63,12 +63,16 @@ def pop_next_trio_ids(pool: List[int], group_size: int = 3) -> Tuple[Optional[Li
     return trio, remaining
 
 
-def _refresh_session_state(session: Any) -> None:
-    """Reload session.vars from DB after acquiring the lock."""
+def refresh_session_state(session: Any) -> None:
+    """Reload session.vars from DB (call after lock acquire, or before merge-persist)."""
     try:
         db._db.refresh(session)
     except Exception:
         pass
+
+
+# Back-compat alias used inside this module.
+_refresh_session_state = refresh_session_state
 
 
 def persist_session_state(session: Any = None) -> bool:
@@ -88,6 +92,25 @@ def persist_session_state(session: Any = None) -> bool:
         except Exception:
             pass
         return False
+
+
+def persist_session_flag_keys(session: Any, updates: dict, *, clear_keys: Optional[List[str]] = None) -> bool:
+    """
+    Refresh Session from DB, apply only the given flag key updates, then commit.
+
+    Avoids the payoff heartbeat clobbering concurrent pool/join/quit writes that
+    peers already committed under the part lock.
+    """
+    refresh_session_state(session)
+    for key, value in updates.items():
+        if key is None:
+            continue
+        session.vars[key] = value
+    if clear_keys:
+        for key in clear_keys:
+            if key is not None:
+                session.vars.pop(key, None)
+    return persist_session_state(session)
 
 
 @contextmanager

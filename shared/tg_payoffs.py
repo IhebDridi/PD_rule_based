@@ -15,11 +15,11 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from otree.api import cu
 
-from shared.session_part_lock import persist_session_state
+import time
+
+from shared.session_part_lock import persist_session_flag_keys, persist_session_state, refresh_session_state
 from shared.stale_session_flag import (
     DEFAULT_STALE_TTL_SECONDS,
-    clear_timed_flag,
-    touch_timed_flag,
     try_acquire_timed_flag,
 )
 from shared.tg_data_helpers import write_tg_results_display_cache
@@ -152,22 +152,26 @@ def run_payoffs_for_matching_group_tg(
     else:
         return None
 
+    session = subsession.session
+    # See peer writers' durable flags before decide/acquire (multi-worker).
+    refresh_session_state(session)
+
     run_key = f"payoffs_run_matching_group_{matching_group_id}_part_{current_part}"
-    if subsession.session.vars.get(run_key):
+    if session.vars.get(run_key):
         return True
 
     # Timestamped lock: if the worker dies mid-payoff, TTL lets the next waiter retry
     # without an admin clearing session.vars. Happy path still clears in finally.
     in_progress_key = f"{run_key}_in_progress"
     if not try_acquire_timed_flag(
-        subsession.session.vars,
+        session.vars,
         in_progress_key,
         DEFAULT_STALE_TTL_SECONDS,
     ):
         return "in_progress"
 
     key = f"matching_group_members_part_{current_part}_{matching_group_id}"
-    member_ids = subsession.session.vars.get(key)
+    member_ids = session.vars.get(key)
     # Same key BatchWait uses — heartbeat so multi-worker reclaim does not steal mid-run.
     claim_key = None
     if isinstance(member_ids, (list, tuple)) and len(member_ids) >= 3:
@@ -175,8 +179,14 @@ def run_payoffs_for_matching_group_tg(
             f"results_group_claim_part_{current_part}_"
             f"{'_'.join(map(str, list(member_ids)[:3]))}"
         )
-    # Durable writer lease: peers that refresh Session must see in_progress.
-    persist_session_state(subsession.session)
+    # Flush the lease we just acquired — do NOT refresh again (would reopen TOCTOU).
+    now = time.time()
+    session.vars[in_progress_key] = now
+    if claim_key is not None:
+        session.vars[claim_key] = now
+    if not persist_session_state(session):
+        session.vars.pop(in_progress_key, None)
+        return None
     try:
         if not member_ids or not isinstance(member_ids, (list, tuple)) or len(member_ids) < 3:
             return None
@@ -185,7 +195,7 @@ def run_payoffs_for_matching_group_tg(
         from shared.tg_player_lookup import players_at_round_for_member_ids
 
         players_start = players_at_round_for_member_ids(
-            subsession.session.id,
+            session.id,
             list(member_ids)[:3],
             start,
         )
@@ -210,13 +220,14 @@ def run_payoffs_for_matching_group_tg(
             _ROUND_ROBIN_CACHE[N] = compute_rr(N, Constants.rounds_per_part)
         assignments = _ROUND_ROBIN_CACHE[N]
 
-        session_code = subsession.session.code
+        session_code = session.code
         for r in range(start, end + 1):
-            # Keep claim + in_progress fresh across workers (memory + DB).
-            touch_timed_flag(subsession.session.vars, in_progress_key)
+            # Refresh-merge only claim + in_progress so peer pool writes survive.
+            beat = time.time()
+            flag_updates = {in_progress_key: beat}
             if claim_key is not None:
-                touch_timed_flag(subsession.session.vars, claim_key)
-            persist_session_state(subsession.session)
+                flag_updates[claim_key] = beat
+            persist_session_flag_keys(session, flag_updates)
             part_start = (current_part - 1) * Constants.rounds_per_part + 1
             round_in_part = r - part_start
             players_r = [p0.in_round(r) for p0 in players_start]
@@ -242,11 +253,10 @@ def run_payoffs_for_matching_group_tg(
             Constants.rounds_per_part,
         )
 
-        subsession.session.vars[run_key] = True
+        persist_session_flag_keys(session, {run_key: True})
         return True
     finally:
-        clear_timed_flag(subsession.session.vars, in_progress_key)
-        persist_session_state(subsession.session)
+        persist_session_flag_keys(session, {}, clear_keys=[in_progress_key])
 
 
 def _opponent_effective_choice(opponent, opp_role: Optional[str]) -> Optional[str]:

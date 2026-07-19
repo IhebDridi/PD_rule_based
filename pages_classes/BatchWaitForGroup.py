@@ -323,8 +323,8 @@ class BatchWaitForGroup(WaitPage):
         Status handling (no pollution):
           True — durable GroupPart + release claim
           "in_progress" — leave claim+provisional alone (peer is writing)
-          False — choices not ready: soft-fail rotate under lock
-          None — hard fail: clear provisional, soft-fail rotate under lock
+          False / None — under lock: finalize if peer finished, leave if peer
+            writing, else clear provisional + soft-fail rotate
         """
         members_key = f"matching_group_members_part_{current_part}_{batch_id}"
         # Heartbeat the claim so a long payoff run is not treated as abandoned.
@@ -353,19 +353,50 @@ class BatchWaitForGroup(WaitPage):
             # Peer still computing — do NOT rotate or clear provisional.
             return
 
-        # Choices not ready (False) or hard fail (None): clear provisional + rotate.
-        if status is False:
-            log_key = f"payoffs_not_ready_logged_part_{current_part}_{batch_id}"
-            if not self.session.vars.get(log_key):
-                record_data_errors_for_participants(
-                    trio,
-                    "PAYOFFS_OR_RESULTS_NOT_READY",
-                    f"part={current_part} batch_id={batch_id}",
-                )
-                self.session.vars[log_key] = True
-
-        self._clear_provisional_claim_ids(trio, batch_id, current_part, can_proceed_key)
+        # False / None: revalidate under lock so we never tear down a live or finished writer.
+        run_key = f"payoffs_run_matching_group_{batch_id}_part_{current_part}"
+        in_progress_key = f"{run_key}_in_progress"
         with session_part_lock(self.session, current_part):
+            now_locked = time.time()
+            peer_done = bool(self.session.vars.get(run_key)) or any(
+                p is not None and p.vars.get(can_proceed_key) for p in trio
+            )
+            peer_writing = flag_is_fresh(
+                self.session.vars.get(in_progress_key),
+                DEFAULT_STALE_TTL_SECONDS,
+                now=now_locked,
+            )
+            if peer_done:
+                self._finalize_successful_claim(
+                    am=am,
+                    current_part=current_part,
+                    can_proceed_key=can_proceed_key,
+                    waiting_key=waiting_key,
+                    ready_at_key=ready_at_key,
+                    pool_key=pool_key,
+                    pool_version_key=pool_version_key,
+                    claim_key=claim_key,
+                    first_ids=first_ids,
+                    batch_id=batch_id,
+                    trio=trio,
+                    now=now_locked,
+                )
+                return
+            if peer_writing:
+                # Another request holds the payoff lease — leave claim alone.
+                return
+
+            if status is False:
+                log_key = f"payoffs_not_ready_logged_part_{current_part}_{batch_id}"
+                if not self.session.vars.get(log_key):
+                    record_data_errors_for_participants(
+                        trio,
+                        "PAYOFFS_OR_RESULTS_NOT_READY",
+                        f"part={current_part} batch_id={batch_id}",
+                    )
+                    self.session.vars[log_key] = True
+
+            self._clear_provisional_claim_ids(trio, batch_id, current_part, can_proceed_key)
             self._rotate_failed_trio_under_lock(
                 current_part=current_part,
                 can_proceed_key=can_proceed_key,

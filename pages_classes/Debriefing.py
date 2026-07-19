@@ -10,19 +10,22 @@ from .page_helpers import is_excluded_from_study
 
 
 def _sum_known_payoffs(entries):
-    """Sum known numeric payoffs; return None when nothing known (do not invent 0)."""
+    """
+    Sum payoffs for a part only when every row is known.
+    Partial sums were treated as 'known' and understated the Debrief bonus.
+    """
+    if not entries:
+        return None
     total = 0.0
-    any_known = False
     for entry in entries:
         pay = entry.get("payoff") if isinstance(entry, dict) else entry
         if pay is None:
-            continue
+            return None
         try:
             total += float(getattr(pay, "amount", pay))
-            any_known = True
         except (TypeError, ValueError):
-            continue
-    return int(total) if any_known else None
+            return None
+    return int(total)
 
 
 class Debriefing(Page):

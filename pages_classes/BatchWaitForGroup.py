@@ -4,11 +4,12 @@ from otree.api import *
 from starlette.responses import JSONResponse
 
 from shared.export_integrity import record_data_errors_for_participants
+from shared.matching_batch import clear_matching_batch_cache
 from shared.session_part_lock import normalize_pool_ids, session_part_lock, try_session_part_lock
-from shared.stale_session_flag import DEFAULT_STALE_TTL_SECONDS, flag_is_fresh
+from shared.stale_session_flag import DEFAULT_STALE_TTL_SECONDS, flag_is_fresh, touch_timed_flag
 from shared.tg_player_lookup import participants_by_id_in_session, players_at_round_for_member_ids
 
-from .model_bridge import app_models
+from .model_bridge import app_models, is_tg_app
 from .page_helpers import BATCH_WAIT_MIN_SECONDS, _has_left_lobby_for_part, is_excluded_from_study
 
 
@@ -166,19 +167,19 @@ class BatchWaitForGroup(WaitPage):
         """
         Remove this participant from the wait pool.
 
-        If they sit in a *fresh* claim, abort that whole claim (clear provisional
-        ids for the trio) so the remaining two are not rematched mid-payoff into
-        a new front-of-pool trio — that path polluted GroupPart / Results.
+        If they are inside a *fresh* claim, do NOT abort the claim or requeue
+        peers — payoffs may still be writing. Rematching peers mid-payoff polluted
+        GroupPart. Claim finishes normally; the quitter simply leaves.
         """
-        claim_prefix = f"results_group_claim_part_{current_part}_"
-        can_proceed_key = f"can_proceed_to_results_part_{current_part}"
         pid = self.participant.id_in_session
+        can_proceed_key = f"can_proceed_to_results_part_{current_part}"
         now = time.time()
+        claim_prefix = f"results_group_claim_part_{current_part}_"
 
         with session_part_lock(self.session, current_part):
             pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
             live_gid = self.participant.vars.get("matching_group_id")
-            aborted_claim = False
+            in_fresh_claim = False
             if (
                 live_gid is not None
                 and int(live_gid) >= 0
@@ -196,37 +197,16 @@ class BatchWaitForGroup(WaitPage):
                     if claim_val is not None and flag_is_fresh(
                         claim_val, DEFAULT_STALE_TTL_SECONDS, now=now
                     ):
-                        aborted_claim = True
-                        batch_id = int(live_gid)
-                        trio_ids = [int(x) for x in list(member_ids)[:3]]
-                        self.session.vars.pop(claim_key, None)
-                        self.session.vars.pop(members_key, None)
-                        pmap = participants_by_id_in_session(self.session.id, trio_ids)
-                        for sid in trio_ids:
-                            p = pmap.get(sid)
-                            if p is None:
-                                continue
-                            # Never wipe durable success.
-                            if p.vars.get(can_proceed_key):
-                                continue
-                            if p.vars.get("matching_group_id") == batch_id:
-                                p.vars["matching_group_id"] = -1
-                            p.vars.pop("matching_group_position", None)
-                            if p.vars.get(f"group_part_{current_part}") == batch_id:
-                                p.vars.pop(f"group_part_{current_part}", None)
-                                p.vars.pop(f"group_position_part_{current_part}", None)
-                        # Quitter stays out; other two return to pool (if not already done).
-                        others = [x for x in trio_ids if x != pid]
-                        pool = [x for x in pool if x not in trio_ids]
-                        pool = normalize_pool_ids(pool + others)
+                        in_fresh_claim = True
 
-            if not aborted_claim:
-                pool = [sid for sid in pool if sid != pid]
-
+            # Always keep quitter out of the pool. Never touch an active claim.
+            pool = [sid for sid in pool if sid != pid]
             self.session.vars[pool_key] = pool
             self.session.vars[pool_version_key] = int(
                 self.session.vars.get(pool_version_key, 0)
             ) + 1
+            if in_fresh_claim:
+                clear_matching_batch_cache()
 
     def _clear_provisional_claim_ids(self, trio, batch_id, current_part, can_proceed_key):
         """Clear live provisional ids only — never durable ids from a finished part."""
@@ -263,6 +243,7 @@ class BatchWaitForGroup(WaitPage):
             self.session.vars[pool_version_key] = int(
                 self.session.vars.get(pool_version_key, 0)
             ) + 1
+        clear_matching_batch_cache()
 
     def _finalize_successful_claim(
         self,
@@ -301,6 +282,7 @@ class BatchWaitForGroup(WaitPage):
             self.session.vars.pop(
                 f"payoffs_not_ready_logged_part_{current_part}_{batch_id}", None
             )
+            clear_matching_batch_cache()
 
     def _run_claimed_payoffs(
         self,
@@ -328,7 +310,10 @@ class BatchWaitForGroup(WaitPage):
           None — hard fail: clear provisional, soft-fail rotate under lock
         """
         members_key = f"matching_group_members_part_{current_part}_{batch_id}"
+        # Heartbeat the claim so a long payoff run is not treated as abandoned.
+        touch_timed_flag(self.session.vars, claim_key)
         status = am.run_payoffs_for_matching_group(self.subsession, batch_id)
+        touch_timed_flag(self.session.vars, claim_key)
 
         if status is True:
             self._finalize_successful_claim(
@@ -389,7 +374,12 @@ class BatchWaitForGroup(WaitPage):
         """
         If this participant is already in a fresh claim, retry payoffs without
         forming a new trio (prevents rejoin-while-claimed races).
+
+        TG only: PD/SD/SH payoff runners lack an in_progress gate, so mid-claim
+        retries there can double-write under concurrent GETs.
         """
+        if not is_tg_app(self.player):
+            return False
         if self.participant.vars.get(can_proceed_key):
             return False
         live_gid = self.participant.vars.get("matching_group_id")
@@ -528,18 +518,37 @@ class BatchWaitForGroup(WaitPage):
                 )
                 self.session.vars.pop(claim_key, None)
                 if any_done:
-                    # Payoffs already durable — never wipe GroupPart; just drop claim
-                    # and ensure finished ids are not stuck at pool front.
+                    # Payoffs already ran (or peers already durable) — finish
+                    # can_proceed/GroupPart if the finalizer crashed; never rematch.
+                    ready_at_key = f"results_ready_at_part_{current_part}"
+                    waiting_key = f"results_waiting_part_{current_part}"
+                    for sid in first_ids:
+                        p = pmap_stale.get(sid)
+                        if p is None:
+                            continue
+                        if not p.vars.get(can_proceed_key):
+                            p.vars[can_proceed_key] = True
+                            p.vars[ready_at_key] = now
+                            p.vars[waiting_key] = False
+                        if p.vars.get(f"group_part_{current_part}") is None:
+                            p.vars[f"group_part_{current_part}"] = stale_batch_id
+                            pos = p.vars.get("matching_group_position")
+                            if pos is not None:
+                                p.vars[f"group_position_part_{current_part}"] = pos
                     pool = [x for x in pool if x not in first_ids]
                     self.session.vars[pool_key] = pool
                     self.session.vars[pool_version_key] = int(
                         self.session.vars.get(pool_version_key, 0)
                     ) + 1
+                    # Drop orphaned in_progress if the writer died after run_key.
+                    self.session.vars.pop(f"{run_key}_in_progress", None)
+                    clear_matching_batch_cache()
                     return
 
                 self.session.vars.pop(
                     f"matching_group_members_part_{current_part}_{stale_batch_id}", None
                 )
+                self.session.vars.pop(f"{run_key}_in_progress", None)
                 for sid in first_ids:
                     p = pmap_stale.get(sid)
                     if p is None:
@@ -552,6 +561,7 @@ class BatchWaitForGroup(WaitPage):
                     if p.vars.get(f"group_part_{current_part}") == stale_batch_id:
                         p.vars.pop(f"group_part_{current_part}", None)
                         p.vars.pop(f"group_position_part_{current_part}", None)
+                clear_matching_batch_cache()
 
             pmap = participants_by_id_in_session(self.session.id, first_ids)
             trio = [pmap.get(i) for i in first_ids]

@@ -52,5 +52,15 @@ def try_acquire_timed_flag(
     return True
 
 
+def touch_timed_flag(
+    store: dict,
+    key: str,
+    *,
+    now: Optional[float] = None,
+) -> None:
+    """Refresh a held timed flag so long work does not look abandoned (TTL steal)."""
+    store[key] = now if now is not None else time.time()
+
+
 def clear_timed_flag(store: dict, key: str) -> None:
     store.pop(key, None)

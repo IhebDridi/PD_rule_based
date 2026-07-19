@@ -18,6 +18,7 @@ from otree.api import cu
 from shared.stale_session_flag import (
     DEFAULT_STALE_TTL_SECONDS,
     clear_timed_flag,
+    touch_timed_flag,
     try_acquire_timed_flag,
 )
 from shared.tg_data_helpers import write_tg_results_display_cache
@@ -201,6 +202,8 @@ def run_payoffs_for_matching_group_tg(
 
         session_code = subsession.session.code
         for r in range(start, end + 1):
+            # Keep the payoff lock + claim from looking abandoned mid-burst.
+            touch_timed_flag(subsession.session.vars, in_progress_key)
             part_start = (current_part - 1) * Constants.rounds_per_part + 1
             round_in_part = r - part_start
             players_r = [p0.in_round(r) for p0 in players_start]

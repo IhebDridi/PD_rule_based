@@ -35,6 +35,56 @@ def _tg_supervised_datasets_key(part: int, *, second: bool = False) -> str:
     return f"_supervised_ab_datasets_cache{suffix}_part_{part}"
 
 
+def _load_supervised_history_blob(player) -> dict:
+    """Durable datasets + every Generate attempt for this block-start Player row."""
+    raw = player.field_maybe_none("supervised_history") or ""
+    parsed = None
+    if raw:
+        try:
+            parsed = json.loads(raw)
+        except (TypeError, ValueError):
+            parsed = None
+    if isinstance(parsed, dict) and (
+        "attempts" in parsed or "datasets_first" in parsed or "datasets_second" in parsed
+    ):
+        blob = parsed
+    elif isinstance(parsed, dict):
+        # Legacy flat { "0": [...], ... } datasets only.
+        blob = {"datasets_first": {str(k): v for k, v in parsed.items()}, "attempts": []}
+    else:
+        blob = {}
+    blob.setdefault("attempts", [])
+    if not isinstance(blob["attempts"], list):
+        blob["attempts"] = []
+    return blob
+
+
+def _save_supervised_history_blob(player, blob: dict) -> None:
+    player.supervised_history = json.dumps(blob)
+
+
+def _append_supervised_generate_attempt(
+    player,
+    *,
+    role: str,
+    dataset_num: int,
+    csv: str,
+    mean: float | None = None,
+) -> None:
+    """Append one Generate click; never drop prior attempts."""
+    blob = _load_supervised_history_blob(player)
+    entry = {
+        "role": role,
+        "event": "generate",
+        "dataset_num": int(dataset_num),
+        "csv": csv,
+    }
+    if mean is not None:
+        entry["mean"] = float(mean)
+    blob["attempts"].append(entry)
+    _save_supervised_history_blob(player, blob)
+
+
 def _goal_slider_decisions(slider_value: float) -> dict:
     slider_value = max(0.0, min(1.0, float(slider_value)))
     p_a = 0.05 + 0.90 * slider_value
@@ -368,6 +418,13 @@ class TgSupervisedAgentFirst(_TgAgentBlockFirst):
         part = Constants.get_part(block_r)
         _, _, vars_key = _part_agent_keys(part)
         player.participant.vars[vars_key] = {i + 1: decisions_list[i] for i in range(10)}
+        _append_supervised_generate_attempt(
+            player,
+            role="first",
+            dataset_num=dnum,
+            csv=response_str,
+            mean=float(p_a),
+        )
         return {player.id_in_group: {"response": response_str}}
 
     def _get_or_build_raw_datasets(self):
@@ -386,7 +443,10 @@ class TgSupervisedAgentFirst(_TgAgentBlockFirst):
         ctx = super().vars_for_template()
         supervised_dataset = self._get_or_build_raw_datasets()
         json_serializable = {str(k): v for k, v in supervised_dataset.items()}
-        self.player.supervised_history = json.dumps(json_serializable)
+        # Persist shown datasets without wiping prior Generate attempts.
+        blob = _load_supervised_history_blob(self.player)
+        blob["datasets_first"] = json_serializable
+        _save_supervised_history_blob(self.player, blob)
         formatted_datasets = []
         for i in range(5):
             arr = supervised_dataset[i]
@@ -465,12 +525,20 @@ class TgSupervisedAgentSecond(_TgAgentBlockSecond):
         decisions_list = _sample_10_decisions(p_a)
         response_str = ",".join(decisions_list)
         player.supervised_last_generated_csv = response_str
+        player.supervised_mean = float(p_a)
         Constants = get_constants(player)
         block_r = _agent_block_round(player)
         part = Constants.get_part(block_r) if block_r is not None else Constants.get_part(player.round_number)
         player.participant.vars[f"_tg_agent_second_pending_part_{part}"] = {
             i + 1: decisions_list[i] for i in range(10)
         }
+        _append_supervised_generate_attempt(
+            player,
+            role="second",
+            dataset_num=dnum,
+            csv=response_str,
+            mean=float(p_a),
+        )
         return {player.id_in_group: {"response": response_str}}
 
     def _get_or_build_raw_datasets(self):
@@ -491,6 +559,10 @@ class TgSupervisedAgentSecond(_TgAgentBlockSecond):
         block_r = _agent_block_round(self.player) or self.round_number
         part = Constants.get_part(block_r)
         supervised_dataset = self._get_or_build_raw_datasets()
+        json_serializable = {str(k): v for k, v in supervised_dataset.items()}
+        blob = _load_supervised_history_blob(self.player)
+        blob["datasets_second"] = json_serializable
+        _save_supervised_history_blob(self.player, blob)
         formatted_datasets = []
         for i in range(5):
             arr = supervised_dataset[i]

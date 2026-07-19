@@ -36,10 +36,11 @@ def supervised_list_choices_export(
     *,
     part: Optional[int] = None,
 ) -> str:
-    """Supervised TG/PD agent blocks: history shown + confirmed CSV (not agent_prog_allocation).
+    """Supervised agent blocks: datasets shown + every Generate attempt + confirmed CSVs.
 
-    For TG, pass ``part`` so first/second CSVs are read from part-scoped participant.vars
-    (mandatory vs optional never overwrite each other).
+    ``supervised_history`` may be legacy flat datasets or
+    ``{datasets_first, datasets_second, attempts: [...]}``.
+    For TG, pass ``part`` so confirmed CSVs use part-scoped participant.vars.
     """
     if not pr:
         return ""

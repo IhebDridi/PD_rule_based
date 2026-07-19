@@ -71,6 +71,25 @@ def _refresh_session_state(session: Any) -> None:
         pass
 
 
+def persist_session_state(session: Any = None) -> bool:
+    """
+    Mid-request commit so peer workers see claim / pool / heartbeat flags.
+
+    Formation unlocks before payoffs; without this flush, Worker B can refresh a
+    stale Session row and double-claim the same trio. Returns False if commit fails.
+    """
+    del session  # session rows are already dirty on the shared ORM session
+    try:
+        db.commit()
+        return True
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        return False
+
+
 @contextmanager
 def try_session_part_lock(session: Any, part: int) -> Iterator[bool]:
     """

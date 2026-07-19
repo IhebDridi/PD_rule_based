@@ -5,7 +5,12 @@ from starlette.responses import JSONResponse
 
 from shared.export_integrity import record_data_errors_for_participants
 from shared.matching_batch import clear_matching_batch_cache
-from shared.session_part_lock import normalize_pool_ids, session_part_lock, try_session_part_lock
+from shared.session_part_lock import (
+    normalize_pool_ids,
+    persist_session_state,
+    session_part_lock,
+    try_session_part_lock,
+)
 from shared.stale_session_flag import DEFAULT_STALE_TTL_SECONDS, flag_is_fresh, touch_timed_flag
 from shared.tg_player_lookup import participants_by_id_in_session, players_at_round_for_member_ids
 
@@ -226,18 +231,30 @@ class BatchWaitForGroup(WaitPage):
         self,
         *,
         current_part,
+        can_proceed_key,
         pool_key,
         pool_version_key,
         claim_key,
         members_key,
         first_ids,
     ):
-        """Soft-fail: drop claim/members and put the failed trio at the back of the pool."""
+        """Soft-fail: drop claim/members; requeue only still-waiting non-quitters."""
         self.session.vars.pop(claim_key, None)
         self.session.vars.pop(members_key, None)
         pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
+        pmap = participants_by_id_in_session(self.session.id, first_ids)
+        requeue = []
+        for sid in first_ids:
+            p = pmap.get(sid)
+            if p is None:
+                continue
+            if p.vars.get("quit_to_prolific_results"):
+                continue
+            if p.vars.get(can_proceed_key):
+                continue
+            requeue.append(sid)
         rest = [x for x in pool if x not in first_ids]
-        rotated = normalize_pool_ids(rest + list(first_ids))
+        rotated = normalize_pool_ids(rest + requeue)
         if rotated != pool:
             self.session.vars[pool_key] = rotated
             self.session.vars[pool_version_key] = int(
@@ -351,6 +368,7 @@ class BatchWaitForGroup(WaitPage):
         with session_part_lock(self.session, current_part):
             self._rotate_failed_trio_under_lock(
                 current_part=current_part,
+                can_proceed_key=can_proceed_key,
                 pool_key=pool_key,
                 pool_version_key=pool_version_key,
                 claim_key=claim_key,
@@ -507,9 +525,17 @@ class BatchWaitForGroup(WaitPage):
             if claim_val is not None and flag_is_fresh(claim_val, DEFAULT_STALE_TTL_SECONDS, now=now):
                 return
             if claim_val is not None:
-                # Stale claim after a crash.
+                # Stale claim after a crash — never rematch while a writer lease is live.
                 stale_batch_id = first_ids[0]
                 run_key = f"payoffs_run_matching_group_{stale_batch_id}_part_{current_part}"
+                in_progress_key = f"{run_key}_in_progress"
+                if flag_is_fresh(
+                    self.session.vars.get(in_progress_key),
+                    DEFAULT_STALE_TTL_SECONDS,
+                    now=now,
+                ):
+                    # Writer still heartbeating; claim age alone must not steal the trio.
+                    return
                 pmap_stale = participants_by_id_in_session(self.session.id, first_ids)
                 any_done = bool(self.session.vars.get(run_key)) or any(
                     (pmap_stale.get(sid) is not None)
@@ -569,11 +595,14 @@ class BatchWaitForGroup(WaitPage):
                 pool = [x for x in pool if x in pmap]
                 self.session.vars[pool_key] = pool
                 return
-            if any(
-                p.vars.get(can_proceed_key) or p.vars.get("quit_to_prolific_results", False)
-                for p in trio
-            ):
-                pool = [x for x in pool if x not in first_ids]
+            drop_ids = [
+                sid
+                for sid, p in zip(first_ids, trio)
+                if p.vars.get(can_proceed_key) or p.vars.get("quit_to_prolific_results", False)
+            ]
+            if drop_ids:
+                # Only remove quitters / already-matched; leave healthy waiters in pool.
+                pool = [x for x in pool if x not in drop_ids]
                 self.session.vars[pool_key] = pool
                 self.session.vars[pool_version_key] = int(
                     self.session.vars.get(pool_version_key, 0)
@@ -607,6 +636,24 @@ class BatchWaitForGroup(WaitPage):
             self.session.vars[pool_version_key] = int(
                 self.session.vars.get(pool_version_key, 0)
             ) + 1
+            # Flush before unlock so peer workers refresh a durable claim, not a
+            # process-local phantom (multi-worker double-claim).
+            if not persist_session_state(self.session):
+                # Commit failed — roll claim back in memory; do not run payoffs.
+                self.session.vars.pop(claim_key, None)
+                self.session.vars.pop(
+                    f"matching_group_members_part_{current_part}_{batch_id}", None
+                )
+                for pl in batch_players:
+                    if pl.participant.vars.get("matching_group_id") == batch_id:
+                        pl.participant.vars["matching_group_id"] = -1
+                    pl.participant.vars.pop("matching_group_position", None)
+                pool = normalize_pool_ids(
+                    list(self.session.vars.get(pool_key, [])) + list(first_ids)
+                )
+                self.session.vars[pool_key] = pool
+                clear_matching_batch_cache()
+                return
             claimed = (first_ids, batch_id, claim_key, trio)
 
         if not claimed:

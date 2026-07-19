@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from otree.api import cu
 
+from shared.session_part_lock import persist_session_state
 from shared.stale_session_flag import (
     DEFAULT_STALE_TTL_SECONDS,
     clear_timed_flag,
@@ -167,6 +168,15 @@ def run_payoffs_for_matching_group_tg(
 
     key = f"matching_group_members_part_{current_part}_{matching_group_id}"
     member_ids = subsession.session.vars.get(key)
+    # Same key BatchWait uses — heartbeat so multi-worker reclaim does not steal mid-run.
+    claim_key = None
+    if isinstance(member_ids, (list, tuple)) and len(member_ids) >= 3:
+        claim_key = (
+            f"results_group_claim_part_{current_part}_"
+            f"{'_'.join(map(str, list(member_ids)[:3]))}"
+        )
+    # Durable writer lease: peers that refresh Session must see in_progress.
+    persist_session_state(subsession.session)
     try:
         if not member_ids or not isinstance(member_ids, (list, tuple)) or len(member_ids) < 3:
             return None
@@ -202,8 +212,11 @@ def run_payoffs_for_matching_group_tg(
 
         session_code = subsession.session.code
         for r in range(start, end + 1):
-            # Keep the payoff lock + claim from looking abandoned mid-burst.
+            # Keep claim + in_progress fresh across workers (memory + DB).
             touch_timed_flag(subsession.session.vars, in_progress_key)
+            if claim_key is not None:
+                touch_timed_flag(subsession.session.vars, claim_key)
+            persist_session_state(subsession.session)
             part_start = (current_part - 1) * Constants.rounds_per_part + 1
             round_in_part = r - part_start
             players_r = [p0.in_round(r) for p0 in players_start]
@@ -233,6 +246,7 @@ def run_payoffs_for_matching_group_tg(
         return True
     finally:
         clear_timed_flag(subsession.session.vars, in_progress_key)
+        persist_session_state(subsession.session)
 
 
 def _opponent_effective_choice(opponent, opp_role: Optional[str]) -> Optional[str]:

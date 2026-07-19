@@ -151,10 +151,19 @@ def patch_tg_v2_bot_runner(*, delegation_first: bool) -> None:
                 time.sleep(0.05)
 
         if session_code:
-            summary = verify_tg_v2_bot_stress_session(
-                Session.objects_get(code=session_code),
-                delegation_first=delegation_first,
-            )
+            session = Session.objects_get(code=session_code)
+            stop_at = str((session.config or {}).get("bot_stop_at") or "finish").strip().lower()
+            if stop_at and stop_at not in ("finish", "none", ""):
+                summary = {
+                    "skipped_full_verify": True,
+                    "bot_stop_at": stop_at,
+                    "note": "Partial bot run — integrity verify skipped",
+                }
+            else:
+                summary = verify_tg_v2_bot_stress_session(
+                    session,
+                    delegation_first=delegation_first,
+                )
             Session.objects_get(code=session_code).vars["bot_stress_last_summary"] = summary
             db.commit()
             print(format_bot_stress_summary(summary))
@@ -294,6 +303,12 @@ def _percentile(values: List[float], pct: float) -> Optional[float]:
 
 
 def format_bot_stress_summary(summary: Dict[str, Any]) -> str:
+    if summary.get("skipped_full_verify"):
+        return (
+            "TG v2 bot stress summary\n"
+            f"  skipped full verify (bot_stop_at={summary.get('bot_stop_at')})\n"
+            f"  note: {summary.get('note')}"
+        )
     lines = [
         "TG v2 bot stress summary",
         f"  participants: {summary.get('participants')}",

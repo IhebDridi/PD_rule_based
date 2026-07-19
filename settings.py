@@ -348,6 +348,10 @@ SESSION_CONFIG_DEFAULTS = dict(
     doc="",
     # Dev-branch UI theme. Set False (or OTREE_THEME=classic) before merging to main.
     use_midnight_teal=environ.get("OTREE_THEME", "midnight-teal") == "midnight-teal",
+    # Browser / otree-test bots (TG PlayerBot): where to halt without clicking Next.
+    # Shown in Create Session → Advanced. Values:
+    #   finish | results_part1 | results_part2 | results_part3 | guess | debriefing
+    bot_stop_at="finish",
 )
 
 # Mirror of session default (docs / quick toggle). Prefer OTREE_THEME env var.

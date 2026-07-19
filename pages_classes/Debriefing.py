@@ -194,12 +194,13 @@ class Debriefing(Page):
                 continue
 
         total_payoff_val = results_by_part[payoff_part]["total_payoff"]
-        total_payoff_ecoins = int(total_payoff_val) if total_payoff_val is not None else 0
-        total_bonus = (total_payoff_val if total_payoff_val is not None else 0) + guessing_bonus
-        total_payoff_cents = total_payoff_ecoins // 10
+        total_payoff_known = total_payoff_val is not None
+        total_payoff_ecoins = int(total_payoff_val) if total_payoff_known else None
+        total_bonus = (total_payoff_val if total_payoff_known else 0) + guessing_bonus
+        total_payoff_cents = (total_payoff_ecoins // 10) if total_payoff_known else None
         guessing_bonus_ecoins = int(guessing_bonus or 0)
         guessing_bonus_cents = guessing_bonus_ecoins
-        total_bonus_cents = total_payoff_cents + guessing_bonus_cents
+        total_bonus_cents = (total_payoff_cents or 0) + guessing_bonus_cents
         total_bonus_dollars = round(total_bonus_cents / 100, 2)
         for row in guess_rounds_data:
             p = row.get("payoff")
@@ -216,6 +217,7 @@ class Debriefing(Page):
             "results_by_part": results_by_part,
             "random_payoff_part": payoff_part,
             "total_payoff": results_by_part[payoff_part]["total_payoff"],
+            "total_payoff_known": total_payoff_known,
             "total_payoff_ecoins": total_payoff_ecoins,
             "total_payoff_cents": total_payoff_cents,
             "guess_rounds_data": guess_rounds_data,

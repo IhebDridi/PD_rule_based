@@ -6,7 +6,12 @@
     <h1 class="main-title">Bonus Calculation</h1>
 
     <p class="summary-note">
-        From Parts 1-3, we randomly chose Part {{ random_payoff_part }} to pay you a bonus for participating in the interactive part of this experiment. According to this, you are entitled to a bonus payment of <strong>{{ total_payoff_ecoins }} Ecoins = {{ total_payoff_cents }} cents.</strong>
+        From Parts 1-3, we randomly chose Part {{ random_payoff_part }} to pay you a bonus for participating in the interactive part of this experiment.
+        {% if total_payoff_known %}
+        According to this, you are entitled to a bonus payment of <strong>{{ total_payoff_ecoins }} Ecoins = {{ total_payoff_cents }} cents.</strong>
+        {% else %}
+        Part {{ random_payoff_part }} earnings are not available yet (<strong>—</strong>).
+        {% endif %}
     </p>
 
     <div class="tables-container">

@@ -21,6 +21,19 @@ from shared.tg_v2_bot_stress import patch_tg_v2_bot_runner
 
 TREATMENTS = frozenset({"rule_based", "goal", "supervised", "llm"})
 
+# Session config key ``bot_stop_at`` (Create Session → Advanced).
+# Bots halt on that page without submitting Next (inspect data mid-run).
+BOT_STOP_AT_CHOICES = frozenset(
+    {
+        "finish",
+        "results_part1",
+        "results_part2",
+        "results_part3",
+        "guess",
+        "debriefing",
+    }
+)
+
 COMPREHENSION_ANSWERS = {
     "q1": "c",
     "q2": "b",
@@ -31,6 +44,21 @@ COMPREHENSION_ANSWERS = {
     "q5": "d",
     "q10": "b",
 }
+
+
+def normalize_bot_stop_at(raw) -> str:
+    value = str(raw or "finish").strip().lower()
+    if value not in BOT_STOP_AT_CHOICES:
+        return "finish"
+    return value
+
+
+def _bot_stop_at(bot) -> str:
+    try:
+        cfg = bot.session.config or {}
+    except Exception:
+        cfg = {}
+    return normalize_bot_stop_at(cfg.get("bot_stop_at"))
 
 
 def _exit_form():
@@ -110,6 +138,9 @@ def make_tg_player_bot_play_round(
 
     treatment: rule_based | goal | supervised | llm
     pages_module: the app's .pages module (Constants loaded from sibling .models)
+
+    Session config ``bot_stop_at`` (advanced create-session form):
+      finish | results_part1 | results_part2 | results_part3 | guess | debriefing
     """
     if treatment not in TREATMENTS:
         raise ValueError(f"treatment must be one of {sorted(TREATMENTS)}, got {treatment!r}")
@@ -137,6 +168,7 @@ def make_tg_player_bot_play_round(
 
     def play_round(self):
         rnd = self.round_number
+        stop_at = _bot_stop_at(self)
 
         if rnd == 1:
             yield InformedConsent, {"prolific_id": f"TG_BOT_{self.participant.id_in_session:03d}"}
@@ -156,6 +188,9 @@ def make_tg_player_bot_play_round(
                 yield from _yield_human_block(human_first_page, human_second_page)
 
         if rnd == 10:
+            # Halt on Results Part 1 (do not click Next).
+            if stop_at == "results_part1":
+                return
             yield Results
 
         if rnd == 11:
@@ -173,6 +208,8 @@ def make_tg_player_bot_play_round(
                 )
 
         if rnd == 20:
+            if stop_at == "results_part2":
+                return
             yield Results
 
         if rnd == 21:
@@ -187,12 +224,18 @@ def make_tg_player_bot_play_round(
             )
 
         if rnd == 30:
+            if stop_at == "results_part3":
+                return
             yield Results
             yield InstructionsGuessingGame
+            if stop_at == "guess":
+                return
             yield GuessDelegation, {
                 f"guess_round_{i}": random.choice(["yes", "no"]) for i in range(1, 11)
             }
             yield ResultsGuess
+            if stop_at == "debriefing":
+                return
             yield Debriefing
             yield ExitQuestionnaire, _exit_form()
             yield Submission(Thankyou, {}, check_html=False)

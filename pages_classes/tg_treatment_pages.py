@@ -793,7 +793,20 @@ def _tg_llm_live_method(player, data, conversation_field: str):
         assistant_module = importlib.import_module(f"{app_package_name(player)}.mistralassistant")
         assistant = assistant_module.MistralAssistant()
     except Exception as e:
-        return {player.id_in_group: {"response": "Error initializing assistant: " + str(e)}}
+        user_message = data.get("message") or ""
+        err = "Error initializing assistant: " + str(e)
+        raw = player.field_maybe_none(conversation_field) or "[]"
+        try:
+            conversation = json.loads(raw)
+            if not isinstance(conversation, list):
+                conversation = []
+        except (TypeError, ValueError):
+            conversation = []
+        if user_message:
+            conversation.append({"role": "user", "content": user_message})
+        conversation.append({"role": "assistant", "content": err})
+        setattr(player, conversation_field, json.dumps(conversation))
+        return {player.id_in_group: {"response": err}}
     user_message = data["message"]
     response_text = ""
     new_cid = conversation_id

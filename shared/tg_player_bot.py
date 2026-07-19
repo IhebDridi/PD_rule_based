@@ -42,6 +42,24 @@ def _bot_stop_at(bot) -> str:
     return normalize_bot_stop_at(cfg.get("bot_stop_at"))
 
 
+def _stop_blocks_round(stop_at: str, rnd: int) -> bool:
+    """
+    True when this round must not submit anything because bots already stopped
+    on an earlier Results / Guess / Debrief page.
+
+    A bare ``return`` on round 10 alone is not enough for results_part1: oTree
+    immediately starts round 11's play_round and tries to POST Part 2 while the
+    participant is still on Results → AssertionError.
+    """
+    if stop_at == "results_part1" and rnd > 10:
+        return True
+    if stop_at == "results_part2" and rnd > 20:
+        return True
+    if stop_at == "results_part3" and rnd > 30:
+        return True
+    return False
+
+
 def _exit_form():
     return {
         "gender": "male",
@@ -151,6 +169,9 @@ def make_tg_player_bot_play_round(
         rnd = self.round_number
         stop_at = _bot_stop_at(self)
 
+        if _stop_blocks_round(stop_at, rnd):
+            return
+
         if rnd == 1:
             yield InformedConsent, {"prolific_id": f"TG_BOT_{self.participant.id_in_session:03d}"}
             yield MainInstructions
@@ -169,7 +190,7 @@ def make_tg_player_bot_play_round(
                 yield from _yield_human_block(human_first_page, human_second_page)
 
         if rnd == 10:
-            # Halt on Results Part 1 (do not click Next).
+            # Do not click Next on Results — later rounds are gated by _stop_blocks_round.
             if stop_at == "results_part1":
                 return
             yield Results

@@ -63,13 +63,14 @@
                     }
                     if (data.ready) {
                         stopped = true;
-                        window.location.href = advanceUrl;
+                        window.location.replace(advanceUrl);
                         return;
                     }
-                    if (data.form_due) {
+                    if (data.form_due || data.matched) {
                         stopped = true;
-                        // Rare full reload: formation / payoff retry only (touches session.vars).
-                        window.location.href = advanceUrl;
+                        // Rare full reload: formation / payoff retry / plant ready_at.
+                        // matched without ready: status cannot write; must full GET.
+                        window.location.replace(advanceUrl);
                         return;
                     }
                     // ~2.5–4s jitter so 300 waiters do not align on one tick.

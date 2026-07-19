@@ -59,6 +59,15 @@ class BatchWaitForGroup(WaitPage):
         Read-only wakeup payload. Must not write participant.vars or session.vars.
         Formation stays on full GET (3rd joiner / form_due reload).
         """
+        # Multi-worker: peer finalize may have written can_proceed on another worker.
+        # Reload this Participant row so status sees the fresh vars without a full page load.
+        try:
+            from otree.database import db
+
+            db._db.refresh(self.participant)
+        except Exception:
+            pass
+
         Constants = app_models(self.player).Constants
         current_part = Constants.get_part(self.round_number)
         can_proceed_key = f"can_proceed_to_results_part_{current_part}"
@@ -89,6 +98,11 @@ class BatchWaitForGroup(WaitPage):
             ready_at = pvars.get(ready_at_key)
             if ready_at is None or (now - float(ready_at)) < BATCH_WAIT_MIN_SECONDS:
                 advance = False
+                # Matched but not yet allowed to leave: force a full GET so ready_at
+                # is planted / min-wait is evaluated server-side (status is read-only).
+                # Without this, a fresh form_attempt timestamp can leave the client
+                # polling forever with ready=false and form_due=false until manual refresh.
+                form_due = True
 
         return {
             "ready": bool(advance),

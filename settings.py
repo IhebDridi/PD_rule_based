@@ -352,6 +352,10 @@ SESSION_CONFIG_DEFAULTS = dict(
     # Create Session → Configure shows a dropdown (see shared/otree_session_config_selects.py).
     # Values: finish | results_part1 | results_part2 | results_part3 | guess | debriefing
     bot_stop_at="finish",
+    # Researcher Results integrity panel (choice↔payoff, screen↔DB, cache↔DB).
+    # False for Prolific subjects (no extra work on Results). Enable in Create Session
+    # when reviewing a session; also on when OTREE_PRODUCTION is unset/0.
+    tg_show_results_integrity=False,
 )
 
 # Render bot_stop_at (and any future select fields) as dropdowns in Create Session.

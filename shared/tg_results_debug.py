@@ -167,9 +167,10 @@ def build_tg_results_debug(
     *,
     rounds_per_part: int = 10,
     force: bool = False,
+    cache_part: Optional[List[dict]] = None,
 ) -> Optional[dict]:
     """
-    Full Results integrity check for the viewing participant (DEBUG mode only).
+    Full Results integrity check for the viewing participant.
 
     For each round, compare what the Results table shows against what the DB
     implies for *this* player's directed match:
@@ -178,11 +179,22 @@ def build_tg_results_debug(
     - their active choice (contingent selected by role)
     - opponent choice (opponent contingent for the complementary role)
     - their payoff (screen vs stored, and stored vs recomputed from DB moves)
+    - optional cache row vs live display (when ``cache_part`` is provided)
 
-    Set ``force=True`` (e.g. TG session inspector) to run outside DEBUG mode.
+    Set ``force=True`` (session inspector / ``tg_show_results_integrity``) to run
+    outside DEBUG mode.
     """
     if not force and not _otree_debug_mode():
         return None
+
+    cache_by_round: dict = {}
+    if isinstance(cache_part, list):
+        for entry in cache_part:
+            if not isinstance(entry, dict):
+                continue
+            rnd = entry.get("round")
+            if rnd is not None:
+                cache_by_round[int(rnd)] = entry
 
     rows: List[dict] = []
     flags_by_round: dict = {}
@@ -249,8 +261,30 @@ def build_tg_results_debug(
         if expected_payoff is not None and db.get("payoff") != expected_payoff:
             flags.append("db_payoff_inconsistent")
 
+        # Cache (what subject table used) vs live DB-derived display
+        cached = cache_by_round.get(display_round)
+        if cached is not None:
+            for field, flag in (
+                ("role_assigned", "cache_role_mismatch"),
+                ("my_choice", "cache_my_choice_mismatch"),
+                ("other_choice", "cache_other_choice_mismatch"),
+                ("payoff", "cache_payoff_mismatch"),
+            ):
+                if cached.get(field) != display.get(field):
+                    flags.append(flag)
+
         flags_str = ", ".join(flags) if flags else "ok"
         mismatch = _build_mismatch_detail(display, db, flags)
+        if cached is not None and any(f.startswith("cache_") for f in flags):
+            if mismatch is None:
+                mismatch = {"messages": [], "summary": ""}
+            for field in ("role_assigned", "my_choice", "other_choice", "payoff"):
+                if cached.get(field) != display.get(field):
+                    mismatch["messages"].append(
+                        f"cache {field} — cache: {cached.get(field)!r}, "
+                        f"DB-derived: {display.get(field)!r}"
+                    )
+            mismatch["summary"] = "; ".join(mismatch["messages"])
 
         rows.append(
             {
@@ -261,6 +295,7 @@ def build_tg_results_debug(
                     "other_choice": display.get("other_choice"),
                     "payoff": display.get("payoff"),
                 },
+                "cache": cached,
                 "db": db,
                 "db_effective_choice": db_choice,
                 "db_expected_other_choice": db_other,
@@ -277,6 +312,7 @@ def build_tg_results_debug(
         "tg_debug_part": current_part,
         "tg_debug_all_ok": mismatch_count == 0,
         "tg_debug_mismatch_count": mismatch_count,
+        "show_tg_results_integrity": True,
     }
     for rnd, flag in flags_by_round.items():
         summary_vars[f"tg_debug_R{rnd}_flag"] = flag

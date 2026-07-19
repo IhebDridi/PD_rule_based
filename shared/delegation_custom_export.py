@@ -216,12 +216,16 @@ def canonical_delegation_export_header() -> List[str]:
         "GroupPart1",
         "GroupPart2",
         "GroupPart3",
+        # Trio seat 1–3 within GroupPart (not id_in_session / Prolific).
+        "GroupPosition",
+        "GroupPositionPart1",
+        "GroupPositionPart2",
+        "GroupPositionPart3",
+        # Legacy aliases — same values as GroupPosition*; kept for old analysis scripts.
         "PlayerID",
         "PlayerIDPart1",
         "PlayerIDPart2",
         "PlayerIDPart3",
-        # Explicit aliases: same values as PlayerID* (trio seat 1–3 within GroupPart).
-        # Prefer these in new analysis code; PlayerID* kept for backward compatibility.
         "TrioPosition",
         "TrioPositionPart1",
         "TrioPositionPart2",
@@ -470,16 +474,23 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
             row["GroupPart1"] = gp1
             row["GroupPart2"] = gp2
             row["GroupPart3"] = gp3
+            row["GroupPositionPart1"] = pp1
+            row["GroupPositionPart2"] = pp2
+            row["GroupPositionPart3"] = pp3
+            # Legacy columns: prefer Part 3, else 2, else 1 (never export live -1 after reset).
+            row["Group"] = _first_present(gp3, gp2, gp1)
+            row["GroupPosition"] = _first_present(
+                pp3, pp2, pp1, pvars(p0, "matching_group_position")
+            )
+            # Backward-compatible aliases (same values).
             row["PlayerIDPart1"] = pp1
             row["PlayerIDPart2"] = pp2
             row["PlayerIDPart3"] = pp3
+            row["PlayerID"] = row["GroupPosition"]
             row["TrioPositionPart1"] = pp1
             row["TrioPositionPart2"] = pp2
             row["TrioPositionPart3"] = pp3
-            # Legacy columns: prefer Part 3, else 2, else 1 (never export live -1 after reset).
-            row["Group"] = _first_present(gp3, gp2, gp1)
-            row["PlayerID"] = _first_present(pp3, pp2, pp1, pvars(p0, "matching_group_position"))
-            row["TrioPosition"] = row["PlayerID"]
+            row["TrioPosition"] = row["GroupPosition"]
             row["IsSimulated"] = 1 if is_simulated else 0
             p_last = rounds[-1] if rounds else p0
             row["Gender"] = get_fld(p_last, "gender")

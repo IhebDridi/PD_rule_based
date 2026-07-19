@@ -8,7 +8,11 @@ from datetime import date, datetime, timedelta
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from shared.export_integrity import collect_export_integrity_errors, participant_batch_for_part
-from shared.tg_data_helpers import tg_export_choice_getter, tg_part_has_round_data
+from shared.tg_data_helpers import (
+    get_tg_results_display_from_cache,
+    tg_export_choice_getter,
+    tg_part_has_round_data,
+)
 from shared.tg_results_debug import build_tg_results_debug
 
 
@@ -222,6 +226,9 @@ def _scan_participant(
             get_opponent_in_round,
             rounds_per_part=rounds_per_part,
             force=True,
+            cache_part=get_tg_results_display_from_cache(
+                participant, part, rounds_per_part
+            ),
         )
         part_flags: List[str] = []
         part_rounds: List[Dict[str, Any]] = []

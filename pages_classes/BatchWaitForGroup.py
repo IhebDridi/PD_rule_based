@@ -213,6 +213,8 @@ class BatchWaitForGroup(WaitPage):
             ) + 1
             if in_fresh_claim:
                 clear_matching_batch_cache()
+            # Durable pool update before unlock (same rationale as claim flush).
+            persist_session_state(self.session)
 
     def _clear_provisional_claim_ids(self, trio, batch_id, current_part, can_proceed_key):
         """Clear live provisional ids only — never durable ids from a finished part."""
@@ -263,6 +265,22 @@ class BatchWaitForGroup(WaitPage):
             ) + 1
         clear_matching_batch_cache()
 
+    def _trio_has_part_payoff_progress(self, first_ids, current_part, Constants) -> bool:
+        """True if any trio member already has roles written for this part (TTL reclaim)."""
+        part_start = (current_part - 1) * Constants.rounds_per_part + 1
+        part_end = current_part * Constants.rounds_per_part
+        batch_players = players_at_round_for_member_ids(
+            self.session.id, first_ids, part_start
+        )
+        if not batch_players:
+            return False
+        for p0 in batch_players:
+            for r in range(part_start, part_end + 1):
+                role = p0.in_round(r).field_maybe_none("role_assigned")
+                if role in ("first", "second"):
+                    return True
+        return False
+
     def _finalize_successful_claim(
         self,
         *,
@@ -298,6 +316,7 @@ class BatchWaitForGroup(WaitPage):
             ) + 1
             self.session.vars.pop(claim_key, None)
             clear_matching_batch_cache()
+            persist_session_state(self.session)
 
     def _run_claimed_payoffs(
         self,
@@ -407,6 +426,7 @@ class BatchWaitForGroup(WaitPage):
                 members_key=members_key,
                 first_ids=first_ids,
             )
+            persist_session_state(self.session)
 
     def _try_continue_mid_claim_payoffs(
         self,
@@ -577,6 +597,11 @@ class BatchWaitForGroup(WaitPage):
                     and pmap_stale[sid].vars.get(can_proceed_key)
                     for sid in first_ids
                 )
+                if not any_done and self._trio_has_part_payoff_progress(
+                    first_ids, current_part, Constants
+                ):
+                    # Partial payoffs already landed (writer died mid-part) — never rematch.
+                    any_done = True
                 self.session.vars.pop(claim_key, None)
                 if any_done:
                     # Payoffs already ran (or peers already durable) — finish
@@ -604,6 +629,7 @@ class BatchWaitForGroup(WaitPage):
                     # Drop orphaned in_progress if the writer died after run_key.
                     self.session.vars.pop(f"{run_key}_in_progress", None)
                     clear_matching_batch_cache()
+                    persist_session_state(self.session)
                     return
 
                 self.session.vars.pop(
@@ -623,6 +649,7 @@ class BatchWaitForGroup(WaitPage):
                         p.vars.pop(f"group_part_{current_part}", None)
                         p.vars.pop(f"group_position_part_{current_part}", None)
                 clear_matching_batch_cache()
+                persist_session_state(self.session)
 
             pmap = participants_by_id_in_session(self.session.id, first_ids)
             trio = [pmap.get(i) for i in first_ids]

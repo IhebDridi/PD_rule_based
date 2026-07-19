@@ -204,14 +204,18 @@ class Results(Page):
     ):
         """
         Prefer results_display_cache written at payoff time (cheap for navigators).
-        Rebuild from DB only on cache miss; heavy diagram/debug work only in debug mode
-        or when the cache is missing. Payoff DB fields remain the source of truth.
+        Rebuild from DB only on cache miss; heavy diagram/debug work only when
+        integrity is enabled (debug mode or session.config tg_show_results_integrity).
+        Payoff DB fields remain the source of truth for subjects' table when using cache.
         """
         from shared.tg_data_helpers import get_tg_results_display_from_cache
 
         am = app_models(self.player)
         get_opponent_in_round = am.get_opponent_in_round
         debug = is_otree_debug_mode()
+        show_integrity = debug or bool(
+            self.session.config.get("tg_show_results_integrity")
+        )
 
         cache_part = get_tg_results_display_from_cache(
             self.participant, current_part, Constants.rounds_per_part
@@ -236,10 +240,11 @@ class Results(Page):
                 round_diagrams=[],
                 all_rounds_tree={},
                 show_round_diagrams=False,
+                show_tg_results_integrity=False,
             )
-            if not debug:
+            if not show_integrity:
                 return out
-            # Debug: still attach diagrams/checks without blocking production users.
+            # Integrity / diagrams: researchers only — subjects never hit this path.
         else:
             rounds_data = []
             for r in range(part_start, part_end + 1):
@@ -252,9 +257,10 @@ class Results(Page):
                 current_part=current_part,
                 display_part=current_part,
                 rounds_data=rounds_data,
-                show_round_diagrams=debug,
+                show_round_diagrams=False,
+                show_tg_results_integrity=False,
             )
-            if not debug:
+            if not show_integrity:
                 # Production cache-miss: show table from DB, skip diagram rebuild.
                 out.update(
                     group_overview={},
@@ -278,6 +284,8 @@ class Results(Page):
             current_part,
             get_opponent_in_round,
             rounds_per_part=Constants.rounds_per_part,
+            force=True,
+            cache_part=cache_part,
         )
         debug_rounds = tg_debug["rounds"] if tg_debug else None
         annotate_diagrams_with_debug(diagrams["rounds"], debug_rounds)
@@ -287,6 +295,7 @@ class Results(Page):
             round_diagrams=diagrams["rounds"],
             all_rounds_tree=all_rounds_tree,
             show_round_diagrams=True,
+            show_tg_results_integrity=True,
         )
         if tg_debug is not None:
             out["tg_results_debug"] = {

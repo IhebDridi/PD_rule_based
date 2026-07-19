@@ -36,6 +36,63 @@
         Note that, even though the 2nd mover decision does not count if the 1st mover chose B, we still show it for transparency.
     </p>
 
+    {% if show_tg_results_integrity and tg_results_debug %}
+    <section class="tg-integrity-panel" style="margin:1.5rem 0;padding:1rem;border:1px solid #888;border-radius:4px;">
+        <h2 style="font-size:1.1rem;margin:0 0 0.5rem;">Researcher integrity — Part {{ tg_results_debug.part }}</h2>
+        <p style="font-size:0.9rem;margin:0 0 0.75rem;">
+            Compares (1) table / cache vs DB-derived display, (2) DB payoff vs recomputed from contingent choices.
+            {% if tg_debug_all_ok %}
+            <strong style="color:#0a7;">All rounds OK</strong>
+            {% else %}
+            <strong style="color:#a40;">{{ tg_debug_mismatch_count }} round(s) with flags</strong>
+            {% endif %}
+        </p>
+        <div class="table-container">
+            <table class="styled-table" style="font-size:0.85rem;">
+                <thead>
+                    <tr>
+                        <th>Round</th>
+                        <th>Screen role / choice / other / payoff</th>
+                        <th>DB role / c1 / c2 / payoff</th>
+                        <th>Expected payoff</th>
+                        <th>Flags</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in tg_results_debug.rounds %}
+                    <tr{% if row.warn %} style="background:#fff4e5;"{% endif %}>
+                        <td>{{ row.round }}</td>
+                        <td>
+                            {{ row.display.role_assigned }} /
+                            {{ row.display.my_choice }} /
+                            {{ row.display.other_choice }} /
+                            {{ row.display.payoff }}
+                        </td>
+                        <td>
+                            {{ row.db.role_assigned }} /
+                            {{ row.db.choice_first_mover }} /
+                            {{ row.db.choice_second_mover }} /
+                            {{ row.db.payoff }}
+                        </td>
+                        <td>{{ row.db_expected_payoff }}</td>
+                        <td>
+                            {% if row.warn %}
+                                {% for f in row.flags %}{{ f }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                                {% if row.mismatch and row.mismatch.summary %}
+                                <div style="margin-top:0.25rem;color:#666;">{{ row.mismatch.summary }}</div>
+                                {% endif %}
+                            {% else %}
+                                ok
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    {% endif %}
+
     {% if round_diagrams %}
     <section class="round-diagrams-section">
         <h2 class="diagrams-title">Round-by-round matching diagrams</h2>

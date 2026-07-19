@@ -14,6 +14,11 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from otree.api import cu
 
+from shared.stale_session_flag import (
+    DEFAULT_STALE_TTL_SECONDS,
+    clear_timed_flag,
+    try_acquire_timed_flag,
+)
 from shared.tg_data_helpers import write_tg_results_display_cache
 
 _ROUND_ROBIN_CACHE: Dict[int, Any] = {}
@@ -133,10 +138,15 @@ def run_payoffs_for_matching_group_tg(
     if subsession.session.vars.get(run_key):
         return True
 
+    # Timestamped lock: if the worker dies mid-payoff, TTL lets the next waiter retry
+    # without an admin clearing session.vars. Happy path still clears in finally.
     in_progress_key = f"{run_key}_in_progress"
-    if subsession.session.vars.get(in_progress_key):
+    if not try_acquire_timed_flag(
+        subsession.session.vars,
+        in_progress_key,
+        DEFAULT_STALE_TTL_SECONDS,
+    ):
         return False
-    subsession.session.vars[in_progress_key] = True
 
     key = f"matching_group_members_part_{current_part}_{matching_group_id}"
     member_ids = subsession.session.vars.get(key)
@@ -201,7 +211,7 @@ def run_payoffs_for_matching_group_tg(
         subsession.session.vars[run_key] = True
         return True
     finally:
-        subsession.session.vars.pop(in_progress_key, None)
+        clear_timed_flag(subsession.session.vars, in_progress_key)
 
 
 def _opponent_effective_choice(opponent, opp_role: Optional[str]) -> Optional[str]:

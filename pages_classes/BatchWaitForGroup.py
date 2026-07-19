@@ -5,6 +5,7 @@ from starlette.responses import JSONResponse
 
 from shared.export_integrity import record_data_errors_for_participants
 from shared.session_part_lock import normalize_pool_ids, session_part_lock, try_session_part_lock
+from shared.stale_session_flag import DEFAULT_STALE_TTL_SECONDS, flag_is_fresh
 from shared.tg_player_lookup import participants_by_id_in_session, players_at_round_for_member_ids
 
 from .model_bridge import app_models
@@ -240,8 +241,16 @@ class BatchWaitForGroup(WaitPage):
 
             first_ids = pool[:group_size]
             claim_key = f"{claim_prefix}{'_'.join(map(str, first_ids))}"
-            if self.session.vars.get(claim_key):
+            claim_val = self.session.vars.get(claim_key)
+            if claim_val is not None and flag_is_fresh(claim_val, DEFAULT_STALE_TTL_SECONDS, now=now):
                 return
+            if claim_val is not None:
+                # Stale claim after a crash: drop it so this trio can be re-claimed.
+                self.session.vars.pop(claim_key, None)
+                stale_batch_id = first_ids[0]
+                self.session.vars.pop(
+                    f"matching_group_members_part_{current_part}_{stale_batch_id}", None
+                )
 
             pmap = participants_by_id_in_session(self.session.id, first_ids)
             trio = [pmap.get(i) for i in first_ids]
@@ -273,7 +282,8 @@ class BatchWaitForGroup(WaitPage):
                 )
                 return
 
-            self.session.vars[claim_key] = True
+            # Timestamp (not bare True) so a killed worker cannot lock the trio forever.
+            self.session.vars[claim_key] = now
             # Provisional member list for the payoff runner; removed if payoffs fail.
             self.session.vars[f"matching_group_members_part_{current_part}_{batch_id}"] = list(
                 first_ids

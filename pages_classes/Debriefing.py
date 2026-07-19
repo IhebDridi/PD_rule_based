@@ -28,6 +28,13 @@ def _sum_known_payoffs(entries):
     return int(total)
 
 
+def _fmt_optional_number(value) -> str:
+    """Template-safe display: em dash when unknown (avoids oTree ``is None`` / ``== None``)."""
+    if value is None:
+        return "—"
+    return str(value)
+
+
 class Debriefing(Page):
     """Final round only. Shows results_by_part, random_payoff_part, Part 4 guessing table, and total bonus."""
     template_name = 'global/Debriefing.html'
@@ -222,6 +229,16 @@ class Debriefing(Page):
                 row["payoff_dollars"] = "—"
                 continue
             row["payoff_dollars"] = "0.1" if amount > 0 else "0"
+
+        # Pre-format optional values — oTree templates cannot parse ``is None`` / ``== None``.
+        for pdata in results_by_part.values():
+            for r in pdata.get("rounds") or []:
+                r["payoff_display"] = _fmt_optional_number(r.get("payoff"))
+            total = pdata.get("total_payoff")
+            pdata["total_payoff_display"] = (
+                f"{total} Ecoins" if total is not None else "—"
+            )
+
         return {
             "results_by_part": results_by_part,
             "random_payoff_part": payoff_part,
@@ -235,4 +252,5 @@ class Debriefing(Page):
             "total_bonus": total_bonus,
             "total_bonus_cents": total_bonus_cents,
             "total_bonus_dollars": total_bonus_dollars,
+            "total_bonus_dollars_display": _fmt_optional_number(total_bonus_dollars),
         }

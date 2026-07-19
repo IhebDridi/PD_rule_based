@@ -7,6 +7,7 @@ import random
 
 from otree.bots.bot import Submission
 
+from shared.bot_stop_at import normalize_bot_stop_at
 from shared.tg_bot_forms import (
     seed_goal_agent_first,
     seed_goal_agent_second,
@@ -21,19 +22,6 @@ from shared.tg_v2_bot_stress import patch_tg_v2_bot_runner
 
 TREATMENTS = frozenset({"rule_based", "goal", "supervised", "llm"})
 
-# Session config key ``bot_stop_at`` (Create Session → Advanced).
-# Bots halt on that page without submitting Next (inspect data mid-run).
-BOT_STOP_AT_CHOICES = frozenset(
-    {
-        "finish",
-        "results_part1",
-        "results_part2",
-        "results_part3",
-        "guess",
-        "debriefing",
-    }
-)
-
 COMPREHENSION_ANSWERS = {
     "q1": "c",
     "q2": "b",
@@ -44,13 +32,6 @@ COMPREHENSION_ANSWERS = {
     "q5": "d",
     "q10": "b",
 }
-
-
-def normalize_bot_stop_at(raw) -> str:
-    value = str(raw or "finish").strip().lower()
-    if value not in BOT_STOP_AT_CHOICES:
-        return "finish"
-    return value
 
 
 def _bot_stop_at(bot) -> str:

@@ -73,7 +73,7 @@ otree create_session TG_rule_based_delegation_1st 10
 
 | Key | Meaning |
 |-----|---------|
-| `bot_stop_at` | Where browser bots halt without clicking Next: `finish` \| `results_part1` \| `results_part2` \| `results_part3` \| `guess` \| `debriefing` |
+| `bot_stop_at` | Dropdown in Create Session → Configure: `finish` \| `results_part1` \| `results_part2` \| `results_part3` \| `guess` \| `debriefing` |
 | `use_midnight_teal` | UI theme (`OTREE_THEME=midnight-teal` / `classic`) |
 | `real_world_currency_per_point` | Default `0.01` |
 | `participation_fee` | Default `6` |

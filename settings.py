@@ -349,10 +349,17 @@ SESSION_CONFIG_DEFAULTS = dict(
     # Dev-branch UI theme. Set False (or OTREE_THEME=classic) before merging to main.
     use_midnight_teal=environ.get("OTREE_THEME", "midnight-teal") == "midnight-teal",
     # Browser / otree-test bots (TG PlayerBot): where to halt without clicking Next.
-    # Shown in Create Session → Advanced. Values:
-    #   finish | results_part1 | results_part2 | results_part3 | guess | debriefing
+    # Create Session → Configure shows a dropdown (see shared/otree_session_config_selects.py).
+    # Values: finish | results_part1 | results_part2 | results_part3 | guess | debriefing
     bot_stop_at="finish",
 )
+
+# Render bot_stop_at (and any future select fields) as dropdowns in Create Session.
+try:
+    import shared.otree_session_config_selects  # noqa: F401
+except Exception:
+    pass
+
 
 # Mirror of session default (docs / quick toggle). Prefer OTREE_THEME env var.
 #   OTREE_THEME=midnight-teal  → dark teal theme (dev default)

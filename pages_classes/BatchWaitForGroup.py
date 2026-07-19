@@ -245,12 +245,24 @@ class BatchWaitForGroup(WaitPage):
             if claim_val is not None and flag_is_fresh(claim_val, DEFAULT_STALE_TTL_SECONDS, now=now):
                 return
             if claim_val is not None:
-                # Stale claim after a crash: drop it so this trio can be re-claimed.
+                # Stale claim after a crash: drop session keys AND provisional participant
+                # ids (soft-fail already does this; reclaim must too to avoid pollution).
                 self.session.vars.pop(claim_key, None)
                 stale_batch_id = first_ids[0]
                 self.session.vars.pop(
                     f"matching_group_members_part_{current_part}_{stale_batch_id}", None
                 )
+                for sid in first_ids:
+                    p = participants_by_id_in_session(self.session.id, [sid]).get(sid)
+                    if p is None:
+                        continue
+                    if p.vars.get("matching_group_id") == stale_batch_id:
+                        p.vars["matching_group_id"] = -1
+                    p.vars.pop("matching_group_position", None)
+                    # Never keep durable GroupPart from a stale unfinished claim.
+                    if p.vars.get(f"group_part_{current_part}") == stale_batch_id:
+                        p.vars.pop(f"group_part_{current_part}", None)
+                        p.vars.pop(f"group_position_part_{current_part}", None)
 
             pmap = participants_by_id_in_session(self.session.id, first_ids)
             trio = [pmap.get(i) for i in first_ids]

@@ -53,7 +53,11 @@ class DelegationDecision(Page):
             if decided is False:
                 for i in range(1, 11):
                     field = f"decision_optional_delegation_round_{i}"
-                    if hasattr(pr, field):
+                    try:
+                        # Prefer field API — hasattr on null Player fields can raise in oTree.
+                        if pr.field_maybe_none(field) is not None:
+                            setattr(pr, field, None)
+                    except Exception:
                         try:
                             setattr(pr, field, None)
                         except Exception:

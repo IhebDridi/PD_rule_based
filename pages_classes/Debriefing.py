@@ -9,8 +9,8 @@ from .model_bridge import app_models, is_tg_app
 from .page_helpers import is_excluded_from_study
 
 
-def _sum_known_payoffs(entries) -> int:
-    """Sum only known numeric payoffs; missing values contribute nothing (not invent 0)."""
+def _sum_known_payoffs(entries):
+    """Sum known numeric payoffs; return None when nothing known (do not invent 0)."""
     total = 0.0
     any_known = False
     for entry in entries:
@@ -22,7 +22,7 @@ def _sum_known_payoffs(entries) -> int:
             any_known = True
         except (TypeError, ValueError):
             continue
-    return int(total) if any_known else 0
+    return int(total) if any_known else None
 
 
 class Debriefing(Page):
@@ -193,9 +193,9 @@ class Debriefing(Page):
             except (TypeError, ValueError):
                 continue
 
-        total_bonus = results_by_part[payoff_part]["total_payoff"] + guessing_bonus
         total_payoff_val = results_by_part[payoff_part]["total_payoff"]
         total_payoff_ecoins = int(total_payoff_val) if total_payoff_val is not None else 0
+        total_bonus = (total_payoff_val if total_payoff_val is not None else 0) + guessing_bonus
         total_payoff_cents = total_payoff_ecoins // 10
         guessing_bonus_ecoins = int(guessing_bonus or 0)
         guessing_bonus_cents = guessing_bonus_ecoins

@@ -127,7 +127,10 @@ def collect_export_integrity_errors(
     for part in (1, 2, 3):
         if not _part_has_choices(rounds, part, rounds_per_part, get_choice):
             continue
-        batch = participant_batch_for_part(session, pid, part)
+        preferred = participant.vars.get(f"group_part_{part}")
+        batch = participant_batch_for_part(
+            session, pid, part, preferred_batch_id=preferred
+        )
         if batch is None:
             errors.append(f"PART{part}_GROUPING_MISSING")
             continue

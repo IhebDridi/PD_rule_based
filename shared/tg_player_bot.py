@@ -173,6 +173,8 @@ def make_tg_player_bot_play_round(
             return
 
         if rnd == 1:
+            # Export flag — never leave bots looking like IsSimulated=0 humans.
+            self.participant.vars["is_simulated"] = True
             yield InformedConsent, {"prolific_id": f"TG_BOT_{self.participant.id_in_session:03d}"}
             yield MainInstructions
             yield ComprehensionTest, COMPREHENSION_ANSWERS

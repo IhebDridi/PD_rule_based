@@ -67,7 +67,10 @@ def resolve_batch_for_participant(
             session, participant_id, part, preferred_batch_id=prefer
         )
 
-    _BATCH_LOOKUP_CACHE[cache_key] = result
+    # Never cache misses: under burst, members/GroupPart may appear moments later.
+    # Caching None permanently emptied Results / opponent rows until worker restart.
+    if result is not None:
+        _BATCH_LOOKUP_CACHE[cache_key] = result
     return result
 
 

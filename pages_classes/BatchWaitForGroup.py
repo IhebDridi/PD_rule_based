@@ -115,11 +115,7 @@ class BatchWaitForGroup(WaitPage):
 
         if _params:
             if _params.get("quit"):
-                with session_part_lock(self.session, current_part):
-                    pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
-                    pool = [sid for sid in pool if sid != self.participant.id_in_session]
-                    self.session.vars[pool_key] = pool
-                    self.session.vars[pool_version_key] = int(self.session.vars.get(pool_version_key, 0)) + 1
+                self._quit_from_results_pool(current_part, pool_key, pool_version_key)
                 self.participant.vars["quit_to_prolific_results"] = True
                 self.participant.vars[f"results_waiting_part_{current_part}"] = False
                 return self._response_when_ready()
@@ -166,6 +162,273 @@ class BatchWaitForGroup(WaitPage):
             return self._get_wait_page()
         return self._response_when_ready()
 
+    def _quit_from_results_pool(self, current_part, pool_key, pool_version_key):
+        """
+        Remove this participant from the wait pool.
+
+        If they sit in a *fresh* claim, abort that whole claim (clear provisional
+        ids for the trio) so the remaining two are not rematched mid-payoff into
+        a new front-of-pool trio — that path polluted GroupPart / Results.
+        """
+        claim_prefix = f"results_group_claim_part_{current_part}_"
+        can_proceed_key = f"can_proceed_to_results_part_{current_part}"
+        pid = self.participant.id_in_session
+        now = time.time()
+
+        with session_part_lock(self.session, current_part):
+            pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
+            live_gid = self.participant.vars.get("matching_group_id")
+            aborted_claim = False
+            if (
+                live_gid is not None
+                and int(live_gid) >= 0
+                and not self.participant.vars.get(can_proceed_key)
+            ):
+                members_key = f"matching_group_members_part_{current_part}_{int(live_gid)}"
+                member_ids = self.session.vars.get(members_key)
+                if (
+                    isinstance(member_ids, (list, tuple))
+                    and len(member_ids) >= 3
+                    and pid in member_ids
+                ):
+                    claim_key = f"{claim_prefix}{'_'.join(map(str, list(member_ids)[:3]))}"
+                    claim_val = self.session.vars.get(claim_key)
+                    if claim_val is not None and flag_is_fresh(
+                        claim_val, DEFAULT_STALE_TTL_SECONDS, now=now
+                    ):
+                        aborted_claim = True
+                        batch_id = int(live_gid)
+                        trio_ids = [int(x) for x in list(member_ids)[:3]]
+                        self.session.vars.pop(claim_key, None)
+                        self.session.vars.pop(members_key, None)
+                        pmap = participants_by_id_in_session(self.session.id, trio_ids)
+                        for sid in trio_ids:
+                            p = pmap.get(sid)
+                            if p is None:
+                                continue
+                            # Never wipe durable success.
+                            if p.vars.get(can_proceed_key):
+                                continue
+                            if p.vars.get("matching_group_id") == batch_id:
+                                p.vars["matching_group_id"] = -1
+                            p.vars.pop("matching_group_position", None)
+                            if p.vars.get(f"group_part_{current_part}") == batch_id:
+                                p.vars.pop(f"group_part_{current_part}", None)
+                                p.vars.pop(f"group_position_part_{current_part}", None)
+                        # Quitter stays out; other two return to pool (if not already done).
+                        others = [x for x in trio_ids if x != pid]
+                        pool = [x for x in pool if x not in trio_ids]
+                        pool = normalize_pool_ids(pool + others)
+
+            if not aborted_claim:
+                pool = [sid for sid in pool if sid != pid]
+
+            self.session.vars[pool_key] = pool
+            self.session.vars[pool_version_key] = int(
+                self.session.vars.get(pool_version_key, 0)
+            ) + 1
+
+    def _clear_provisional_claim_ids(self, trio, batch_id, current_part, can_proceed_key):
+        """Clear live provisional ids only — never durable ids from a finished part."""
+        for p in trio:
+            if p is None:
+                continue
+            if p.vars.get(can_proceed_key):
+                continue
+            if p.vars.get("matching_group_id") == batch_id:
+                p.vars["matching_group_id"] = -1
+            p.vars.pop("matching_group_position", None)
+            if p.vars.get(f"group_part_{current_part}") == batch_id:
+                p.vars.pop(f"group_part_{current_part}", None)
+                p.vars.pop(f"group_position_part_{current_part}", None)
+
+    def _rotate_failed_trio_under_lock(
+        self,
+        *,
+        current_part,
+        pool_key,
+        pool_version_key,
+        claim_key,
+        members_key,
+        first_ids,
+    ):
+        """Soft-fail: drop claim/members and put the failed trio at the back of the pool."""
+        self.session.vars.pop(claim_key, None)
+        self.session.vars.pop(members_key, None)
+        pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
+        rest = [x for x in pool if x not in first_ids]
+        rotated = normalize_pool_ids(rest + list(first_ids))
+        if rotated != pool:
+            self.session.vars[pool_key] = rotated
+            self.session.vars[pool_version_key] = int(
+                self.session.vars.get(pool_version_key, 0)
+            ) + 1
+
+    def _finalize_successful_claim(
+        self,
+        *,
+        am,
+        current_part,
+        can_proceed_key,
+        waiting_key,
+        ready_at_key,
+        pool_key,
+        pool_version_key,
+        claim_key,
+        first_ids,
+        batch_id,
+        trio,
+        now,
+    ):
+        """Durable GroupPart only after payoffs succeeded — then release claim/pool."""
+        for p in trio:
+            p.vars[can_proceed_key] = True
+            p.vars[ready_at_key] = now
+            p.vars[waiting_key] = False
+            p.vars[f"group_part_{current_part}"] = batch_id
+            pos = p.vars.get("matching_group_position")
+            if pos is not None:
+                p.vars[f"group_position_part_{current_part}"] = pos
+
+        with session_part_lock(self.session, current_part):
+            pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
+            pool = [x for x in pool if x not in first_ids]
+            self.session.vars[pool_key] = pool
+            self.session.vars[pool_version_key] = int(
+                self.session.vars.get(pool_version_key, 0)
+            ) + 1
+            self.session.vars.pop(claim_key, None)
+            self.session.vars.pop(
+                f"payoffs_not_ready_logged_part_{current_part}_{batch_id}", None
+            )
+
+    def _run_claimed_payoffs(
+        self,
+        *,
+        am,
+        current_part,
+        can_proceed_key,
+        waiting_key,
+        ready_at_key,
+        pool_key,
+        pool_version_key,
+        first_ids,
+        batch_id,
+        claim_key,
+        trio,
+        now,
+    ):
+        """
+        Run payoffs outside the formation lock.
+
+        Status handling (no pollution):
+          True — durable GroupPart + release claim
+          "in_progress" — leave claim+provisional alone (peer is writing)
+          False — choices not ready: soft-fail rotate under lock
+          None — hard fail: clear provisional, soft-fail rotate under lock
+        """
+        members_key = f"matching_group_members_part_{current_part}_{batch_id}"
+        status = am.run_payoffs_for_matching_group(self.subsession, batch_id)
+
+        if status is True:
+            self._finalize_successful_claim(
+                am=am,
+                current_part=current_part,
+                can_proceed_key=can_proceed_key,
+                waiting_key=waiting_key,
+                ready_at_key=ready_at_key,
+                pool_key=pool_key,
+                pool_version_key=pool_version_key,
+                claim_key=claim_key,
+                first_ids=first_ids,
+                batch_id=batch_id,
+                trio=trio,
+                now=now,
+            )
+            return
+
+        if status == "in_progress":
+            # Peer still computing — do NOT rotate or clear provisional.
+            return
+
+        # Choices not ready (False) or hard fail (None): clear provisional + rotate.
+        if status is False:
+            log_key = f"payoffs_not_ready_logged_part_{current_part}_{batch_id}"
+            if not self.session.vars.get(log_key):
+                record_data_errors_for_participants(
+                    trio,
+                    "PAYOFFS_OR_RESULTS_NOT_READY",
+                    f"part={current_part} batch_id={batch_id}",
+                )
+                self.session.vars[log_key] = True
+
+        self._clear_provisional_claim_ids(trio, batch_id, current_part, can_proceed_key)
+        with session_part_lock(self.session, current_part):
+            self._rotate_failed_trio_under_lock(
+                current_part=current_part,
+                pool_key=pool_key,
+                pool_version_key=pool_version_key,
+                claim_key=claim_key,
+                members_key=members_key,
+                first_ids=first_ids,
+            )
+
+    def _try_continue_mid_claim_payoffs(
+        self,
+        *,
+        am,
+        current_part,
+        can_proceed_key,
+        waiting_key,
+        ready_at_key,
+        pool_key,
+        pool_version_key,
+        claim_prefix,
+        now,
+    ):
+        """
+        If this participant is already in a fresh claim, retry payoffs without
+        forming a new trio (prevents rejoin-while-claimed races).
+        """
+        if self.participant.vars.get(can_proceed_key):
+            return False
+        live_gid = self.participant.vars.get("matching_group_id")
+        if live_gid is None or int(live_gid) < 0:
+            return False
+        batch_id = int(live_gid)
+        members_key = f"matching_group_members_part_{current_part}_{batch_id}"
+        member_ids = self.session.vars.get(members_key)
+        if not isinstance(member_ids, (list, tuple)) or len(member_ids) < 3:
+            return False
+        first_ids = [int(x) for x in list(member_ids)[:3]]
+        if self.participant.id_in_session not in first_ids:
+            return False
+        claim_key = f"{claim_prefix}{'_'.join(map(str, first_ids))}"
+        claim_val = self.session.vars.get(claim_key)
+        if claim_val is None or not flag_is_fresh(claim_val, DEFAULT_STALE_TTL_SECONDS, now=now):
+            return False
+
+        pmap = participants_by_id_in_session(self.session.id, first_ids)
+        trio = [pmap.get(i) for i in first_ids]
+        if any(p is None for p in trio):
+            return False
+
+        self._run_claimed_payoffs(
+            am=am,
+            current_part=current_part,
+            can_proceed_key=can_proceed_key,
+            waiting_key=waiting_key,
+            ready_at_key=ready_at_key,
+            pool_key=pool_key,
+            pool_version_key=pool_version_key,
+            first_ids=first_ids,
+            batch_id=batch_id,
+            claim_key=claim_key,
+            trio=trio,
+            now=now,
+        )
+        return True
+
     def _update_results_pool_and_maybe_group(self):
         """Join once; later polls are cheap unless formation is due."""
         am = app_models(self.player)
@@ -183,6 +446,20 @@ class BatchWaitForGroup(WaitPage):
         group_size = self.FIXED_RESULTS_GROUP_SIZE
         pid = self.participant.id_in_session
         now = time.time()
+
+        # Mid-claim: retry payoffs without touching the pool front.
+        if self._try_continue_mid_claim_payoffs(
+            am=am,
+            current_part=current_part,
+            can_proceed_key=can_proceed_key,
+            waiting_key=waiting_key,
+            ready_at_key=ready_at_key,
+            pool_key=pool_key,
+            pool_version_key=pool_version_key,
+            claim_prefix=claim_prefix,
+            now=now,
+        ):
+            return
 
         # Cheap idle path: already in the pool — do not touch session.vars.
         if self.participant.vars.get(waiting_key) and not self.participant.vars.get(can_proceed_key):
@@ -221,7 +498,6 @@ class BatchWaitForGroup(WaitPage):
             if not self.participant.vars.get(waiting_key):
                 self.participant.vars[waiting_key] = True
                 self.participant.vars[joined_at_key] = now
-                # Start form_due clock so status polls can nudge a rare full reload.
                 self.participant.vars[attempt_key] = now
             if pid not in pool:
                 pool = normalize_pool_ids(pool + [pid])
@@ -229,11 +505,7 @@ class BatchWaitForGroup(WaitPage):
                 self.session.vars[pool_version_key] = int(
                     self.session.vars.get(pool_version_key, 0)
                 ) + 1
-            else:
-                # Already listed — do not rewrite session.vars unless forming.
-                pass
 
-            # Cache displayed pool size on participant (avoids session.vars in template).
             self.participant.vars[f"results_pool_seen_n_part_{current_part}"] = len(pool)
 
             if len(pool) < group_size:
@@ -245,21 +517,38 @@ class BatchWaitForGroup(WaitPage):
             if claim_val is not None and flag_is_fresh(claim_val, DEFAULT_STALE_TTL_SECONDS, now=now):
                 return
             if claim_val is not None:
-                # Stale claim after a crash: drop session keys AND provisional participant
-                # ids (soft-fail already does this; reclaim must too to avoid pollution).
-                self.session.vars.pop(claim_key, None)
+                # Stale claim after a crash.
                 stale_batch_id = first_ids[0]
+                run_key = f"payoffs_run_matching_group_{stale_batch_id}_part_{current_part}"
+                pmap_stale = participants_by_id_in_session(self.session.id, first_ids)
+                any_done = bool(self.session.vars.get(run_key)) or any(
+                    (pmap_stale.get(sid) is not None)
+                    and pmap_stale[sid].vars.get(can_proceed_key)
+                    for sid in first_ids
+                )
+                self.session.vars.pop(claim_key, None)
+                if any_done:
+                    # Payoffs already durable — never wipe GroupPart; just drop claim
+                    # and ensure finished ids are not stuck at pool front.
+                    pool = [x for x in pool if x not in first_ids]
+                    self.session.vars[pool_key] = pool
+                    self.session.vars[pool_version_key] = int(
+                        self.session.vars.get(pool_version_key, 0)
+                    ) + 1
+                    return
+
                 self.session.vars.pop(
                     f"matching_group_members_part_{current_part}_{stale_batch_id}", None
                 )
                 for sid in first_ids:
-                    p = participants_by_id_in_session(self.session.id, [sid]).get(sid)
+                    p = pmap_stale.get(sid)
                     if p is None:
+                        continue
+                    if p.vars.get(can_proceed_key):
                         continue
                     if p.vars.get("matching_group_id") == stale_batch_id:
                         p.vars["matching_group_id"] = -1
                     p.vars.pop("matching_group_position", None)
-                    # Never keep durable GroupPart from a stale unfinished claim.
                     if p.vars.get(f"group_part_{current_part}") == stale_batch_id:
                         p.vars.pop(f"group_part_{current_part}", None)
                         p.vars.pop(f"group_position_part_{current_part}", None)
@@ -294,92 +583,40 @@ class BatchWaitForGroup(WaitPage):
                 )
                 return
 
-            # Timestamp (not bare True) so a killed worker cannot lock the trio forever.
+            # Claim + provisional members. Remove trio from pool under lock so quit /
+            # other workers cannot re-form a overlapping front while payoffs run.
             self.session.vars[claim_key] = now
-            # Provisional member list for the payoff runner; removed if payoffs fail.
             self.session.vars[f"matching_group_members_part_{current_part}_{batch_id}"] = list(
                 first_ids
             )
             for i, pl in enumerate(batch_players):
                 pl.participant.vars["matching_group_id"] = batch_id
                 pl.participant.vars["matching_group_position"] = i + 1
+            pool = [x for x in pool if x not in first_ids]
+            self.session.vars[pool_key] = pool
+            self.session.vars[pool_version_key] = int(
+                self.session.vars.get(pool_version_key, 0)
+            ) + 1
             claimed = (first_ids, batch_id, claim_key, trio)
 
         if not claimed:
             return
 
         first_ids, batch_id, claim_key, trio = claimed
-        members_key = f"matching_group_members_part_{current_part}_{batch_id}"
-        payoffs_ready = False
-        try:
-            payoffs_ready = bool(am.run_payoffs_for_matching_group(self.subsession, batch_id))
-            if not payoffs_ready:
-                # Log once per batch — retries are expected until choices are complete.
-                log_key = f"payoffs_not_ready_logged_part_{current_part}_{batch_id}"
-                if not self.session.vars.get(log_key):
-                    record_data_errors_for_participants(
-                        trio,
-                        "PAYOFFS_OR_RESULTS_NOT_READY",
-                        f"part={current_part} batch_id={batch_id}",
-                    )
-                    self.session.vars[log_key] = True
-                return
-
-            # Durable export ids only after payoffs succeed (avoid polluting failed claims).
-            for p in trio:
-                p.vars[can_proceed_key] = True
-                p.vars[ready_at_key] = now
-                p.vars[waiting_key] = False
-                p.vars[f"group_part_{current_part}"] = batch_id
-                pos = p.vars.get("matching_group_position")
-                if pos is not None:
-                    p.vars[f"group_position_part_{current_part}"] = pos
-
-            with session_part_lock(self.session, current_part):
-                pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
-                pool = [x for x in pool if x not in first_ids]
-                self.session.vars[pool_key] = pool
-                self.session.vars[pool_version_key] = int(
-                    self.session.vars.get(pool_version_key, 0)
-                ) + 1
-                self.session.vars.pop(claim_key, None)
-                self.session.vars.pop(
-                    f"payoffs_not_ready_logged_part_{current_part}_{batch_id}", None
-                )
-        finally:
-            if not payoffs_ready:
-                # Do not leave a half-formed match: clear live ids + provisional member list
-                # so Guess/export/opponent lookup cannot treat a failed claim as real.
-                for p in trio:
-                    if p is None:
-                        continue
-                    if p.vars.get("matching_group_id") == batch_id:
-                        p.vars["matching_group_id"] = -1
-                    # Position was only provisional for this claim attempt.
-                    p.vars.pop("matching_group_position", None)
-                    # Never keep durable GroupPart from a failed claim.
-                    p.vars.pop(f"group_part_{current_part}", None)
-                    p.vars.pop(f"group_position_part_{current_part}", None)
-
-                def _clear_claim_and_rotate_failed_trio():
-                    self.session.vars.pop(claim_key, None)
-                    self.session.vars.pop(members_key, None)
-                    # Rotate failed trio to the back so later arrivals can match.
-                    pool = normalize_pool_ids(self.session.vars.get(pool_key, []))
-                    rest = [x for x in pool if x not in first_ids]
-                    rotated = normalize_pool_ids(rest + list(first_ids))
-                    if rotated != pool:
-                        self.session.vars[pool_key] = rotated
-                        self.session.vars[pool_version_key] = int(
-                            self.session.vars.get(pool_version_key, 0)
-                        ) + 1
-
-                with try_session_part_lock(self.session, current_part) as acquired:
-                    _clear_claim_and_rotate_failed_trio()
-                    if not acquired:
-                        # Retry once under blocking lock so cleanup is not skipped.
-                        with session_part_lock(self.session, current_part):
-                            _clear_claim_and_rotate_failed_trio()
+        self._run_claimed_payoffs(
+            am=am,
+            current_part=current_part,
+            can_proceed_key=can_proceed_key,
+            waiting_key=waiting_key,
+            ready_at_key=ready_at_key,
+            pool_key=pool_key,
+            pool_version_key=pool_version_key,
+            first_ids=first_ids,
+            batch_id=batch_id,
+            claim_key=claim_key,
+            trio=trio,
+            now=now,
+        )
 
     def vars_for_template(self):
         """Avoid session.vars here — every access dirties the Session row in oTree."""

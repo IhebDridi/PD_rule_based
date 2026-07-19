@@ -8,9 +8,10 @@ follow the sequential rules. Grouping / round-robin matching is unchanged from P
 
 from __future__ import annotations
 
+import hashlib
 import random
 from collections import defaultdict
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from otree.api import cu
 
@@ -22,6 +23,16 @@ from shared.stale_session_flag import (
 from shared.tg_data_helpers import write_tg_results_display_cache
 
 _ROUND_ROBIN_CACHE: Dict[int, Any] = {}
+
+# BatchWait interprets these (True remains success for older callers).
+PayoffRunStatus = Union[bool, None, str]  # True | False | None | "in_progress"
+
+
+def stable_pair_seed_u32(session_code: str, round_number: int, id_a: int, id_b: int) -> int:
+    """Stable across processes (unlike hash() of str under PYTHONHASHSEED)."""
+    lo, hi = (id_a, id_b) if id_a <= id_b else (id_b, id_a)
+    raw = f"{session_code}|{int(round_number)}|{lo}|{hi}".encode("utf-8")
+    return int(hashlib.sha256(raw).hexdigest()[:8], 16)
 
 
 def is_tg_module(module_name: str) -> bool:
@@ -118,10 +129,15 @@ def run_payoffs_for_matching_group_tg(
     matching_group_id: int,
     Constants: Any,
     compute_rr: Callable[[int, int], Any],
-) -> Optional[bool]:
+) -> PayoffRunStatus:
     """
     TG payoff runner: same pool / batch structure as PD, sequential TG payoffs per pair.
-  Returns True when payoffs were run, False if waiting on choices, None on hard failure.
+
+    Returns:
+      True — payoffs written (or already ran)
+      False — choices not ready yet (caller may soft-fail / rotate)
+      "in_progress" — another request holds the payoff lock (do NOT tear down claim)
+      None — hard failure (missing members / players)
     """
     rnd = subsession.round_number
     current_part = Constants.get_part(rnd)
@@ -146,7 +162,7 @@ def run_payoffs_for_matching_group_tg(
         in_progress_key,
         DEFAULT_STALE_TTL_SECONDS,
     ):
-        return False
+        return "in_progress"
 
     key = f"matching_group_members_part_{current_part}_{matching_group_id}"
     member_ids = subsession.session.vars.get(key)
@@ -193,10 +209,12 @@ def run_payoffs_for_matching_group_tg(
                 if opp_idx is None:
                     continue
                 opp = players_r[opp_idx]
-                pair_seed = hash(
-                    (session_code, r, min(p.participant.id_in_session, opp.participant.id_in_session),
-                     max(p.participant.id_in_session, opp.participant.id_in_session))
-                ) & 0xFFFFFFFF
+                pair_seed = stable_pair_seed_u32(
+                    session_code,
+                    r,
+                    p.participant.id_in_session,
+                    opp.participant.id_in_session,
+                )
                 apply_tg_payoffs_for_pair(p, opp, rng=random.Random(pair_seed), write_both=False)
 
         write_tg_results_display_cache(

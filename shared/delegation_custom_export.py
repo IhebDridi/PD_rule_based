@@ -494,7 +494,8 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
             if spec.demographics == "rule_based":
                 row["UsedAiOrBot"] = get_fld(p_last, "used_ai_or_bot") or ""
             else:
-                row["UsedAiOrBot"] = ""
+                # Goal / supervised / LLM also collect this on ExitQuestionnaire.
+                row["UsedAiOrBot"] = get_fld(p_last, "used_ai_or_bot") or ""
             row["FeedbackFreeText"] = get_fld(p_last, "feedback")
 
             part_totals = [0.0, 0.0, 0.0]

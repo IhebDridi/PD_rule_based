@@ -72,7 +72,8 @@
     </div>
 
     <p class="summary-note">
-        In total, you are entitled to a <strong>bonus payment of {{ total_bonus_dollars }} $.</strong>
+        In total, you are entitled to a <strong>bonus payment of
+        {% if total_bonus_dollars is none %}—{% else %}{{ total_bonus_dollars }}{% endif %} $.</strong>
     </p>
 
     <p class="summary-note">

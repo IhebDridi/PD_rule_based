@@ -83,7 +83,7 @@ flowchart TD
 2. Instructions (`InstructionsNoDelegation` / `InstructionsDelegation` / `InstructionsOptional`)
 3. `DelegationDecision` (Part 3 only)
 4. Agent: `TgGoalOrientedFirst` / `TgGoalOrientedSecond`
-5. Human contingent blocks: `TG_V2_HUMAN_DECISIONS_FIRST_PAGES` + `…_SECOND_PAGES` (10+10 screens on the no-delegation part)
+5. Human / no-delegation decisions: `TG_V2_HUMAN_DECISIONS_FIRST_PAGES` + `…_SECOND_PAGES` — **live pages** (`TgV2HumanDecisionsFirst` / `Second`). Each role is one page that records all 10 rounds via `liveSend` (websocket), then a single form POST when the block is done. That cuts ~20 full page navigations per no-delegation part down to 2, which reduces server load, BatchWait queue pressure, and session-freeze risk under Prolific + bots.
 6. End of each part: `BatchWaitForGroup` → optional `TimeOutquit` → `Results`
 7. After Part 3: `InstructionsGuessingGame` → `GuessDelegation` → `ResultsGuess`
 8. `Debriefing` → `ExitQuestionnaire` → `BotDetection` → `Thankyou`
@@ -249,6 +249,22 @@ If `role_assigned` is missing, Ecoins stay **blank** in the custom export (no in
 
 Parts 2 and 3 each form a **new** trio from whoever is waiting (FIFO again). Positions are stored separately as `GroupPart2` / `GroupPart3`. After Part 3, the guessing game asks whether each Part‑3 opponent delegated; unknown truth → `guess_payoff` left null (not `0`).
 
+
+---
+
+
+## Redis
+
+oTree uses Redis for **channels / wait-page wakeups** across workers (BatchWait and live pages). Experiment data still lives in **Postgres**; Redis is not a substitute for the DB.
+
+| Item | Detail |
+|------|--------|
+| Clever | Create a Redis addon and **link it to the Python oTree app** (not Postgres) |
+| Env | oTree expects `REDIS_URL`. Clever may inject `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` (or `REDIS_CLI_URL`); `run.sh` maps those into `REDIS_URL` when needed |
+| Topology | Prefer **one** app instance + Redis; scaling out web instances for the same session usually worsens Session-row contention |
+| Check | BatchWait logs once per session whether Redis is linked (see `pages_classes/BatchWaitForGroup.py`) |
+
+Without Redis, multi-worker wait wakeups are less reliable. Full Clever layout: [docs/CLEVER_OTREE_SCALING.md](../docs/CLEVER_OTREE_SCALING.md).
 
 ---
 

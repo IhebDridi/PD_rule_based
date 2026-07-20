@@ -2,6 +2,7 @@
 {% load otree_tags %}
 {% block content %}
 <div class="modern-test-container">
+    <h1 class="main-title">Exit Questionnaire</h1>
     <p class="intro-text">
         Thank you so much for participating in our experiment. Please answer some basic demographic questions below before going back to Prolific.
     </p>
@@ -98,6 +99,15 @@ body {
     border-radius: 8px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
 }
+.main-title {
+    font-size: 30px;
+    text-align: center;
+    margin-bottom: 20px;
+    font-weight: bold;
+    color: #333;
+    border-bottom: 3px solid #0056b3;
+    padding-bottom: 10px;
+}
 .intro-text {
     font-size: 16px;
     line-height: 1.6;
@@ -176,6 +186,9 @@ body {
 @media (max-width: 768px) {
     .modern-test-container {
         padding: 15px;
+    }
+    .main-title {
+        font-size: 26px;
     }
     .question-label {
         font-size: 16px;

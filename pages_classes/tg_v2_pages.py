@@ -3,6 +3,7 @@
 from otree.api import *
 
 from shared.export_integrity import record_data_error
+from shared.session_part_lock import persist_session_state
 from shared.tg_block_validation import validate_tg_block_maps
 from shared.tg_data_helpers import (
     copy_tg_contingent_maps_to_rounds,
@@ -265,6 +266,8 @@ class TgV2HumanDecisionsSecond(Page):
         backfill_human_block_fields_on_player(self.player, first_map, second_map)
         _copy_v2_human_to_rounds(self.player, start_round, first_map, second_map)
         self.participant.vars[done_key] = True
+        # Flush before oTree auto-skips into BatchWait in the same request.
+        persist_session_state(self.session)
 
 
 HUMAN_DECISIONS_PER_ROLE = 10
@@ -537,3 +540,5 @@ class TgV2AgentProgrammingSecond(Page):
             return
         _copy_v2_agent_to_rounds(self.player, start_round, first_map, second_map)
         self.participant.vars[done_key] = True
+        # Flush before oTree auto-skips into BatchWait in the same request.
+        persist_session_state(self.session)

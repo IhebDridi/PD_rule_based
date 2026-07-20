@@ -937,6 +937,14 @@ class ExportNullSemanticsTests(unittest.TestCase):
         empty = {k: "" for k in keys}
         self.assertIsNone(_sum_export_numeric_cells(empty, keys))
 
+    def test_part_total_if_complete_all_or_nothing(self):
+        from shared.delegation_custom_export import _part_total_if_complete
+
+        self.assertEqual(_part_total_if_complete(150.0, 10, 10), 150.0)
+        self.assertIsNone(_part_total_if_complete(120.0, 8, 10))
+        self.assertIsNone(_part_total_if_complete(0.0, 0, 10))
+        self.assertIsNone(_part_total_if_complete(200.0, 11, 10))
+
     def test_debrief_guessing_bonus_null_when_any_missing(self):
         from pages_classes.Debriefing import _sum_known_payoffs
 

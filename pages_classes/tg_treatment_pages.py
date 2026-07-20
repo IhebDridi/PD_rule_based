@@ -9,6 +9,7 @@ import random
 from otree.api import *
 
 from shared.export_integrity import record_data_error
+from shared.session_part_lock import persist_session_state
 from shared.tg_block_validation import validate_tg_block_maps
 from shared.tg_data_helpers import merge_block_map, read_agent_first_map_from_player
 
@@ -246,6 +247,10 @@ class _TgAgentBlockSecond(Page):
             return
         _copy_v2_agent_to_rounds(self.player, start_round, first_map, second_map)
         self.participant.vars[done_key] = True
+        # oTree may skip straight into BatchWait in this same request. Flush now so
+        # copying 10 rounds of Player rows does not hold a long transaction that
+        # freezes other participants when BatchWait then dirties Session.vars.
+        persist_session_state(self.session)
 
 
 class TgGoalOrientedFirst(_TgAgentBlockFirst):
@@ -776,6 +781,8 @@ class TgLlmAgentSecond(ChatGPTPage):
             return
         _copy_v2_agent_to_rounds(self.player, start_round, first_map, second_map)
         self.participant.vars[done_key] = True
+        # Flush before oTree auto-skips into BatchWait in the same request.
+        persist_session_state(self.session)
 
     @staticmethod
     def live_method(player, data):

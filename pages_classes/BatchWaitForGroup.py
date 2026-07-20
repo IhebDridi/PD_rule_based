@@ -570,6 +570,8 @@ class BatchWaitForGroup(WaitPage):
                     self.session.vars[pool_version_key] = int(
                         self.session.vars.get(pool_version_key, 0)
                     ) + 1
+                # first_join_key may have been set above even when not in pool.
+                persist_session_state(self.session)
                 return
 
             if not self.participant.vars.get(waiting_key):
@@ -586,12 +588,16 @@ class BatchWaitForGroup(WaitPage):
             self.participant.vars[f"results_pool_seen_n_part_{current_part}"] = len(pool)
 
             if len(pool) < group_size:
+                # Release Session row ASAP so other participants are not frozen
+                # while this request finishes rendering the wait page.
+                persist_session_state(self.session)
                 return
 
             first_ids = pool[:group_size]
             claim_key = f"{claim_prefix}{'_'.join(map(str, first_ids))}"
             claim_val = self.session.vars.get(claim_key)
             if claim_val is not None and flag_is_fresh(claim_val, DEFAULT_STALE_TTL_SECONDS, now=now):
+                persist_session_state(self.session)
                 return
             if claim_val is not None:
                 # Stale claim after a crash — never rematch while a writer lease is live.
@@ -604,6 +610,7 @@ class BatchWaitForGroup(WaitPage):
                     now=now,
                 ):
                     # Writer still heartbeating; claim age alone must not steal the trio.
+                    persist_session_state(self.session)
                     return
                 pmap_stale = participants_by_id_in_session(self.session.id, first_ids)
                 any_done = bool(self.session.vars.get(run_key)) or any(
@@ -670,6 +677,7 @@ class BatchWaitForGroup(WaitPage):
             if any(p is None for p in trio):
                 pool = [x for x in pool if x in pmap]
                 self.session.vars[pool_key] = pool
+                persist_session_state(self.session)
                 return
             drop_ids = [
                 sid
@@ -683,6 +691,7 @@ class BatchWaitForGroup(WaitPage):
                 self.session.vars[pool_version_key] = int(
                     self.session.vars.get(pool_version_key, 0)
                 ) + 1
+                persist_session_state(self.session)
                 return
 
             batch_id = first_ids[0]
@@ -696,6 +705,8 @@ class BatchWaitForGroup(WaitPage):
                     "GROUP_FORMATION_FAILED",
                     f"part={current_part} expected={group_size}",
                 )
+                # Pool join above may already be dirty — flush before unlock.
+                persist_session_state(self.session)
                 return
 
             # Claim + provisional members. Remove trio from pool under lock so quit /
@@ -729,6 +740,7 @@ class BatchWaitForGroup(WaitPage):
                 )
                 self.session.vars[pool_key] = pool
                 clear_matching_batch_cache()
+                persist_session_state(self.session)
                 return
             claimed = (first_ids, batch_id, claim_key, trio)
 

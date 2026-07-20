@@ -384,6 +384,15 @@ def _sum_export_numeric_cells(row: dict, keys: List[str], multiplier: float = 1.
     return total
 
 
+def _part_total_if_complete(
+    total: float, payoff_count: int, expected_rounds: int
+) -> Optional[float]:
+    """Export a part total only when every expected round has a real payoff."""
+    if expected_rounds <= 0 or payoff_count != expected_rounds:
+        return None
+    return float(total)
+
+
 def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Iterator[list]:
     C = spec.constants
     by_participant = defaultdict(list)
@@ -510,7 +519,8 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
             row["FeedbackFreeText"] = get_fld(p_last, "feedback")
 
             part_totals = [0.0, 0.0, 0.0]
-            part_has_payoff = [False, False, False]
+            part_payoff_counts = [0, 0, 0]
+            rounds_per_part = int(getattr(C, "rounds_per_part", 10) or 10)
             label = spec.per_round_agent_token
             for pr in rounds:
                 r = pr.round_number
@@ -619,15 +629,15 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                     row[f"Round{r}CoPlayerAgent"] = agent_other
 
                 if pay_float is not None:
-                    if r <= 10:
+                    if 1 <= r <= rounds_per_part:
                         part_totals[0] += pay_float
-                        part_has_payoff[0] = True
-                    elif r <= 20:
+                        part_payoff_counts[0] += 1
+                    elif rounds_per_part < r <= 2 * rounds_per_part:
                         part_totals[1] += pay_float
-                        part_has_payoff[1] = True
-                    else:
+                        part_payoff_counts[1] += 1
+                    elif 2 * rounds_per_part < r <= 3 * rounds_per_part:
                         part_totals[2] += pay_float
-                        part_has_payoff[2] = True
+                        part_payoff_counts[2] += 1
 
             for i, part_key in enumerate(
                 [
@@ -637,9 +647,10 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                 ],
                 start=1,
             ):
-                row[part_key] = (
-                    int(part_totals[i - 1]) if part_has_payoff[i - 1] else ""
+                complete = _part_total_if_complete(
+                    part_totals[i - 1], part_payoff_counts[i - 1], rounds_per_part
                 )
+                row[part_key] = int(complete) if complete is not None else ""
 
             n_rounds = len(rounds)
             for i in range(1, 11):
@@ -718,9 +729,13 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                 row["TotalEarningsPart4Dollars"] = "quit"
                 row["BonusPaymentTotal"] = 1.0
             elif part_chosen in (1, 2, 3):
-                if part_has_payoff[part_chosen - 1]:
-                    ecoins = float(part_totals[part_chosen - 1])
-                    row["TotalEarningsParts123Dollars"] = round(ecoins * 0.001, 4)
+                complete = _part_total_if_complete(
+                    part_totals[part_chosen - 1],
+                    part_payoff_counts[part_chosen - 1],
+                    rounds_per_part,
+                )
+                if complete is not None:
+                    row["TotalEarningsParts123Dollars"] = round(complete * 0.001, 4)
                 else:
                     row["TotalEarningsParts123Dollars"] = ""
                 row["PartChosenBonus"] = part_chosen
@@ -744,6 +759,7 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                 else:
                     row["BonusPaymentTotal"] = ""
             else:
+                # No valid lottery part — never invent a Part-4-only bonus total.
                 row["PartChosenBonus"] = part_chosen if part_chosen is not None else ""
                 row["TotalEarningsParts123Dollars"] = ""
                 if spec.layout == "compact_rounds":
@@ -757,9 +773,7 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                 row["TotalEarningsPart4Dollars"] = (
                     round(part4_dollars, 4) if part4_dollars is not None else ""
                 )
-                row["BonusPaymentTotal"] = (
-                    round(part4_dollars, 4) if part4_dollars is not None else ""
-                )
+                row["BonusPaymentTotal"] = ""
 
             delegation_round = 1 if C.DELEGATION_FIRST else 11
             deleg_pr = rounds[delegation_round - 1] if len(rounds) >= delegation_round else None

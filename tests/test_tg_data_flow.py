@@ -953,5 +953,100 @@ class ExportNullSemanticsTests(unittest.TestCase):
         self.assertIsNone(_sum_known_payoffs([]))
 
 
+class CustomExportSpeedFilterTests(unittest.TestCase):
+    def _fake_players(self):
+        """Minimal stand-ins for session filter + skip_integrity."""
+
+        class Vars(dict):
+            def get(self, k, default=None):
+                return dict.get(self, k, default)
+
+        def make(session_code, participant_code, simulated=True):
+            participant = SimpleNamespace(
+                code=participant_code,
+                vars=Vars({"is_simulated": simulated}),
+                id_in_session=1,
+            )
+            session = SimpleNamespace(code=session_code)
+            p = SimpleNamespace(
+                participant=participant,
+                session=session,
+                round_number=1,
+                field_maybe_none=lambda name: {
+                    "prolific_id": None,
+                    "app_name": "TG_goal_oriented_delegation_1st",
+                    "is_simulated": True,
+                }.get(name),
+            )
+            # field_maybe_none for other attrs
+            def fmn(name):
+                if name == "prolific_id":
+                    return None
+                if name == "app_name":
+                    return "TG_goal_oriented_delegation_1st"
+                return None
+
+            p.field_maybe_none = fmn
+            return p
+
+        return [
+            make("sess_a", "aaa"),
+            make("sess_b", "bbb"),
+        ]
+
+    def test_session_filter_and_skip_integrity(self):
+        from shared.delegation_custom_export import (
+            DelegationExportSpec,
+            canonical_delegation_export_header,
+            delegation_custom_export,
+        )
+
+        class C:
+            num_rounds = 1
+            rounds_per_part = 10
+            DELEGATION_FIRST = True
+
+            @staticmethod
+            def get_part(r):
+                return 1
+
+            @staticmethod
+            def is_mandatory_delegation_round(r):
+                return True
+
+        def compute_rr(n, rounds=10):
+            return [[(0, 1)] for _ in range(n)]
+
+        spec = DelegationExportSpec(
+            constants=C,
+            compute_rr=compute_rr,
+            game_used="TG",
+            condition_first="goal1st",
+            condition_second="goal2nd",
+            layout="first_person_agents",
+            demographics="standard",
+            round_data_style="standard",
+            per_round_agent_token="goal",
+            summary_agent_fixed="goal",
+            extension="goal",
+            access_mode="safe",
+            opponent_mode="safe_wrap",
+            payoff_mode="simple",
+            session_mode="safe",
+            prolific_mode="or_empty",
+        )
+        players = self._fake_players()
+        rows = list(
+            delegation_custom_export(
+                players, spec, session_code="sess_a", skip_integrity=True
+            )
+        )
+        self.assertEqual(rows[0], canonical_delegation_export_header())
+        # header + 1 simulated participant from sess_a
+        self.assertEqual(len(rows), 2)
+        err_idx = rows[0].index("ExportErrors")
+        self.assertEqual(rows[1][err_idx], "integrity_skipped")
+
+
 if __name__ == "__main__":
     unittest.main()

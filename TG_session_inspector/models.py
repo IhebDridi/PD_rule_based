@@ -33,7 +33,7 @@ class Player(BasePlayer):
     )
     # SessionSelect: "filter" | "scan"
     select_action = models.StringField(blank=True)
-    # InspectSession: "rescan" | "back" | "done" | "apply_filters"
+    # InspectSession: "rescan" | "back" | "done" | "apply_filters" | "export_start" | "export_refresh"
     inspect_action = models.StringField(blank=True)
     # On InspectSession only (reused): filter_date_from = P from, filter_date_to = P to,
     # select_action = prolific id. On SessionSelect they are date/action fields.

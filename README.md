@@ -99,6 +99,14 @@ If fewer than 3 participants are available, players wait. After ~5 minutes they 
 
 Use oTree’s standard export, or each app’s **custom export** (via `shared/delegation_custom_export.py` / `export_spec_factory.py`) for treatment-specific fields (e.g. conversation logs, supervised attempt history, agent programming history).
 
+On Clever Cloud, large custom exports can hit the **~180s** proxy timeout. Mitigations:
+
+| Approach | How |
+|----------|-----|
+| Faster Data-page export | Integrity checks skipped by default (`OTREE_CUSTOM_EXPORT_SKIP_INTEGRITY=1`). Optionally set `OTREE_CUSTOM_EXPORT_SESSION=<code>` to export one session only. |
+| Background job | `TG_session_inspector` → **Start export** → refresh → download, or `python -m shared.background_export --session <code>` |
+| Offline from wide CSV | `reports/wide_to_custom_export.py` (no coplayer/group seats) |
+
 ## Production
 
 `run.sh` is set up for production (e.g. Clever Cloud): uses `DATABASE_URL` and runs `otree prodserver 9000`. For a local DB reset: `otree resetdb` (use care on PostgreSQL / PostGIS setups).

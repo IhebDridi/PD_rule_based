@@ -52,3 +52,13 @@ export OTREE_BOT_SUBMIT_JITTER_MS=1000
 2. Confirm `REDIS_URL` on the Python app after linking Redis.
 3. `OTREE_PRODUCTION=1` and admin password set.
 4. Bot stress: start with 3–6 bots, not 20.
+
+### Custom export timeout (~180s)
+
+Sōzu kills long backends. Prefer **TG_session_inspector → Start export** or:
+
+```bash
+python -m shared.background_export --session SESSION_CODE
+```
+
+Stock Data → Custom export skips integrity by default (`OTREE_CUSTOM_EXPORT_SKIP_INTEGRITY=1`). Set `OTREE_CUSTOM_EXPORT_SESSION` to filter to one session if needed.

@@ -1,7 +1,13 @@
 """Pages for the TG session inspector (internal QA tool)."""
 
 from otree.api import *
+from urllib.parse import quote
 
+from shared.background_export import (
+    get_export_job,
+    read_export_csv_text,
+    start_export_job,
+)
 from shared.tg_session_inspector import (
     _normalize_participant_pos,
     inspect_tg_session_by_code,
@@ -108,15 +114,51 @@ class InspectSession(Page):
             prolific_id=read_inspect_prolific_id(self.player),
         )
 
+    def _export_panel(self):
+        job_id = self.participant.vars.get("bg_export_job_id") or ""
+        job = get_export_job(job_id) if job_id else None
+        panel = {
+            "job_id": job_id,
+            "job": job,
+            "download_href": "",
+            "download_name": "",
+            "download_too_large": False,
+            "hint": (
+                "Background export writes a session-filtered custom CSV on this "
+                "server (skips integrity by default). Use when the Data-page "
+                "custom export times out on Clever (~180s)."
+            ),
+        }
+        if job and job.get("status") == "done":
+            text = read_export_csv_text(job_id)
+            code = job.get("session_code") or "session"
+            panel["download_name"] = f"{code}_custom_export.csv"
+            if text is None:
+                panel["download_too_large"] = True
+                panel["hint"] = (
+                    f"Export finished at {job.get('path')} but the file is too "
+                    "large to embed. Download via Clever SSH or: "
+                    f"python -m shared.background_export --session {code}"
+                )
+            else:
+                panel["download_href"] = (
+                    "data:text/csv;charset=utf-8," + quote(text)
+                )
+        return panel
+
     def vars_for_template(self):
         return {
             "report": self._inspect_report(),
             "participant_from": self.player.field_maybe_none("filter_date_from") or "",
             "participant_to": self.player.field_maybe_none("filter_date_to") or "",
             "filter_prolific_id": self.player.field_maybe_none("select_action") or "",
+            "export_panel": self._export_panel(),
         }
 
     def error_message(self, values):
+        action = (values.get("inspect_action") or "done").strip()
+        if action in ("export_start", "export_refresh"):
+            return None
         p_from = _normalize_participant_pos(values.get("filter_date_from"))
         p_to = _normalize_participant_pos(values.get("filter_date_to"))
         raw_from = values.get("filter_date_from")
@@ -131,10 +173,19 @@ class InspectSession(Page):
 
     def before_next_page(self):
         action = (self.player.field_maybe_none("inspect_action") or "done").strip()
-        if action in ("rescan", "apply_filters"):
+        if action == "export_start":
+            code = (self.player.selected_session_code or "").strip()
+            if code:
+                job_id = start_export_job(code, skip_integrity=True)
+                self.participant.vars["bg_export_job_id"] = job_id
+            set_inspector_step(self.participant, "inspect")
+        elif action == "export_refresh":
+            set_inspector_step(self.participant, "inspect")
+        elif action in ("rescan", "apply_filters"):
             set_inspector_step(self.participant, "inspect")
         elif action == "back":
             self.player.selected_session_code = ""
+            self.participant.vars.pop("bg_export_job_id", None)
             restore_session_date_filters(self.participant, self.player)
             set_inspector_step(self.participant, "select")
         else:

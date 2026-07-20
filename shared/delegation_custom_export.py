@@ -7,6 +7,7 @@ Each app supplies a DelegationExportSpec (constants, labels, layout flags) and a
 from __future__ import annotations
 
 import json
+import os
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
@@ -14,6 +15,15 @@ from typing import Any, Callable, Iterator, List, Optional, Union
 
 from shared.export_integrity import collect_export_integrity_errors
 from shared.matching_batch import opponent_in_matching_batch
+
+
+def _env_truthy(name: str, default: str = "0") -> bool:
+    return os.environ.get(name, default).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _env_session_code() -> Optional[str]:
+    raw = (os.environ.get("OTREE_CUSTOM_EXPORT_SESSION") or "").strip()
+    return raw or None
 
 
 def coarse_agent_from_condition_app(condition: str, app_name: str) -> str:
@@ -393,11 +403,38 @@ def _part_total_if_complete(
     return float(total)
 
 
-def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Iterator[list]:
+def delegation_custom_export(
+    players: list,
+    spec: DelegationExportSpec,
+    *,
+    session_code: Optional[str] = None,
+    skip_integrity: Optional[bool] = None,
+) -> Iterator[list]:
+    """
+    Yield custom-export CSV rows.
+
+    ``session_code`` — if set (or ``OTREE_CUSTOM_EXPORT_SESSION``), only that session.
+    ``skip_integrity`` — if True (default via ``OTREE_CUSTOM_EXPORT_SKIP_INTEGRITY=1``),
+    skip per-row ``collect_export_integrity_errors`` (much faster on large sessions).
+    Set the env var to ``0`` to keep integrity checks on the stock Data-page export.
+    """
+    if session_code is None:
+        session_code = _env_session_code()
+    if skip_integrity is None:
+        # Default ON for cloud / large sessions (Clever ~180s proxy timeout).
+        skip_integrity = _env_truthy("OTREE_CUSTOM_EXPORT_SKIP_INTEGRITY", "1")
+
     C = spec.constants
     by_participant = defaultdict(list)
     by_round = defaultdict(list)
     for p in players:
+        if session_code:
+            try:
+                p_sess = getattr(getattr(p, "session", None), "code", None)
+            except Exception:
+                p_sess = None
+            if p_sess != session_code:
+                continue
         by_participant[p.participant.code].append(p)
         by_round[p.round_number].append(p)
 
@@ -837,27 +874,30 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
 
             row["GameUsed"] = spec.game_used
 
-            get_choice = (
-                (lambda pr: (
-                    "tg"
-                    if get_fld(pr, "choice_first_mover") in ("A", "B")
-                    and get_fld(pr, "choice_second_mover") in ("A", "B")
-                    else None
-                ))
-                if spec.game_used == "TG"
-                else (lambda pr: get_fld(pr, "choice"))
-            )
-            row["ExportErrors"] = "; ".join(
-                collect_export_integrity_errors(
-                    p0.participant,
-                    rounds,
-                    C,
-                    p0.session,
-                    resolve_opponent,
-                    get_choice,
-                    results_cache_required=spec.results_cache_required,
+            if skip_integrity:
+                row["ExportErrors"] = "integrity_skipped"
+            else:
+                get_choice = (
+                    (lambda pr: (
+                        "tg"
+                        if get_fld(pr, "choice_first_mover") in ("A", "B")
+                        and get_fld(pr, "choice_second_mover") in ("A", "B")
+                        else None
+                    ))
+                    if spec.game_used == "TG"
+                    else (lambda pr: get_fld(pr, "choice"))
                 )
-            )
+                row["ExportErrors"] = "; ".join(
+                    collect_export_integrity_errors(
+                        p0.participant,
+                        rounds,
+                        C,
+                        p0.session,
+                        resolve_opponent,
+                        get_choice,
+                        results_cache_required=spec.results_cache_required,
+                    )
+                )
 
             yield [row[h] for h in header]
         except Exception as e:

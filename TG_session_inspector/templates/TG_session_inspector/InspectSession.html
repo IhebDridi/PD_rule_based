@@ -94,6 +94,45 @@
         </button>
         </div>
 
+    <section class="inspector-summary">
+        <h2 class="inspector-section-title">Background custom export</h2>
+        <p class="inspector-hint">{{ export_panel.hint }}</p>
+        <div class="inspector-actions">
+            <button type="submit" class="inspector-btn"
+                    onclick="document.getElementById('inspect_action').value='export_start';">
+                Start export (fast, this session)
+            </button>
+            <button type="submit" class="inspector-btn secondary"
+                    onclick="document.getElementById('inspect_action').value='export_refresh';">
+                Refresh export status
+            </button>
+            {% if export_panel.download_href %}
+            <a class="inspector-btn" download="{{ export_panel.download_name }}"
+               href="{{ export_panel.download_href|safe }}">Download CSV</a>
+            {% endif %}
+        </div>
+        {% if export_panel.job %}
+        <p class="inspector-meta">
+            Job <code>{{ export_panel.job_id }}</code>
+            · status <strong>{{ export_panel.job.status }}</strong>
+            {% if export_panel.job.summary %}
+            · {{ export_panel.job.summary.data_rows }} data rows
+            · {{ export_panel.job.summary.elapsed_s }}s
+            · {{ export_panel.job.summary.bytes }} bytes
+            {% endif %}
+            {% if export_panel.job.error %}
+            · <span class="inspector-error">{{ export_panel.job.error }}</span>
+            {% endif %}
+        </p>
+        {% if export_panel.job.status == "running" %}
+        <p class="inspector-hint">Export running… click Refresh export status in a few seconds.</p>
+        {% endif %}
+        {% if export_panel.download_too_large %}
+        <p class="inspector-error">File too large for in-browser download; use path or CLI above.</p>
+        {% endif %}
+        {% endif %}
+    </section>
+
     <section class="inspector-summary{% if report.summary.all_clear %} summary-ok{% else %} summary-warn{% endif %}">
         {% if report.summary.all_clear %}
         <strong>All clear</strong> — no integrity flags or export errors for any participant.

@@ -7,7 +7,7 @@ Usage (CLI, on Clever SSH or local with DATABASE_URL):
 
 In-process job API (TG_session_inspector):
   job_id = start_export_job(session_code, skip_integrity=True)
-  get_export_job(job_id) -> {status, path, error, ...}
+  get_export_job(job_id) -> {status, path, error, progress, ...}
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from shared.delegation_custom_export import delegation_custom_export
+from shared.delegation_custom_export import _export_log, delegation_custom_export
 from shared.export_spec_factory import make_delegation_export_spec
 
 _JOBS: Dict[str, Dict[str, Any]] = {}
@@ -54,12 +54,28 @@ def load_players_for_session(session_code: str, app_name: Optional[str] = None) 
     """Return (app_name, models_module, players_list) for one session."""
     from otree.models import Session
 
+    _export_log(f"load_players begin session={session_code!r}")
+    t0 = time.time()
     session = Session.objects_get(code=session_code)
     resolved = resolve_app_name(session, app_name)
     models = importlib.import_module(f"{resolved}.models")
     players: List[Any] = []
-    for participant in session.get_participants():
+    participants = list(session.get_participants())
+    _export_log(
+        f"load_players session={session_code!r} app={resolved} "
+        f"participants={len(participants)}"
+    )
+    for i, participant in enumerate(participants, start=1):
         players.extend(participant.get_players())
+        if i == 1 or i % 25 == 0 or i == len(participants):
+            _export_log(
+                f"load_players progress {i}/{len(participants)} "
+                f"player_rows={len(players)} elapsed={time.time() - t0:.1f}s"
+            )
+    _export_log(
+        f"load_players done session={session_code!r} player_rows={len(players)} "
+        f"elapsed={time.time() - t0:.1f}s"
+    )
     return resolved, models, players
 
 
@@ -69,6 +85,7 @@ def export_session_to_csv(
     *,
     app_name: Optional[str] = None,
     skip_integrity: bool = True,
+    progress_callback=None,
 ) -> Dict[str, Any]:
     """Synchronously write custom-export CSV for one session. Returns summary dict."""
     resolved, models, players = load_players_for_session(session_code, app_name)
@@ -81,6 +98,7 @@ def export_session_to_csv(
     out_path.parent.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
     n_rows = 0
+    _export_log(f"write begin path={out_path}")
     with out_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         for row in delegation_custom_export(
@@ -88,10 +106,17 @@ def export_session_to_csv(
             spec,
             session_code=session_code,
             skip_integrity=skip_integrity,
+            progress_callback=progress_callback,
         ):
             writer.writerow(row)
             n_rows += 1
-    # n_rows includes header
+            if n_rows == 1 or n_rows % 25 == 0:
+                f.flush()
+    _export_log(
+        f"write done path={out_path} rows={n_rows} "
+        f"bytes={out_path.stat().st_size if out_path.exists() else 0} "
+        f"elapsed={time.time() - t0:.1f}s"
+    )
     return {
         "session_code": session_code,
         "app_name": resolved,
@@ -124,28 +149,50 @@ def start_export_job(
         "started_at": time.time(),
         "finished_at": None,
         "summary": None,
+        "progress": {"phase": "queued", "message": "queued"},
     }
     with _JOBS_LOCK:
         _JOBS[job_id] = job
 
+    def _on_progress(payload: dict):
+        with _JOBS_LOCK:
+            job["progress"] = dict(payload)
+            phase = payload.get("phase", "")
+            done = payload.get("done")
+            total = payload.get("total")
+            if done is not None and total:
+                job["progress"]["message"] = f"{phase} {done}/{total}"
+            else:
+                job["progress"]["message"] = str(phase)
+
     def _run():
         try:
+            _export_log(f"job {job_id} start session={session_code!r}")
             summary = export_session_to_csv(
                 session_code,
                 out_path,
                 app_name=app_name,
                 skip_integrity=skip_integrity,
+                progress_callback=_on_progress,
             )
             with _JOBS_LOCK:
                 job["status"] = "done"
                 job["summary"] = summary
                 job["app_name"] = summary.get("app_name") or job["app_name"]
                 job["finished_at"] = time.time()
+                job["progress"] = {
+                    "phase": "done",
+                    "message": f"done {summary.get('data_rows', 0)} rows",
+                    "written": summary.get("data_rows", 0),
+                }
+            _export_log(f"job {job_id} done {summary}")
         except Exception as e:
             with _JOBS_LOCK:
                 job["status"] = "error"
                 job["error"] = f"{type(e).__name__}: {e}"
                 job["finished_at"] = time.time()
+                job["progress"] = {"phase": "error", "message": job["error"]}
+            _export_log(f"job {job_id} ERROR {type(e).__name__}: {e}")
 
     threading.Thread(target=_run, name=f"export-{job_id}", daemon=True).start()
     return job_id

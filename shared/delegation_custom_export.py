@@ -26,6 +26,11 @@ def _env_session_code() -> Optional[str]:
     return raw or None
 
 
+def _export_log(msg: str) -> None:
+    """Always-on progress line for Clever / otree logs (stderr, flushed)."""
+    print(f"[custom_export] {msg}", file=sys.stderr, flush=True)
+
+
 def coarse_agent_from_condition_app(condition: str, app_name: str) -> str:
     """Map exported Condition + Player.app_name to a coarse summary Agent label."""
     text = f"{condition or ''} {app_name or ''}".lower()
@@ -409,6 +414,7 @@ def delegation_custom_export(
     *,
     session_code: Optional[str] = None,
     skip_integrity: Optional[bool] = None,
+    progress_callback: Optional[Callable[[dict], None]] = None,
 ) -> Iterator[list]:
     """
     Yield custom-export CSV rows.
@@ -417,16 +423,53 @@ def delegation_custom_export(
     ``skip_integrity`` — if True (default via ``OTREE_CUSTOM_EXPORT_SKIP_INTEGRITY=1``),
     skip per-row ``collect_export_integrity_errors`` (much faster on large sessions).
     Set the env var to ``0`` to keep integrity checks on the stock Data-page export.
+    ``progress_callback`` — optional ``fn({phase, done, total, ...})`` for UI/jobs.
+    Progress is also printed to stderr as ``[custom_export] ...``.
     """
+    import time as _time
+
+    t0 = _time.time()
+
+    def _progress(phase: str, **extra):
+        payload = {"phase": phase, **extra}
+        _export_log(
+            f"{phase}"
+            + (f" done={extra.get('done')}/{extra.get('total')}" if "done" in extra and "total" in extra else "")
+            + (f" written={extra.get('written')}" if "written" in extra else "")
+            + (f" skipped={extra.get('skipped')}" if "skipped" in extra else "")
+            + (f" elapsed={extra.get('elapsed_s')}s" if "elapsed_s" in extra else "")
+        )
+        if progress_callback is not None:
+            try:
+                progress_callback(payload)
+            except Exception:
+                pass
+
     if session_code is None:
         session_code = _env_session_code()
     if skip_integrity is None:
         # Default ON for cloud / large sessions (Clever ~180s proxy timeout).
         skip_integrity = _env_truthy("OTREE_CUSTOM_EXPORT_SKIP_INTEGRITY", "1")
+    include_missing_prolific = _env_truthy(
+        # Default ON: many live sessions store Prolific only in URL/label; empty
+        # player.prolific_id used to yield a header-only CSV and look "stuck".
+        "OTREE_CUSTOM_EXPORT_INCLUDE_MISSING_PROLIFIC",
+        "1",
+    )
+
+    n_in = len(players) if players is not None else 0
+    _progress(
+        "start",
+        players_in=n_in,
+        session_code=session_code or "(all)",
+        skip_integrity=skip_integrity,
+        include_missing_prolific=include_missing_prolific,
+    )
 
     C = spec.constants
     by_participant = defaultdict(list)
     by_round = defaultdict(list)
+    n_kept_player_rows = 0
     for p in players:
         if session_code:
             try:
@@ -437,12 +480,22 @@ def delegation_custom_export(
                 continue
         by_participant[p.participant.code].append(p)
         by_round[p.round_number].append(p)
+        n_kept_player_rows += 1
+
+    n_participants = len(by_participant)
+    _progress(
+        "grouped",
+        players_kept=n_kept_player_rows,
+        participants=n_participants,
+        elapsed_s=round(_time.time() - t0, 2),
+    )
 
     if spec.round_data_style == "rule_based_gid":
         round_data = _build_round_data_rule_based(by_round, C.num_rounds)
     else:
         round_data = _build_round_data_standard(by_round, C.num_rounds)
     rr_cache: dict = {}
+    _progress("round_index_ready", elapsed_s=round(_time.time() - t0, 2))
 
     header = canonical_delegation_export_header()
 
@@ -474,7 +527,12 @@ def delegation_custom_export(
             return _pay_export_amount(getattr(pr, "payoff", None))
         return _pay_export_amount(getattr(pr, "payoff", None))
 
-    for code, rounds in by_participant.items():
+    written = 0
+    skipped_no_prolific = 0
+    errors = 0
+    log_every = max(1, min(25, n_participants // 10 or 1))
+
+    for i, (code, rounds) in enumerate(by_participant.items(), start=1):
         try:
             rounds = sorted(rounds, key=lambda p: p.round_number)
             if not rounds:
@@ -483,16 +541,27 @@ def delegation_custom_export(
             is_simulated = bool(pvars(p0, "is_simulated"))
             prolific_id = get_fld(p0, "prolific_id")
             if (not is_simulated) and (not prolific_id):
-                continue
+                if not include_missing_prolific:
+                    skipped_no_prolific += 1
+                    if skipped_no_prolific <= 3 or skipped_no_prolific % 50 == 0:
+                        _export_log(
+                            f"skip no prolific_id participant={code!r} "
+                            f"(set OTREE_CUSTOM_EXPORT_INCLUDE_MISSING_PROLIFIC=1 to keep)"
+                        )
+                    continue
             row = dict.fromkeys(header, "")
 
             row["Condition"] = spec.condition_first if C.DELEGATION_FIRST else spec.condition_second
             app_name_val = get_fld(p0, "app_name")
             row["AppName"] = app_name_val if app_name_val is not None else ""
             if spec.prolific_mode == "or_empty":
-                row["ProlificID"] = "SIMULATED" if is_simulated else (prolific_id or "")
+                row["ProlificID"] = "SIMULATED" if is_simulated else (prolific_id or code or "")
             else:
-                row["ProlificID"] = "SIMULATED" if is_simulated else prolific_id
+                row["ProlificID"] = (
+                    "SIMULATED"
+                    if is_simulated
+                    else (prolific_id if prolific_id else (code if include_missing_prolific else prolific_id))
+                )
 
             if spec.session_mode == "safe":
                 row["Session"] = getattr(getattr(p0, "session", None), "code", "") or ""
@@ -900,7 +969,22 @@ def delegation_custom_export(
                 )
 
             yield [row[h] for h in header]
+            written += 1
+            if i == 1 or i % log_every == 0 or i == n_participants:
+                _progress(
+                    "rows",
+                    done=i,
+                    total=n_participants,
+                    written=written,
+                    skipped=skipped_no_prolific,
+                    errors=errors,
+                    elapsed_s=round(_time.time() - t0, 2),
+                )
         except Exception as e:
+            errors += 1
+            _export_log(
+                f"row FAILED participant={code!r}: {type(e).__name__}: {e}"
+            )
             if spec.log_errors_to_stderr:
                 print(
                     f"custom_export row failed participant_code={code!r}: {type(e).__name__}: {e}",
@@ -908,3 +992,18 @@ def delegation_custom_export(
                     flush=True,
                 )
             yield [f"ERROR: {type(e).__name__}: {e}"] + [""] * (len(header) - 1)
+
+    _progress(
+        "done",
+        done=n_participants,
+        total=n_participants,
+        written=written,
+        skipped=skipped_no_prolific,
+        errors=errors,
+        elapsed_s=round(_time.time() - t0, 2),
+    )
+    if written == 0 and skipped_no_prolific:
+        _export_log(
+            f"WARNING: wrote 0 data rows; skipped {skipped_no_prolific} without prolific_id. "
+            "Set OTREE_CUSTOM_EXPORT_INCLUDE_MISSING_PROLIFIC=1 on Clever and retry."
+        )

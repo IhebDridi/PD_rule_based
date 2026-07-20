@@ -115,6 +115,9 @@
         <p class="inspector-meta">
             Job <code>{{ export_panel.job_id }}</code>
             · status <strong>{{ export_panel.job.status }}</strong>
+            {% if export_panel.job.progress %}
+            · progress {{ export_panel.job.progress.message }}
+            {% endif %}
             {% if export_panel.job.summary %}
             · {{ export_panel.job.summary.data_rows }} data rows
             · {{ export_panel.job.summary.elapsed_s }}s
@@ -125,7 +128,10 @@
             {% endif %}
         </p>
         {% if export_panel.job.status == "running" %}
-        <p class="inspector-hint">Export running… click Refresh export status in a few seconds.</p>
+        <p class="inspector-hint">
+            Export running… click <strong>Refresh export status</strong>.
+            Progress also appears in Clever logs as <code>[custom_export]</code>.
+        </p>
         {% endif %}
         {% if export_panel.download_too_large %}
         <p class="inspector-error">File too large for in-browser download; use path or CLI above.</p>

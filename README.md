@@ -103,7 +103,7 @@ On Clever Cloud, large custom exports can hit the **~180s** proxy timeout. Mitig
 
 | Approach | How |
 |----------|-----|
-| Faster Data-page export | Integrity checks skipped by default (`OTREE_CUSTOM_EXPORT_SKIP_INTEGRITY=1`). Optionally set `OTREE_CUSTOM_EXPORT_SESSION=<code>` to export one session only. |
+| Faster Data-page export | Integrity checks skipped by default (`OTREE_CUSTOM_EXPORT_SKIP_INTEGRITY=1`). Rows without `prolific_id` are still exported by default (`OTREE_CUSTOM_EXPORT_INCLUDE_MISSING_PROLIFIC=1`). Optionally set `OTREE_CUSTOM_EXPORT_SESSION=<code>` to export one session only. Watch Clever logs for `[custom_export]` progress lines. |
 | Background job | `TG_session_inspector` → **Start export** → refresh → download, or `python -m shared.background_export --session <code>` |
 | Offline from wide CSV | `reports/wide_to_custom_export.py` (no coplayer/group seats) |
 

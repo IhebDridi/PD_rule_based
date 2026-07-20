@@ -134,8 +134,10 @@ def opponent_in_matching_batch(
     if opp_idx is None or opp_idx < 0 or opp_idx >= N:
         return None
 
-    # Fresh trio at this round (sorted by matching_group_position).
-    players_r = sorted_trio_at_round(pr.session.id, member_ids[:3], round_number)
+    # Fresh trio at this round in durable part-seat order (not live rematch position).
+    players_r = sorted_trio_at_round(
+        pr.session.id, member_ids[:3], round_number, part=part
+    )
     if players_r is None or opp_idx >= len(players_r):
         return None
     return players_r[opp_idx]

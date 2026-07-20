@@ -61,15 +61,42 @@ def sorted_trio_at_round(
     session_id: int,
     member_ids: Sequence[int],
     round_number: int,
+    *,
+    part: Optional[int] = None,
 ) -> Optional[List[Any]]:
-    """Trio sorted by matching_group_position (fallback: member_ids order)."""
-    players = players_at_round_for_member_ids(session_id, list(member_ids)[:3], round_number)
+    """
+    Trio in seat order for this matching batch.
+
+    Prefer durable ``group_position_part_{part}``. Do **not** sort by live
+    ``matching_group_position`` — that field is overwritten on every rematch, so
+    using it after Part 2/3 scrambles Parts 1–2 opponent / Coplayer* export.
+
+    Fallback: ``member_ids`` claim order (index 0 = seat 1 when the batch formed).
+    """
+    mids = [int(x) for x in list(member_ids)[:3]]
+    players = players_at_round_for_member_ids(session_id, mids, round_number)
     if players is None or len(players) != 3:
         return None
-    return sorted(
-        players,
-        key=lambda p: (
-            p.participant.vars.get("matching_group_position", 0) or 0,
-            p.participant.id_in_session,
-        ),
-    )
+
+    if part is not None:
+        pos_key = f"group_position_part_{int(part)}"
+
+        def _part_pos(p: Any) -> int:
+            raw = p.participant.vars.get(pos_key)
+            try:
+                return int(raw) if raw is not None else 0
+            except (TypeError, ValueError):
+                return 0
+
+        if all(_part_pos(p) >= 1 for p in players):
+            return sorted(
+                players,
+                key=lambda p: (_part_pos(p), p.participant.id_in_session),
+            )
+
+    # Claim order is the durable seat map when part positions are missing.
+    by_id = {int(p.participant.id_in_session): p for p in players}
+    ordered = [by_id[mid] for mid in mids if mid in by_id]
+    if len(ordered) == 3:
+        return ordered
+    return players

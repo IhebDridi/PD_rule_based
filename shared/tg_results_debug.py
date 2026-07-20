@@ -181,7 +181,8 @@ def build_tg_results_debug(
     - their payoff (screen vs stored, and stored vs recomputed from DB moves)
     - optional cache row vs live display (when ``cache_part`` is provided)
 
-    Set ``force=True`` (session inspector / ``tg_show_results_integrity``) to run
+    Set ``force=True`` (session inspector / Create Session
+    ``tg_show_results_integrity``) to run
     outside DEBUG mode.
     """
     if not force and not _otree_debug_mode():

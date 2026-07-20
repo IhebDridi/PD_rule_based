@@ -205,17 +205,22 @@ class Results(Page):
         """
         Prefer results_display_cache written at payoff time (cheap for navigators).
         Rebuild from DB only on cache miss; heavy diagram/debug work only when
-        integrity is enabled (debug mode or session.config tg_show_results_integrity).
-        Payoff DB fields remain the source of truth for subjects' table when using cache.
+        enabled (debug mode or session.config tg_show_results_diagrams /
+        tg_show_results_integrity). Payoff DB fields remain the source of truth
+        for subjects' table when using cache.
         """
         from shared.tg_data_helpers import get_tg_results_display_from_cache
 
         am = app_models(self.player)
         get_opponent_in_round = am.get_opponent_in_round
         debug = is_otree_debug_mode()
+        show_diagrams = debug or bool(
+            self.session.config.get("tg_show_results_diagrams")
+        )
         show_integrity = debug or bool(
             self.session.config.get("tg_show_results_integrity")
         )
+        need_heavy = show_diagrams or show_integrity
 
         cache_part = get_tg_results_display_from_cache(
             self.participant, current_part, Constants.rounds_per_part
@@ -242,9 +247,9 @@ class Results(Page):
                 show_round_diagrams=False,
                 show_tg_results_integrity=False,
             )
-            if not show_integrity:
+            if not need_heavy:
                 return out
-            # Integrity / diagrams: researchers only — subjects never hit this path.
+            # Diagrams / integrity: researchers only — subjects never hit this path.
         else:
             rounds_data = []
             for r in range(part_start, part_end + 1):
@@ -260,8 +265,8 @@ class Results(Page):
                 show_round_diagrams=False,
                 show_tg_results_integrity=False,
             )
-            if not show_integrity:
-                # Production cache-miss: show table from DB, skip diagram rebuild.
+            if not need_heavy:
+                # Production: show table from DB, skip diagram / integrity rebuild.
                 out.update(
                     group_overview={},
                     round_diagrams=[],
@@ -269,38 +274,52 @@ class Results(Page):
                 )
                 return out
 
-        diagrams = build_tg_round_diagrams(
-            player,
-            part_start,
-            part_end,
-            current_part,
-            get_opponent_in_round,
-            rounds_per_part=Constants.rounds_per_part,
-        )
-        tg_debug = build_tg_results_debug(
-            player,
-            part_start,
-            part_end,
-            current_part,
-            get_opponent_in_round,
-            rounds_per_part=Constants.rounds_per_part,
-            force=True,
-            cache_part=cache_part,
-        )
-        debug_rounds = tg_debug["rounds"] if tg_debug else None
-        annotate_diagrams_with_debug(diagrams["rounds"], debug_rounds)
-        all_rounds_tree = build_all_rounds_tree(diagrams["overview"], diagrams["rounds"])
-        out.update(
-            group_overview=diagrams["overview"],
-            round_diagrams=diagrams["rounds"],
-            all_rounds_tree=all_rounds_tree,
-            show_round_diagrams=True,
-            show_tg_results_integrity=True,
-        )
-        if tg_debug is not None:
-            out["tg_results_debug"] = {
-                "part": tg_debug["part"],
-                "rounds": tg_debug["rounds"],
-            }
-            out.update(tg_debug["summary_vars"])
+        debug_rounds = None
+        if show_integrity:
+            tg_debug = build_tg_results_debug(
+                player,
+                part_start,
+                part_end,
+                current_part,
+                get_opponent_in_round,
+                rounds_per_part=Constants.rounds_per_part,
+                force=True,
+                cache_part=cache_part,
+            )
+            if tg_debug is not None:
+                debug_rounds = tg_debug["rounds"]
+                out["tg_results_debug"] = {
+                    "part": tg_debug["part"],
+                    "rounds": tg_debug["rounds"],
+                }
+                out.update(tg_debug["summary_vars"])
+                out["show_tg_results_integrity"] = True
+
+        if show_diagrams:
+            diagrams = build_tg_round_diagrams(
+                player,
+                part_start,
+                part_end,
+                current_part,
+                get_opponent_in_round,
+                rounds_per_part=Constants.rounds_per_part,
+            )
+            if debug_rounds is not None:
+                annotate_diagrams_with_debug(diagrams["rounds"], debug_rounds)
+            all_rounds_tree = build_all_rounds_tree(
+                diagrams["overview"], diagrams["rounds"]
+            )
+            out.update(
+                group_overview=diagrams["overview"],
+                round_diagrams=diagrams["rounds"],
+                all_rounds_tree=all_rounds_tree,
+                show_round_diagrams=True,
+            )
+        else:
+            out.update(
+                group_overview={},
+                round_diagrams=[],
+                all_rounds_tree={},
+                show_round_diagrams=False,
+            )
         return out

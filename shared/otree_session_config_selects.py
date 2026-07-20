@@ -22,6 +22,18 @@ SESSION_CONFIG_SELECT_FIELDS: dict[str, list[tuple[str, str]]] = {
     "bot_stop_at": BOT_STOP_AT_OPTIONS,
 }
 
+# Friendlier Create Session labels (advanced / researcher options).
+SESSION_CONFIG_FIELD_LABELS: dict[str, str] = {
+    "bot_stop_at": "bot_stop_at (testing)",
+    "tg_show_results_diagrams": (
+        "tg_show_results_diagrams — matching diagrams "
+        "(round-by-round + per-round; advanced)"
+    ),
+    "tg_show_results_integrity": (
+        "tg_show_results_integrity — Results integrity panel (advanced)"
+    ),
+}
+
 
 def apply_session_config_select_patch() -> None:
     from otree.session import SessionConfig
@@ -32,9 +44,17 @@ def apply_session_config_select_patch() -> None:
     _orig = SessionConfig.editable_field_html
 
     def editable_field_html(self, field_name: str) -> str:
+        display_name = SESSION_CONFIG_FIELD_LABELS.get(field_name, field_name)
         choices = SESSION_CONFIG_SELECT_FIELDS.get(field_name)
         if not choices:
-            return _orig(self, field_name)
+            html = _orig(self, field_name)
+            if display_name != field_name:
+                html = html.replace(
+                    f"<b>{escape(field_name)}</b>",
+                    f"<b>{escape(display_name)}</b>",
+                    1,
+                )
+            return html
 
         existing = str(self[field_name])
         html_name = escape(self.html_field_name(field_name), quote=True)
@@ -52,7 +72,7 @@ def apply_session_config_select_patch() -> None:
             "<tr><td><b>{}</b></td><td>"
             "<select name='{}' class='form-control'>{}</select>"
             "</td></tr>"
-        ).format(escape(field_name), html_name, "".join(options_html))
+        ).format(escape(display_name), html_name, "".join(options_html))
 
     SessionConfig.editable_field_html = editable_field_html  # type: ignore[method-assign]
     SessionConfig._pd_select_fields_patched = True

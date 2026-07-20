@@ -49,7 +49,11 @@
     <hr style="margin: 40px 0;">
 
     <p class="summary-note">
+        {% if guessing_bonus_known %}
         For Part 4, as you have seen before, you are entitled to a bonus payment of {{ guessing_bonus_cents }} cents.
+        {% else %}
+        Part 4 earnings are not available yet (<strong>—</strong>).
+        {% endif %}
     </p>
 
     <div class="table-container">

@@ -910,6 +910,7 @@ class GroupPartAndOptionalAgentTests(unittest.TestCase):
         _write_agent_first_fields(player3, decisions, part=3)
         self.assertEqual(player3.agent_decision_mandatory_delegation_round_1, "A")
         self.assertIsNone(player3.decision_optional_delegation_round_1)
+
     def test_export_header_includes_player_id_parts(self):
         from shared.delegation_custom_export import canonical_delegation_export_header
 
@@ -917,6 +918,32 @@ class GroupPartAndOptionalAgentTests(unittest.TestCase):
         self.assertIn("PlayerIDPart1", header)
         self.assertIn("PlayerIDPart2", header)
         self.assertIn("PlayerIDPart3", header)
+
+
+class ExportNullSemanticsTests(unittest.TestCase):
+    def test_sum_export_numeric_cells_all_or_nothing(self):
+        from shared.delegation_custom_export import _sum_export_numeric_cells
+
+        keys = [f"EarningsGuess{i}" for i in range(1, 11)]
+        full = {k: 10 for k in keys}
+        self.assertAlmostEqual(
+            _sum_export_numeric_cells(full, keys, multiplier=0.01), 1.0, places=6
+        )
+
+        partial = {k: 10 for k in keys}
+        partial["EarningsGuess5"] = ""
+        self.assertIsNone(_sum_export_numeric_cells(partial, keys, multiplier=0.01))
+
+        empty = {k: "" for k in keys}
+        self.assertIsNone(_sum_export_numeric_cells(empty, keys))
+
+    def test_debrief_guessing_bonus_null_when_any_missing(self):
+        from pages_classes.Debriefing import _sum_known_payoffs
+
+        self.assertEqual(_sum_known_payoffs([{"payoff": 10}, {"payoff": 20}]), 30)
+        self.assertIsNone(_sum_known_payoffs([{"payoff": 10}, {"payoff": None}]))
+        self.assertIsNone(_sum_known_payoffs([]))
+
 
 if __name__ == "__main__":
     unittest.main()

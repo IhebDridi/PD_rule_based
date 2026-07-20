@@ -369,19 +369,19 @@ def _export_ecoins_cell(pay_float: Optional[float]) -> Union[int, str]:
 
 
 def _sum_export_numeric_cells(row: dict, keys: List[str], multiplier: float = 1.0) -> Optional[float]:
-    """Sum only non-empty export cells; return None if every cell is missing."""
+    """Sum all cells; return None if any is missing/invalid (never a partial sum)."""
+    if not keys:
+        return None
     total = 0.0
-    any_value = False
     for key in keys:
         raw = row.get(key)
         if raw is None or raw == "":
-            continue
+            return None
         try:
             total += float(raw) * multiplier
-            any_value = True
         except (TypeError, ValueError):
-            continue
-    return total if any_value else None
+            return None
+    return total
 
 
 def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Iterator[list]:
@@ -572,12 +572,12 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                     pos = pvars(other, f"group_position_part_{C.get_part(r)}")
                     if pos is None or pos == "" or pos == -1:
                         pos = pvars(other, "matching_group_position")
+                    # Export only the trio position. Never invent session seat IDs
+                    # (matching / payoffs resolve opponents via member lists, not this column).
                     if pos is not None and pos != "" and pos != -1:
                         row[f"Round{r}CoplayerID"] = str(pos)
                     else:
-                        row[f"Round{r}CoplayerID"] = str(
-                            getattr(other.participant, "id_in_session", "") or ""
-                        )
+                        row[f"Round{r}CoplayerID"] = ""
                 else:
                     row[f"Round{r}CoplayerDecision"] = ""
                     row[f"Round{r}CoplayerID"] = ""
@@ -711,9 +711,11 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
             # Live BatchWait/TimeOut quit sets quit_to_prolific_results; older
             # paths may still use quit_to_prolific. Treat either as show-up quit.
             if pvars(p0, "quit_to_prolific") or pvars(p0, "quit_to_prolific_results"):
+                # Label quit explicitly — never invent played earnings as 0.0.
+                # BonusPaymentTotal stays 1.0 (known $1 show-up); PartChosenBonus=quit.
                 row["PartChosenBonus"] = "quit"
-                row["TotalEarningsParts123Dollars"] = 0.0
-                row["TotalEarningsPart4Dollars"] = 0.0
+                row["TotalEarningsParts123Dollars"] = "quit"
+                row["TotalEarningsPart4Dollars"] = "quit"
                 row["BonusPaymentTotal"] = 1.0
             elif part_chosen in (1, 2, 3):
                 if part_has_payoff[part_chosen - 1]:
@@ -734,18 +736,11 @@ def delegation_custom_export(players: list, spec: DelegationExportSpec) -> Itera
                     round(part4_dollars, 4) if part4_dollars is not None else ""
                 )
                 parts123 = row["TotalEarningsParts123Dollars"]
-                if spec.game_used == "TG":
-                    # Only sum when both sides are known; never fill missing with 0.0.
-                    if parts123 != "" and part4_dollars is not None:
-                        row["BonusPaymentTotal"] = round(
-                            float(parts123) + float(part4_dollars), 4
-                        )
-                    else:
-                        row["BonusPaymentTotal"] = ""
-                elif parts123 != "" or part4_dollars is not None:
-                    parts123_val = float(parts123) if parts123 != "" else 0.0
-                    part4_val = part4_dollars if part4_dollars is not None else 0.0
-                    row["BonusPaymentTotal"] = round(parts123_val + part4_val, 4)
+                # Only sum when both sides are known; never fill missing with 0.0.
+                if parts123 != "" and part4_dollars is not None:
+                    row["BonusPaymentTotal"] = round(
+                        float(parts123) + float(part4_dollars), 4
+                    )
                 else:
                     row["BonusPaymentTotal"] = ""
             else:

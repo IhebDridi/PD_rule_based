@@ -194,25 +194,33 @@ class Debriefing(Page):
                 })
 
         guessing_bonus = 0.0
+        guessing_bonus_known = bool(guess_rounds_data)
         for row in guess_rounds_data:
             p = row["payoff"]
             if p is None:
-                continue
+                guessing_bonus_known = False
+                break
             try:
                 guessing_bonus += float(getattr(p, "amount", p))
             except (TypeError, ValueError):
-                continue
+                guessing_bonus_known = False
+                break
 
         total_payoff_val = results_by_part[payoff_part]["total_payoff"]
         total_payoff_known = total_payoff_val is not None
         total_payoff_ecoins = int(total_payoff_val) if total_payoff_known else None
         total_payoff_cents = (total_payoff_ecoins // 10) if total_payoff_known else None
-        guessing_bonus_ecoins = int(guessing_bonus or 0)
-        guessing_bonus_cents = guessing_bonus_ecoins
-        # Never invent $0 for an unknown drawn-part total (shows as — in template).
-        if total_payoff_known:
-            total_bonus = float(total_payoff_val) + guessing_bonus
-            total_bonus_cents = int(total_payoff_cents) + guessing_bonus_cents
+        if guessing_bonus_known:
+            guessing_bonus_ecoins = int(guessing_bonus)
+            guessing_bonus_cents = guessing_bonus_ecoins
+        else:
+            guessing_bonus = None
+            guessing_bonus_ecoins = None
+            guessing_bonus_cents = None
+        # Never invent $0 for unknown drawn-part or partial Part-4 totals.
+        if total_payoff_known and guessing_bonus_known:
+            total_bonus = float(total_payoff_val) + float(guessing_bonus)
+            total_bonus_cents = int(total_payoff_cents) + int(guessing_bonus_cents)
             total_bonus_dollars = round(total_bonus_cents / 100, 2)
         else:
             total_bonus = None
@@ -248,7 +256,9 @@ class Debriefing(Page):
             "total_payoff_cents": total_payoff_cents,
             "guess_rounds_data": guess_rounds_data,
             "guessing_bonus": guessing_bonus,
+            "guessing_bonus_known": guessing_bonus_known,
             "guessing_bonus_cents": guessing_bonus_cents,
+            "guessing_bonus_cents_display": _fmt_optional_number(guessing_bonus_cents),
             "total_bonus": total_bonus,
             "total_bonus_cents": total_bonus_cents,
             "total_bonus_dollars": total_bonus_dollars,

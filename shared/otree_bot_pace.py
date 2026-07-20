@@ -9,8 +9,8 @@ CLI / ``SessionBotRunner`` bots sleep between HTTP submits via
 ``pace_before_bot_submit``.
 
 Env / session config (ms):
-  OTREE_BOT_SUBMIT_DELAY_MS   base delay (default 1500)
-  OTREE_BOT_SUBMIT_JITTER_MS  extra 0..jitter spread (default 1000)
+  OTREE_BOT_SUBMIT_DELAY_MS   base delay (default 2500)
+  OTREE_BOT_SUBMIT_JITTER_MS  extra 0..jitter spread (default 7000)
   session.config['bot_submit_delay_ms'] / ['bot_submit_jitter_ms'] override env
   Set base delay to 0 to disable.
 """
@@ -52,9 +52,9 @@ def bot_submit_delay_ms(session: Any = None, participant: Any = None) -> int:
         try:
             base = max(0, int(cfg.get("bot_submit_delay_ms")))
         except (TypeError, ValueError):
-            base = _env_int("OTREE_BOT_SUBMIT_DELAY_MS", 1500)
+            base = _env_int("OTREE_BOT_SUBMIT_DELAY_MS", 2500)
     else:
-        base = _env_int("OTREE_BOT_SUBMIT_DELAY_MS", 1500)
+        base = _env_int("OTREE_BOT_SUBMIT_DELAY_MS", 2500)
     if base <= 0:
         return 0
 
@@ -62,9 +62,9 @@ def bot_submit_delay_ms(session: Any = None, participant: Any = None) -> int:
         try:
             jitter = max(0, int(cfg.get("bot_submit_jitter_ms")))
         except (TypeError, ValueError):
-            jitter = _env_int("OTREE_BOT_SUBMIT_JITTER_MS", 1000)
+            jitter = _env_int("OTREE_BOT_SUBMIT_JITTER_MS", 7000)
     else:
-        jitter = _env_int("OTREE_BOT_SUBMIT_JITTER_MS", 1000)
+        jitter = _env_int("OTREE_BOT_SUBMIT_JITTER_MS", 7000)
 
     if jitter <= 0:
         return base

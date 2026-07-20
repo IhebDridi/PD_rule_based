@@ -354,8 +354,8 @@ SESSION_CONFIG_DEFAULTS = dict(
     bot_stop_at="finish",
     # Pace browser / CLI bots (ms). Client-side setTimeout for browser bots so workers
     # stay free. 0 disables. Override with OTREE_BOT_SUBMIT_DELAY_MS / _JITTER_MS.
-    bot_submit_delay_ms=int(environ.get("OTREE_BOT_SUBMIT_DELAY_MS", "1500") or 1500),
-    bot_submit_jitter_ms=int(environ.get("OTREE_BOT_SUBMIT_JITTER_MS", "1000") or 1000),
+    bot_submit_delay_ms=int(environ.get("OTREE_BOT_SUBMIT_DELAY_MS", "2500") or 2500),
+    bot_submit_jitter_ms=int(environ.get("OTREE_BOT_SUBMIT_JITTER_MS", "7000") or 7000),
     # Researcher Results tools (Create Session checkboxes; off for Prolific subjects).
     # Also on automatically when OTREE_PRODUCTION is unset/0 (local debug).
     # Matching diagrams = round-by-round overview + per-round trio diagrams.

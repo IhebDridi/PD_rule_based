@@ -31,20 +31,32 @@ def _log_redis_role_for_wait_screen(session) -> None:
     if not code or code in _redis_role_logged_sessions:
         return
     _redis_role_logged_sessions.add(code)
-    if os.environ.get("REDIS_URL") or os.environ.get("REDIS_HOST") or os.environ.get(
-        "REDIS_CLI_URL"
-    ):
+    linked = bool(
+        os.environ.get("REDIS_URL")
+        or os.environ.get("REDIS_HOST")
+        or os.environ.get("REDIS_CLI_URL")
+    )
+    if linked:
         logger.info(
-            "BatchWaitForGroup session=%s: Redis addon is linked. "
-            "Redis only carries oTree channels — wait-page wakeups and live updates "
-            "across workers. Matching pools and payoffs stay in Postgres.",
+            "\n"
+            "========== REDIS CHECK (BatchWait) ==========\n"
+            "  status  : LINKED (Clever Redis env is present)\n"
+            "  session : %s\n"
+            "  Redis does : oTree channels — wait-page wakeups & live updates across workers\n"
+            "  Redis does NOT : store choices, payoffs, or matching pools\n"
+            "  Those stay in : Postgres\n"
+            "=============================================",
             code,
         )
     else:
         logger.warning(
-            "BatchWaitForGroup session=%s: no Redis env (REDIS_URL / REDIS_HOST / "
-            "REDIS_CLI_URL). Link the Clever Redis addon to this Python app and "
-            "redeploy so run.sh can export REDIS_URL. Experiment data still uses Postgres.",
+            "\n"
+            "========== REDIS CHECK (BatchWait) ==========\n"
+            "  status  : NOT LINKED (no REDIS_URL / REDIS_HOST / REDIS_CLI_URL)\n"
+            "  session : %s\n"
+            "  action  : Link Clever Redis to this Python app, redeploy, ensure run.sh exports REDIS_URL\n"
+            "  note    : Experiment data still uses Postgres either way\n"
+            "=============================================",
             code,
         )
 
@@ -620,6 +632,15 @@ class BatchWaitForGroup(WaitPage):
             if len(pool) < group_size:
                 # Release Session row ASAP so other participants are not frozen
                 # while this request finishes rendering the wait page.
+                logger.info(
+                    "BatchWait pool-join session=%s part=%s pid=%s pool=%s/%s "
+                    "(writing session.vars — peers may wait briefly on Session row)",
+                    getattr(self.session, "code", ""),
+                    current_part,
+                    pid,
+                    len(pool),
+                    group_size,
+                )
                 persist_session_state(self.session)
                 return
 

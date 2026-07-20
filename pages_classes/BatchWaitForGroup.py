@@ -31,18 +31,20 @@ def _log_redis_role_for_wait_screen(session) -> None:
     if not code or code in _redis_role_logged_sessions:
         return
     _redis_role_logged_sessions.add(code)
-    if os.environ.get("REDIS_URL") or os.environ.get("REDIS_HOST"):
+    if os.environ.get("REDIS_URL") or os.environ.get("REDIS_HOST") or os.environ.get(
+        "REDIS_CLI_URL"
+    ):
         logger.info(
-            "BatchWaitForGroup session=%s: Redis is linked (REDIS_URL set). "
+            "BatchWaitForGroup session=%s: Redis addon is linked. "
             "Redis only carries oTree channels — wait-page wakeups and live updates "
             "across workers. Matching pools and payoffs stay in Postgres.",
             code,
         )
     else:
         logger.warning(
-            "BatchWaitForGroup session=%s: REDIS_URL is not set. "
-            "Link the Clever Redis addon to this Python app so wait-page wakeups "
-            "can use channels across workers. Experiment data still uses Postgres.",
+            "BatchWaitForGroup session=%s: no Redis env (REDIS_URL / REDIS_HOST / "
+            "REDIS_CLI_URL). Link the Clever Redis addon to this Python app and "
+            "redeploy so run.sh can export REDIS_URL. Experiment data still uses Postgres.",
             code,
         )
 

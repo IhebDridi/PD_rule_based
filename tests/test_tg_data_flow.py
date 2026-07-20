@@ -716,7 +716,7 @@ class TgContingentChoiceWriteTests(unittest.TestCase):
         self.assertIsNotNone(opp)
         self.assertEqual(opp.participant.id_in_session, 2)
         # Must load the target round fresh (never cache start-round ORM rows).
-        mock_trio.assert_called_with(42, [1, 2, 3], 1)
+        mock_trio.assert_called_with(42, [1, 2, 3], 1, part=1)
 
     def test_opponent_prefers_durable_group_part_over_stale_member_list(self):
         """If a stale provisional list exists, GroupPartN wins."""
@@ -776,7 +776,7 @@ class TgContingentChoiceWriteTests(unittest.TestCase):
             opp = opponent_in_matching_batch(p1, 1, C, compute_rr, {})
         self.assertIsNotNone(opp)
         self.assertEqual(opp.participant.id_in_session, 2)
-        mock_trio.assert_called_with(99, [1, 2, 3], 1)
+        mock_trio.assert_called_with(99, [1, 2, 3], 1, part=1)
 
     def test_participant_batch_prefers_preferred_id(self):
         from shared.export_integrity import participant_batch_for_part

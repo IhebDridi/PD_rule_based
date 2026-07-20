@@ -201,7 +201,12 @@ def run_payoffs_for_matching_group_tg(
         )
         if players_start is None or len(players_start) != 3:
             return None
-        players_start = sorted(
+        # At payoff time seats were just assigned — live position is correct for this claim.
+        # Prefer member_ids claim order so we never depend on a later rematch overwriting
+        # matching_group_position (payoffs run before rematch, but keep order explicit).
+        by_id = {int(p.participant.id_in_session): p for p in players_start}
+        ordered = [by_id[int(mid)] for mid in list(member_ids)[:3] if int(mid) in by_id]
+        players_start = ordered if len(ordered) == 3 else sorted(
             players_start, key=lambda p: p.participant.vars.get("matching_group_position", 0)
         )
 

@@ -3,6 +3,14 @@ Page classes for PD_rule_based_delegation_2nd (one module per class, filename = 
 
 Shared helpers live in page_helpers.py.
 """
+# Install browser-bot submit pacing once pages load (otree.views is available).
+try:
+    from shared.otree_bot_pace import install_browser_bot_submit_delay
+
+    install_browser_bot_submit_delay()
+except Exception:
+    pass
+
 from .AgentProgramming import AgentProgramming
 from .BatchWaitForGroup import BatchWaitForGroup
 from .BotDetection import BotDetection

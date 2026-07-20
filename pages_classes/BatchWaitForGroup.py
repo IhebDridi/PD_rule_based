@@ -1,3 +1,5 @@
+import logging
+import os
 import time
 
 from otree.api import *
@@ -17,6 +19,32 @@ from shared.tg_player_lookup import participants_by_id_in_session, players_at_ro
 
 from .model_bridge import app_models, is_tg_app
 from .page_helpers import BATCH_WAIT_MIN_SECONDS, _has_left_lobby_for_part, is_excluded_from_study
+
+logger = logging.getLogger(__name__)
+# One Clever/log line per process+session — not participant-facing, not Session.vars.
+_redis_role_logged_sessions: set = set()
+
+
+def _log_redis_role_for_wait_screen(session) -> None:
+    """Explain Redis vs Postgres once when BatchWait first renders in this worker."""
+    code = getattr(session, "code", None) or ""
+    if not code or code in _redis_role_logged_sessions:
+        return
+    _redis_role_logged_sessions.add(code)
+    if os.environ.get("REDIS_URL") or os.environ.get("REDIS_HOST"):
+        logger.info(
+            "BatchWaitForGroup session=%s: Redis is linked (REDIS_URL set). "
+            "Redis only carries oTree channels — wait-page wakeups and live updates "
+            "across workers. Matching pools and payoffs stay in Postgres.",
+            code,
+        )
+    else:
+        logger.warning(
+            "BatchWaitForGroup session=%s: REDIS_URL is not set. "
+            "Link the Clever Redis addon to this Python app so wait-page wakeups "
+            "can use channels across workers. Experiment data still uses Postgres.",
+            code,
+        )
 
 
 class BatchWaitForGroup(WaitPage):
@@ -765,6 +793,7 @@ class BatchWaitForGroup(WaitPage):
 
     def vars_for_template(self):
         """Avoid session.vars here — every access dirties the Session row in oTree."""
+        _log_redis_role_for_wait_screen(self.session)
         Constants = app_models(self.player).Constants
         current_part = Constants.get_part(self.round_number)
         group_size = self.FIXED_RESULTS_GROUP_SIZE

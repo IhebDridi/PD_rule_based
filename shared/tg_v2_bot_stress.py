@@ -12,6 +12,7 @@ from otree.database import db
 from otree.models import Participant, Session
 
 from pages_classes.page_helpers import BATCH_WAIT_MIN_SECONDS
+from shared.otree_bot_pace import pace_before_bot_submit
 from shared.tg_human_block_vars import (
     human_block_maps_complete,
     human_block_maps_from_vars,
@@ -119,6 +120,8 @@ def patch_tg_v2_bot_runner(*, delegation_first: bool) -> None:
                     if loops >= BOT_STRESS_BATCH_WAIT_QUIT_LOOPS and participant and not _can_proceed_any_part(participant):
                         _quit_batch_wait(bot)
                     else:
+                        # Avoid hammering BatchWait every runner tick.
+                        time.sleep(0.35)
                         _refresh_batch_wait(bot)
                     progress_made = True
                     continue
@@ -136,6 +139,15 @@ def patch_tg_v2_bot_runner(*, delegation_first: bool) -> None:
                     raise
 
                 page_name = getattr(getattr(submission, "page_class", None), "__name__", "Unknown")
+                # Space CLI bot submits so stress tests resemble human pacing and
+                # leave workers free (sleep is outside the HTTP request).
+                session_obj = None
+                if session_code:
+                    try:
+                        session_obj = Session.objects_get(code=session_code)
+                    except Exception:
+                        session_obj = None
+                pace_before_bot_submit(session=session_obj, participant=participant)
                 t0 = time.perf_counter()
                 bot.submit(submission)
                 elapsed_ms = (time.perf_counter() - t0) * 1000.0

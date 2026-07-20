@@ -102,3 +102,7 @@ Use oTree’s standard export, or each app’s **custom export** (via `shared/de
 ## Production
 
 `run.sh` is set up for production (e.g. Clever Cloud): uses `DATABASE_URL` and runs `otree prodserver 9000`. For a local DB reset: `otree resetdb` (use care on PostgreSQL / PostGIS setups).
+
+**Clever scaling:** use **one** app instance + Redis, not multiple web instances for the same session. Details: [docs/CLEVER_OTREE_SCALING.md](docs/CLEVER_OTREE_SCALING.md).
+
+**Bot pacing:** browser bots wait ~1.5s (+ jitter) before auto-submit so workers stay free (`OTREE_BOT_SUBMIT_DELAY_MS` / session config `bot_submit_delay_ms`). Set to `0` to disable.

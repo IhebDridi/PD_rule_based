@@ -13,10 +13,14 @@ from shared.tg_bot_forms import (
     seed_goal_agent_second,
     tg_agent_first_form,
     tg_agent_second_form,
-    tg_human_first_form_round,
-    tg_human_second_form_round,
     tg_llm_conversation_payload,
     tg_supervised_form,
+)
+from shared.tg_human_block_vars import (
+    human_first_step_key,
+    human_second_step_key,
+    record_human_first_choice,
+    record_human_second_choice,
 )
 from shared.tg_v2_bot_stress import patch_tg_v2_bot_runner
 
@@ -86,11 +90,38 @@ def _agent_part_for_round(rnd: int) -> int:
     raise ValueError(f"No agent block at round {rnd}")
 
 
-def _yield_human_block(human_first_page, human_second_page):
+def _seed_human_first_live_block(participant, part: int, choice: str = "A") -> None:
+    """Pre-fill 10 first-mover choices for bots (same path as live_method; no invented blanks)."""
+    if choice not in ("A", "B"):
+        raise ValueError("bot human first choice must be A or B")
     for i in range(1, 11):
-        yield human_first_page, tg_human_first_form_round("A", i)
+        record_human_first_choice(participant, part, i, choice)
+    participant.vars[human_first_step_key(part)] = 10
+
+
+def _seed_human_second_live_block(participant, part: int, choice: str = "B") -> None:
+    if choice not in ("A", "B"):
+        raise ValueError("bot human second choice must be A or B")
     for i in range(1, 11):
-        yield human_second_page, tg_human_second_form_round("B", i)
+        record_human_second_choice(participant, part, i, choice)
+    participant.vars[human_second_step_key(part)] = 10
+
+
+def _human_part_for_round(rnd: int, delegation_first: bool) -> int:
+    if rnd == 1 and not delegation_first:
+        return 1
+    if rnd == 11 and delegation_first:
+        return 2
+    raise ValueError(f"No human block at round {rnd} (delegation_first={delegation_first})")
+
+
+def _yield_human_block(bot, human_first_page, human_second_page, *, part: int):
+    # Live pages: seed vars then one empty submit each (before_next_page finalizes).
+    # check_html=False: Confirm is type=button + liveSend (no classic submit input).
+    _seed_human_first_live_block(bot.participant, part, "A")
+    yield Submission(human_first_page, {}, check_html=False)
+    _seed_human_second_live_block(bot.participant, part, "B")
+    yield Submission(human_second_page, {}, check_html=False)
 
 
 def _yield_agent_block(bot, *, treatment: str, part: int, agent_first_page, agent_second_page):
@@ -189,7 +220,12 @@ def make_tg_player_bot_play_round(
                 )
             else:
                 yield InstructionsNoDelegation
-                yield from _yield_human_block(human_first_page, human_second_page)
+                yield from _yield_human_block(
+                    self,
+                    human_first_page,
+                    human_second_page,
+                    part=_human_part_for_round(rnd, delegation_first),
+                )
 
         if rnd == 10:
             # Do not click Next on Results — later rounds are gated by _stop_blocks_round.
@@ -200,7 +236,12 @@ def make_tg_player_bot_play_round(
         if rnd == 11:
             if delegation_first:
                 yield InstructionsNoDelegation
-                yield from _yield_human_block(human_first_page, human_second_page)
+                yield from _yield_human_block(
+                    self,
+                    human_first_page,
+                    human_second_page,
+                    part=_human_part_for_round(rnd, delegation_first),
+                )
             else:
                 yield InstructionsDelegation
                 yield from _yield_agent_block(

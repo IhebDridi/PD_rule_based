@@ -107,7 +107,22 @@ def _safe_set_human_field(player, name: str, value: str) -> None:
 
 
 def _human_live_respond(player, payload: dict) -> dict:
-    return {player.id_in_group: payload}
+    """Route live reply to this player. id_in_group must match oTree's group map."""
+    pid = player.id_in_group
+    if pid is None:
+        # Should not happen, but a missing key makes oTree drop the reply silently
+        # from the client's perspective (no liveRecv) — fall back carefully.
+        try:
+            for p in player.group.get_players():
+                if p.participant.code == player.participant.code:
+                    pid = p.id_in_group
+                    break
+        except Exception:
+            pid = None
+    if pid is None:
+        # Last resort: only this participant's open live socket should be on this page.
+        return {0: payload}
+    return {int(pid): payload}
 
 
 def _human_first_map_complete(participant, part: int) -> bool:
@@ -194,30 +209,7 @@ class TgV2HumanDecisionsFirst(Page):
             )
 
         round_i = step + 1
-        client_round = data.get("round")
-        if client_round is not None:
-            try:
-                if int(client_round) != round_i:
-                    return _human_live_respond(
-                        player,
-                        {
-                            "ok": False,
-                            "error": "Please choose A or B (as 1st mover) before continuing.",
-                            "decision_round": round_i,
-                            "current_part": part,
-                        },
-                    )
-            except (TypeError, ValueError):
-                return _human_live_respond(
-                    player,
-                    {
-                        "ok": False,
-                        "error": "Please choose A or B (as 1st mover) before continuing.",
-                        "decision_round": round_i,
-                        "current_part": part,
-                    },
-                )
-
+        # Trust server step only — ignore client round to avoid stuck UI on mismatch.
         record_human_first_choice(player.participant, part, round_i, choice)
         _safe_set_human_field(player, f"human_decision_no_delegation_round_{round_i}", choice)
         player.participant.vars[step_key] = round_i
@@ -360,30 +352,7 @@ class TgV2HumanDecisionsSecond(Page):
             )
 
         round_i = step + 1
-        client_round = data.get("round")
-        if client_round is not None:
-            try:
-                if int(client_round) != round_i:
-                    return _human_live_respond(
-                        player,
-                        {
-                            "ok": False,
-                            "error": "Please choose A or B (as 2nd mover) before continuing.",
-                            "decision_round": round_i,
-                            "current_part": part,
-                        },
-                    )
-            except (TypeError, ValueError):
-                return _human_live_respond(
-                    player,
-                    {
-                        "ok": False,
-                        "error": "Please choose A or B (as 2nd mover) before continuing.",
-                        "decision_round": round_i,
-                        "current_part": part,
-                    },
-                )
-
+        # Trust server step only — ignore client round to avoid stuck UI on mismatch.
         record_human_second_choice(player.participant, part, round_i, choice)
         _safe_set_human_field(player, f"human_second_no_delegation_round_{round_i}", choice)
         player.participant.vars[step_key] = round_i

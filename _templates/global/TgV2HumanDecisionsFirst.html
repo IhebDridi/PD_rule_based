@@ -2,7 +2,7 @@
 {% load static %}
 {% block content %}
 <div class="allocation-container">
-        <form method="post" class="allocation-form" id="human-decision-form">
+    <form method="post" class="allocation-form" id="form">
         <section class="round-block">
             <h1 class="main-title" id="decision-title">Decision if you are the 1st mover: Round {{ decision_round }} of Part {{ current_part }}</h1>
             <p class="role-note">
@@ -10,10 +10,10 @@
             </p>
             <p class="question-text">What option do you want to choose: A or B?</p>
             <div class="choice-row">
-                <label><input type="radio" name="human_choice" value="A" required> A</label>
-                <label><input type="radio" name="human_choice" value="B" required> B</label>
+                <label><input type="radio" name="human_choice" id="choice-a" value="A" required> A</label>
+                <label><input type="radio" name="human_choice" id="choice-b" value="B" required> B</label>
             </div>
-            <p id="human-live-error" class="human-live-error" style="display:none;" role="alert"></p>
+            <p id="human-live-error" class="role-note" style="display:none;" role="alert"></p>
         </section>
 
         <div class="scheme-section small-instructions">
@@ -29,88 +29,86 @@
     </form>
 </div>
 <script>
-(function () {
-    var currentPart = {{ current_part }};
-    var decisionRound = {{ decision_round }};
-    var busy = false;
-    var form = document.getElementById("human-decision-form");
-    var titleEl = document.getElementById("decision-title");
+var currentPart = {{ current_part }};
+var decisionRound = {{ decision_round }};
+var humanLiveBusy = false;
+
+function setHumanLiveError(msg) {
     var errorEl = document.getElementById("human-live-error");
+    if (!errorEl) return;
+    if (msg) {
+        errorEl.textContent = msg;
+        errorEl.style.display = "";
+    } else {
+        errorEl.textContent = "";
+        errorEl.style.display = "none";
+    }
+}
+
+function updateHumanTitle(round, part) {
+    var titleEl = document.getElementById("decision-title");
+    if (titleEl) {
+        titleEl.textContent =
+            "Decision if you are the 1st mover: Round " + round + " of Part " + part;
+    }
+}
+
+function clearHumanChoice() {
+    var a = document.getElementById("choice-a");
+    var b = document.getElementById("choice-b");
+    if (a) a.checked = false;
+    if (b) b.checked = false;
+}
+
+function selectedHumanChoice() {
+    var checked = document.querySelector('input[name="human_choice"]:checked');
+    return checked ? checked.value : null;
+}
+
+document.addEventListener("DOMContentLoaded", function () {
     var confirmBtn = document.getElementById("confirm-btn");
-
-    function setError(msg) {
-        if (!errorEl) return;
-        if (msg) {
-            errorEl.textContent = msg;
-            errorEl.style.display = "";
-        } else {
-            errorEl.textContent = "";
-            errorEl.style.display = "none";
-        }
-    }
-
-    function updateTitle(round, part) {
-        if (titleEl) {
-            titleEl.textContent =
-                "Decision if you are the 1st mover: Round " + round + " of Part " + part;
-        }
-    }
-
-    function clearChoice() {
-        var radios = form.querySelectorAll('input[name="human_choice"]');
-        for (var i = 0; i < radios.length; i++) {
-            radios[i].checked = false;
-        }
-    }
-
-    function selectedChoice() {
-        var checked = form.querySelector('input[name="human_choice"]:checked');
-        return checked ? checked.value : null;
-    }
-
-    function submitPage() {
-        if (form) form.submit();
-    }
-
+    if (!confirmBtn) return;
     confirmBtn.addEventListener("click", function () {
-        if (busy) return;
-        var choice = selectedChoice();
+        if (humanLiveBusy) return;
+        var choice = selectedHumanChoice();
         if (choice !== "A" && choice !== "B") {
-            setError("Please choose A or B (as 1st mover) before continuing.");
+            setHumanLiveError("Please choose A or B (as 1st mover) before continuing.");
             return;
         }
-        setError("");
-        busy = true;
-        confirmBtn.disabled = true;
+        setHumanLiveError("");
+        humanLiveBusy = true;
         liveSend({ choice: choice, round: decisionRound });
+        // If websocket reply never arrives, unlock Confirm again.
+        setTimeout(function () {
+            humanLiveBusy = false;
+        }, 4000);
     });
+});
 
-    window.liveRecv = function (data) {
-        busy = false;
-        confirmBtn.disabled = false;
-        if (!data) return;
-        if (data.error) {
-            setError(data.error);
-            if (data.decision_round) {
-                decisionRound = data.decision_round;
-                updateTitle(decisionRound, data.current_part || currentPart);
-            }
-            return;
-        }
-        if (data.complete) {
-            setError("");
-            submitPage();
-            return;
-        }
-        if (data.ok && data.decision_round) {
+function liveRecv(data) {
+    humanLiveBusy = false;
+    if (!data) return;
+    if (data.error) {
+        setHumanLiveError(data.error);
+        if (data.decision_round) {
             decisionRound = data.decision_round;
-            if (data.current_part) currentPart = data.current_part;
-            updateTitle(decisionRound, currentPart);
-            clearChoice();
-            setError("");
+            updateHumanTitle(decisionRound, data.current_part || currentPart);
         }
-    };
-})();
+        return;
+    }
+    if (data.complete) {
+        setHumanLiveError("");
+        document.getElementById("form").submit();
+        return;
+    }
+    if (data.ok && data.decision_round) {
+        decisionRound = data.decision_round;
+        if (data.current_part) currentPart = data.current_part;
+        updateHumanTitle(decisionRound, currentPart);
+        clearHumanChoice();
+        setHumanLiveError("");
+    }
+}
 </script>
 <style>
 .allocation-container {
@@ -156,12 +154,6 @@
     font-size: 16px;
     cursor: pointer;
 }
-.human-live-error {
-    color: #9c0909;
-    text-align: center;
-    margin: 12px 0 0;
-    font-size: 15px;
-}
 .scheme-section {
     margin: 32px 0 24px;
     text-align: center;
@@ -200,10 +192,6 @@
 }
 .modern-btn:hover {
     background: #003d80;
-}
-.modern-btn:disabled {
-    opacity: 0.7;
-    cursor: wait;
 }
 </style>
 {% endblock %}
